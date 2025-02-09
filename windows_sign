@@ -1,0 +1,15 @@
+$secretKey = "secret-key"
+$data = "message"
+
+# Convert the key and data to byte arrays
+$keyBytes = [System.Text.Encoding]::UTF8.GetBytes($secretKey)
+$dataBytes = [System.Text.Encoding]::UTF8.GetBytes($data)
+
+# Compute HMAC-SHA256
+$hmac = New-Object System.Security.Cryptography.HMACSHA256
+$hmac.Key = $keyBytes
+$hashBytes = $hmac.ComputeHash($dataBytes)
+
+# Convert to hexadecimal string
+$hashHex = -join ($hashBytes | ForEach-Object { $_.ToString("x2") })
+Write-Output $hashHex
