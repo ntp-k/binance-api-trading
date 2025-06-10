@@ -13,8 +13,6 @@ api_key = os.getenv('API_KEY')
 secret_key = os.getenv('SECRET_KEY')
 base_endpoint = os.getenv('BASE_ENDPOUNT')
 endpoint = '/fapi/v1/leverage'
-print(api_key)
-print(secret_key)
 
 
 # Binance API endpoint
