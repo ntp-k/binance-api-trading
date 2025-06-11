@@ -3,6 +3,7 @@ import hmac
 import urllib.parse
 import requests
 import os
+from dotenv import load_dotenv
 
 class BinanceCredentials:
     def __init__(self, api_key: str, secret_key: str):
@@ -24,6 +25,8 @@ def load_binance_cred():
     Raises:
         EnvironmentError: If any required variable is missing.
     """
+    load_dotenv()
+
     api_key = os.getenv('API_KEY')
     secret_key = os.getenv('SECRET_KEY')
 
@@ -75,5 +78,8 @@ def sign_request(params: dict, binance_credential) -> tuple:
     }
 
     return headers, params
+
+if __name__ == "__main__":
+    test_binance_connection()
 
 # EOF
