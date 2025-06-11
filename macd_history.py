@@ -14,7 +14,6 @@ DECIMAL = 4
 # Step 1: Get Kline (candlestick) data
 def fetch_klines(symbol, interval, limit=100):
     url = 'https://fapi.binance.com/fapi/v1/klines'
-
     params = {
         'symbol': symbol,
         'interval': interval,
@@ -28,7 +27,9 @@ def fetch_klines(symbol, interval, limit=100):
         'close_time', 'quote_asset_volume', 'num_trades',
         'taker_buy_base_volume', 'taker_buy_quote_volume', 'ignore'
     ])
+    df['open_time'] = pd.to_datetime(df['open_time'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Asia/Bangkok')
     df['close'] = df['close'].astype(float)
+    df['open'] = df['open'].astype(float)
     return df
 
 # Step 2: Calculate MACD
@@ -41,8 +42,14 @@ def calculate_macd(df, fast=12, slow=26, signal=9):
     df['histogram'] = df['histogram'].round(DECIMAL)
     return df
 
+def get_macd(symbol, interval, limit):
+    df = fetch_klines(symbol, interval, limit)
+    df = calculate_macd(df)
+    # print(df.tail(10))
+    return df
 
-# Main execution
-df = fetch_klines(SYMBOL, INTERVAL, LIMIT)
-df = calculate_macd(df)
-print(df.tail(20))
+
+if __name__ == "__main__":
+    get_macd(SYMBOL, INTERVAL, LIMIT)
+
+# EOF
