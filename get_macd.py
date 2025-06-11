@@ -1,15 +1,15 @@
 import common
 import requests
 import pandas as pd
-import mplfinance as mpf
-from datetime import datetime
+
 
 binance_cred = common.load_binance_cred()
 
 # Constants
-SYMBOL = 'BTCUSDT'
+SYMBOL = 'SOLUSDT'
 INTERVAL = '5m'  # You can change this (1m, 15m, 1d, etc.)
-LIMIT = 5  # Number of candles
+LIMIT = 300  # Number of candles
+DECIMAL = 4
 
 # Step 1: Get Kline (candlestick) data
 def fetch_klines(symbol, interval, limit=100):
@@ -38,11 +38,11 @@ def calculate_macd(df, fast=12, slow=26, signal=9):
     df['macd'] = df['ema_fast'] - df['ema_slow']
     df['signal'] = df['macd'].ewm(span=signal, adjust=False).mean()
     df['histogram'] = df['macd'] - df['signal']
-    df['histogram'] = df['histogram'].round(2)
+    df['histogram'] = df['histogram'].round(DECIMAL)
     return df
 
 
 # Main execution
 df = fetch_klines(SYMBOL, INTERVAL, LIMIT)
 df = calculate_macd(df)
-print(df['histogram'].iloc[-20:-9])
+print(df.tail(20))
