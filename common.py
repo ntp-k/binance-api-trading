@@ -3,7 +3,9 @@ import hmac
 import urllib.parse
 import requests
 import os
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
+
 
 class BinanceCredentials:
     def __init__(self, api_key: str, secret_key: str):
@@ -78,6 +80,12 @@ def sign_request(params: dict, binance_credential) -> tuple:
     }
 
     return headers, params
+
+
+def get_datetime_now_string_gmt_plus_7():
+    dt = datetime.now(timezone.utc) + timedelta(hours=7)
+    dt_str = dt.strftime('%Y-%m-%d %H:%M:%S')
+    return dt_str
 
 if __name__ == "__main__":
     test_binance_connection()
