@@ -22,6 +22,9 @@ def fetch_klines(symbol, interval, limit=100):
     (headers, signed_params) = common.sign_request(params=params, binance_credential=binance_cred)
     response = requests.get(url, headers= headers, params=signed_params)
     data = response.json()
+
+    if response.status_code != 200:
+        print(f'error - {response}')
     df = pd.DataFrame(data, columns=[
         'open_time', 'open', 'high', 'low', 'close', 'volume',
         'close_time', 'quote_asset_volume', 'num_trades',
@@ -45,11 +48,12 @@ def calculate_macd(df, fast=12, slow=26, signal=9):
 def get_macd(symbol, interval, limit):
     df = fetch_klines(symbol, interval, limit)
     df = calculate_macd(df)
-    # print(df.tail(10))
+    
     return df
 
 
 if __name__ == "__main__":
-    get_macd(SYMBOL, INTERVAL, LIMIT)
+    df = get_macd(SYMBOL, INTERVAL, LIMIT)
+    print(df.tail(10))
 
 # EOF

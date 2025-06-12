@@ -79,7 +79,6 @@ try:
 
     if previous_state and current_state != previous_state and current_state in ["positive", "negative"]:
         message = f"📊 MACD histogram crossed from {previous_state.upper()} to {current_state.upper()}.\nCurrent value: {latest_hist}"
-        print()
         # send_line_notify(message)
 
     save_last_state(current_state)
