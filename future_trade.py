@@ -53,7 +53,6 @@ def place_order(symbol: str, order_side: str, order_type: str, quantity: float,
     """
 
     url = 'https://fapi.binance.com/fapi/v1/order'
-    timestamp = int(time.time() * 1000)
 
     # Base parameters
     params = {
@@ -62,7 +61,7 @@ def place_order(symbol: str, order_side: str, order_type: str, quantity: float,
         'type': order_type.upper(),
         'quantity': quantity,
         'reduceOnly': reduce_only,
-        'timestamp': timestamp
+        'timestamp': int(time.time() * 1000)
     }
 
     # Add optional parameters for limit orders
@@ -83,11 +82,36 @@ def place_order(symbol: str, order_side: str, order_type: str, quantity: float,
         print("Response:", response.text)
         return None
 
+def query_position(symbol: str):
+    url = "https://fapi.binance.com/fapi/v2/positionRisk"
+    
+    headers, signed_params = common.sign_request(
+        params={'timestamp': int(time.time() * 1000)}, binance_credential=binance_cred
+    )
+
+    response = requests.get(url, headers=headers, params=signed_params)
+    response.raise_for_status()
+    
+    positions = response.json()
+
+    # Filter for selected symbol
+    for pos in positions:
+        if pos['symbol'] == symbol:
+            return {
+                'symbol': pos['symbol'],
+                'position_amt': float(pos['positionAmt']),       # >0 long, <0 short, 0 no position
+                'entry_price': float(pos['entryPrice']),
+                'unrealized_profit': float(pos['unRealizedProfit']),
+                'mark_price': float(pos['markPrice'])
+            }
+
+    return None  # No position for this symbol
+
 
 
 if __name__ == "__main__":
     symbol = "SOLUSDT"
-    leverage = 100
+    leverage = 10
 
     response= set_leverage(symbol=symbol, leverage=leverage)
     if response.status_code == 200:
@@ -96,13 +120,17 @@ if __name__ == "__main__":
         print(f'error setting leverage of {symbol} to {leverage}')
         exit()
 
-    position = place_order(
+    order = place_order(
         symbol=symbol,
         order_side='SELL', # BUY, SELL
         order_type='MARKET', # LIMIT, MARKET, STOP, STOP_MARKET ...
         quantity=1,
-        reduce_only=False
+        reduce_only=True
     )
+    print(order)
+
+    position = query_position(symbol=symbol)
     print(position)
+    print(f"{'xxx'} - {position}")
 
 # EOF
