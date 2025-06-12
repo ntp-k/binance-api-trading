@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import common
 import macd_history
+import google_sheet
 
 # File paths
 WALLET_FILE = '_private_macd_wallet_state.json'
@@ -68,21 +69,27 @@ class Position:
         with open(POSITION_FILE, 'w') as f:
             json.dump(self.to_dict(), f, indent=2)
 
-    def close_position(self, current_price, current_time):
+    def close_position(self, current_price):
         if self.position == 'long':
             pnl = current_price - self.entry_price
         elif self.position == 'short':
             pnl = self.entry_price - current_price
         else:
             return 0.0
-
-        log_trade(self.open_time, current_time, self.position.upper(), self.entry_price, current_price, pnl)
+        
+        position_info: dict = {
+            'direction': self.position,
+            'open_time': self.open_time,
+            'entry_price': self.entry_price,
+            'pnl': pnl
+        }
 
         # Reset
         self.position = None
         self.entry_price = None
         self.open_time = None
-        return pnl
+    
+        return position_info
 
     def open_position(self, direction, current_price, current_time):
         self.position = direction
@@ -91,12 +98,26 @@ class Position:
 
 
 # --- Logging ---
-def log_trade(direction, entry_time, exit_time, entry_price, exit_price, pnl):
+def log_trade(sheet, symbol, leverage, interval, quantity, open_time, close_time, direction, entry_price, close_price, pnl):
     file_exists = Path(TRADE_LOG_FILE).exists()
     with open(TRADE_LOG_FILE, 'a') as f:
         if not file_exists:
-            f.write("entry_time,exit_time,direction,entry_price,exit_price,pnl\n")
-        f.write(f"{str(entry_time)[:-6]},{str(exit_time)[:-6]},{direction},{entry_price:.2f},{exit_price:.2f},{pnl:.2f}\n")
+            f.write("symbol,leverage,interval,quantity,open_time,close_time,direction,entry_price,close_price,pnl\n")
+        f.write(f"{symbol},{leverage},{interval},{quantity},{str(open_time)[:-6]},{str(close_time)[:-6]},{direction},{entry_price:.2f},{close_price:.2f},{pnl:.2f}\n")
+
+    google_sheet.log_trade_to_sheet(
+            sheet,
+            symbol,
+            leverage,
+            interval,
+            quantity,
+            open_time,
+            close_time,
+            direction,
+            entry_price,
+            close_price,
+            pnl
+        )
 
 def log_state_change(timestamp, hist_value, state):
     with open(STATE_CHANGE_LOG, 'a') as f:
@@ -116,10 +137,13 @@ def detect_state(value):
 def main():
     symbol = "SOLUSDT"
     interval = "15m"
+    leverage = 10
+    quantity = 1
     limit = 1500
 
     wallet = Wallet.from_file()
     position = Position.from_file()
+    sheet = google_sheet.init_google_sheet()
 
     df = macd_history.get_macd(symbol, interval, limit)
     last_row = df.iloc[-1]
@@ -129,12 +153,32 @@ def main():
     hist_value = last_row['histogram']
     current_state = detect_state(hist_value)
 
+    if current_state == position.last_state:
+        wallet.save()
+        position.save()
+        return
+
     print(f"{current_time} | {hist_value:.4f} | {current_state}")
     log_state_change(current_time, hist_value, current_state)
 
-    if current_state in ['positive', 'negative'] and current_state != position.last_state:
-        pnl = position.close_position(current_price, current_time)
-        wallet.update_balance(pnl)
+    if current_state in ['positive', 'negative']:
+        position_info = position.close_position(current_price)
+        if type(position_info) != type(0.0):
+            wallet.update_balance(position_info['pnl'])
+            # log
+            log_trade(
+                sheet,
+                symbol.upper(),
+                leverage,
+                interval,
+                quantity,
+                str(position_info['open_time'])[:-6],
+                str(current_time)[:-6],
+                position_info['direction'].upper(),
+                position_info['entry_price'],
+                current_price,
+                position_info['pnl']
+            )
 
         new_position = 'long' if current_state == 'positive' else 'short'
         position.open_position(new_position, current_price, current_time)
