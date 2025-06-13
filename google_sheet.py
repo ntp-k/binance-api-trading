@@ -43,6 +43,6 @@ def log_trade_to_sheet(sheet, symbol, leverage, interval, quantity, open_time, c
 
 if __name__ == "__main__":
     wh = init_google_sheet()
-    log_trade_to_sheet(wh, 'a', 'b', 'BTCUSDT', 10, 1, 'LONG', 166.0, 167.0, 1.0)
+    log_trade_to_sheet(wh, 'tt', 10, '1m', 1, 'opent', 'closet', 'long', 160, 170, 10)
 
 # EOF
