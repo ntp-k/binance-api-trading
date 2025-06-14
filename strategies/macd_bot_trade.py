@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-import common
+import common.common as common
 import macd_history
 import google_sheet
 import future_trade

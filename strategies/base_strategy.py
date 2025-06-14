@@ -1,0 +1,6 @@
+from abc import ABC, abstractmethod
+
+class BaseStrategy(ABC):
+    @abstractmethod
+    def on_price_update(self, candle):
+        pass

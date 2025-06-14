@@ -1,4 +1,4 @@
-import common
+import common.common as common
 import requests
 import pandas as pd
 

@@ -3,7 +3,7 @@ import json
 import requests
 import pandas as pd
 from datetime import datetime
-import common
+import common.common as common
 
 # ---- Configuration ----
 SYMBOL = 'SOLUSDT'

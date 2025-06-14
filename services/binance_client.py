@@ -1,6 +1,6 @@
 import requests
 import time
-import common
+import common.common as common
 
 
 class BinanceClient:
