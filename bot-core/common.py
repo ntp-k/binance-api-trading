@@ -29,13 +29,13 @@ def load_binance_cred():
     """
     load_dotenv()
 
-    api_key = os.getenv('API_KEY')
-    secret_key = os.getenv('SECRET_KEY')
+    binance_api_key = os.getenv('BINANCE_API_KEY', 'default_api_key')
+    binance_secret_key = os.getenv('BINANCE_SECRET_KEY', 'defaule_secret_key')
 
-    if not all([api_key, secret_key]):
+    if not all([binance_api_key, binance_secret_key]):
         raise EnvironmentError("❌ Missing required environment variables: API_KEY or SECRET_KEY")
     
-    return BinanceCredentials(api_key=api_key, secret_key=secret_key)
+    return BinanceCredentials(api_key=binance_api_key, secret_key=binance_secret_key)
 
 
 def test_binance_connection():
