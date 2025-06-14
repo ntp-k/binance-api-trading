@@ -34,7 +34,7 @@ def set_leverage(symbol: str, leverage: int):
     return response
 
 def place_order(symbol: str, order_side: str, order_type: str, quantity: float,
-                price: float = None, reduce_only: bool = False, time_in_force: str = "GTC"):
+                price: float = 0, reduce_only: bool = False, time_in_force: str = "GTC"):
     """
     Place a futures order on Binance USDT-Margined Futures.
 
@@ -82,7 +82,7 @@ def place_order(symbol: str, order_side: str, order_type: str, quantity: float,
         print("Response:", response.text)
         return None
 
-def query_position(symbol: str):
+def query_position(symbol: str) -> dict:
     url = "https://fapi.binance.com/fapi/v2/positionRisk"
     
     headers, signed_params = common.sign_request(
@@ -105,7 +105,7 @@ def query_position(symbol: str):
                 'mark_price': float(pos['markPrice'])
             }
 
-    return None  # No position for this symbol
+    return {}  # No position for this symbol
 
 
 

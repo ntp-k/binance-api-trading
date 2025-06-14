@@ -43,7 +43,7 @@ class Position:
         self.position = None
         self.entry_price = None
         self.open_time = None
-        self.last_state = None
+        self.last_state = 'zero'
 
     def to_dict(self):
         return {
@@ -70,11 +70,11 @@ class Position:
         with open(POSITION_FILE, 'w') as f:
             json.dump(self.to_dict(), f, indent=2)
 
-    def close_position(self, symbol, quantity, current_price):
+    def close_position(self, symbol) -> dict:
         dt_now_str = common.get_datetime_now_string_gmt_plus_7()
 
         if self.position not in ['long', 'short']:
-            return None
+            return {}
 
         order_side = 'BUY'
         if self.position == 'long':
@@ -85,7 +85,7 @@ class Position:
             symbol=symbol,
             order_side=order_side, # BUY, SELL
             order_type='MARKET', # LIMIT, MARKET, STOP, STOP_MARKET ...
-            quantity=quantity,
+            quantity=_position["position_amt"],
             reduce_only=True
         )
 
@@ -193,7 +193,7 @@ def main():
     log_state_change(current_time, hist_value, current_state)
 
     if current_state in ['positive', 'negative']:
-        position_info = position.close_position(symbol, quantity, current_price)
+        position_info = position.close_position(symbol)
         if position_info is None:
             wallet.update_balance(position_info['pnl'])
             # log
