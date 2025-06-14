@@ -21,8 +21,8 @@ class BinanceClient:
         # response.raise_for_status()
         return response
 
-    def place_order(symbol: str, order_side: str, order_type: str, quantity: float,
-                    price: float = None, reduce_only: bool = False, time_in_force: str = "GTC"):
+    def place_order(self, symbol: str, order_side: str, order_type: str, quantity: float,
+                    price: float = 0, reduce_only: bool = False, time_in_force: str = "GTC"):
         """
         Place a futures order on Binance USDT-Margined Futures.
 
