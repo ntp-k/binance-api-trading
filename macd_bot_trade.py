@@ -74,7 +74,7 @@ class Position:
         dt_now_str = common.get_datetime_now_string_gmt_plus_7()
 
         if self.position not in ['long', 'short']:
-            return 0.0
+            return None
 
         order_side = 'BUY'
         if self.position == 'long':
@@ -93,7 +93,7 @@ class Position:
         print(f"{dt_now_str} | {'CLOSE':<5} | {self.position.upper():<5} | {_position["symbol"]} | {_position["position_amt"]} | {_position["entry_price"]} | {'+' if pnl >= 0 else ''}{pnl:.2f}")
 
         _position['direction'] = self.position
-        _position['open_time'] = self.open_time,
+        _position['open_time'] = self.open_time
         _position['close_time'] = dt_now_str
         _position['pnl'] = pnl
 
@@ -167,7 +167,7 @@ def detect_state(value):
 # --- MAIN (One-time execution) ---
 def main():
     symbol = "SOLUSDT"
-    interval = "5m"
+    interval = "15m"
     leverage = 10
     quantity = 1
     limit = 1500
@@ -194,7 +194,7 @@ def main():
 
     if current_state in ['positive', 'negative']:
         position_info = position.close_position(symbol, quantity, current_price)
-        if type(position_info) != type(0.0):
+        if position_info is None:
             wallet.update_balance(position_info['pnl'])
             # log
             log_trade(
