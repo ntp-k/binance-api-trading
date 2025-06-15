@@ -1,19 +1,21 @@
 import requests
 import time
 import os
+import pandas as pd
 
-from services.binance import binance_auth
+from trade_engine.binance import binance_auth
 from commons.custom_logger import CustomLogger
 
 SET_LEVERAGE_URL = 'https://fapi.binance.com/fapi/v1/leverage'
 GET_POSITION_URL = 'https://fapi.binance.com/fapi/v2/positionRisk'
 SET_ORDER_URL = 'https://fapi.binance.com/fapi/v1/order'
+GET_KLINES_URL = 'https://fapi.binance.com/fapi/v1/klines'
 
 class BinanceClient:
-    def __init__(self, credentials):
+    def __init__(self):
         self.logger = CustomLogger(name=BinanceClient.__name__, level=os.getenv('LOG_LEVELs', 'INFO'))
-        self.__creds = credentials
-        self.logger.info("BinanceClient initialized.")
+        self.logger.debug("BinanceClient initialized.")
+        self.__creds = binance_auth.load_binance_cred()
 
     def set_leverage(self, symbol: str, leverage: int) -> dict:
         """
@@ -120,5 +122,39 @@ class BinanceClient:
         except requests.exceptions.RequestException as e:
             self.logger.error(f"Failed to fetch position: {e}")
             return {"error": str(e)}
+
+
+    # Step 1: Get Kline (candlestick) data
+    def fetch_klines(self, symbol, timeframe, limit=100):
+        params = {
+            'symbol': symbol,
+            'interval': timeframe,
+            'limit': limit
+        }
+        self.logger.debug(f'Fetching Klines of {params}')
+
+        headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
+
+        try:
+            response = requests.get(GET_KLINES_URL, headers= headers, params=signed_params)
+            response.raise_for_status()
+            data = response.json()
+            df = pd.DataFrame(data, columns=[
+                'open_time', 'open', 'high', 'low', 'close', 'volume',
+                'close_time', 'quote_asset_volume', 'num_trades',
+                'taker_buy_base_volume', 'taker_buy_quote_volume', 'ignore'
+            ])
+            df['open_time'] = pd.to_datetime(df['open_time'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Asia/Bangkok')
+            df['close'] = df['close'].astype(float)
+            df['open'] = df['open'].astype(float)
+            return df
+        except requests.exceptions.HTTPError as e:
+            self.logger.error(f"HTTP error getting Klines: {e}")
+            self.logger.debug(f"Response: {response.text}") # type: ignore
+            return {"error": str(e), "response": response.text} # type: ignore
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Network error getting Klines: {e}")
+            return {"error": str(e)}
+       
 
 # EOF
