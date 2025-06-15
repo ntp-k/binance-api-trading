@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 
 from commons.custom_logger import CustomLogger
-from base_adapter import BaseAdapter
+from data_adapters.base_adapter import BaseAdapter
 
 # Fetch variables
 load_dotenv()
@@ -20,9 +20,10 @@ class AzureSQLAdapter(BaseAdapter):
         self.logger = CustomLogger(name=self.__class__.__name__)
 
         try:
+            self.logger.debug("Attempting to connect to Azure SQL database.")
             self.connection_string = os.getenv("AZURE_SQL_CONN") or self.build_conn_string()
             self.conn = pyodbc.connect(self.connection_string)
-            self.logger.info("Successfully connected to Azure SQL database.")
+            self.logger.debug("Successfully connected to Azure SQL database.")
         except Exception as e:
             self.logger.error(f"Failed to connect to Azure SQL: {e}")
             raise
@@ -42,14 +43,14 @@ class AzureSQLAdapter(BaseAdapter):
 
     def fetch_bot_configs(self) -> list:
         try:
-            self.logger.info("Fetching active bot configs from Azure SQL...")
+            self.logger.debug("Fetching active bot configs from Azure SQL Server...")
             cursor = self.conn.cursor()
 
             cursor.execute("SELECT * FROM [binance-bot-db].bnb.bot_configs WHERE enabled=1;")
             columns = [column[0] for column in cursor.description]
             rows = cursor.fetchall()
             configs = [dict(zip(columns, row)) for row in rows]
-            self.logger.info(f"Retrieved {len(configs)} active bot config(s).")
+            self.logger.debug(f"Retrieved {len(configs)} active bot config(s).")
             self.logger.debug(configs)
             return configs
         except Exception as e:
