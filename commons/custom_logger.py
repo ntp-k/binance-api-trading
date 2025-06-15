@@ -53,8 +53,7 @@ class CustomLogger:
 
 
 
-        print(
-            f'{_d}\t  INFO\t\t[{os.path.basename(__file__)[:-3]}]   Initializing logger for {name} : level={self.level}')
+        # print(f'{_d}\t  INFO\t\t[{os.path.basename(__file__)[:-3]}]   Initializing logger for {name} : level={self.level}')
         self.logger = logging.getLogger(self.logger_name)
         self.logger.setLevel(self.level)
 
