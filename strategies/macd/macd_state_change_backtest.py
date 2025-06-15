@@ -1,7 +1,7 @@
 import requests
 import pandas as pd
 from datetime import datetime
-import common.common as common
+import commons.common as common
 import macd_history
 
 binance_cred = common.load_binance_cred()
