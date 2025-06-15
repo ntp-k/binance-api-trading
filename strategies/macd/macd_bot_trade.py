@@ -6,35 +6,12 @@ import google_sheet
 import future_trade
 
 # File paths
-WALLET_FILE = '_private_macd_wallet_state.json'
 POSITION_FILE = '_private_macd_position_state.json'
 TRADE_LOG_FILE = '_private_macd_trade_log.csv'
 STATE_CHANGE_LOG = '_private_macd_state_change.log'
 
 binance_cred = common.load_binance_cred()
 
-# --- Wallet ---
-class Wallet:
-    def __init__(self, balance=500.0):
-        self.balance = balance
-
-    def update_balance(self, pnl):
-        self.balance += pnl
-
-    def to_dict(self):
-        return {'balance': self.balance}
-
-    @classmethod
-    def from_file(cls):
-        if Path(WALLET_FILE).exists():
-            with open(WALLET_FILE, 'r') as f:
-                data = json.load(f)
-                return cls(balance=data.get('balance', 500.0))
-        return cls()
-
-    def save(self):
-        with open(WALLET_FILE, 'w') as f:
-            json.dump(self.to_dict(), f, indent=2)
 
 
 # --- Position ---
@@ -172,7 +149,7 @@ def main():
     quantity = 1
     limit = 1500
 
-    wallet = Wallet.from_file()
+
     position = Position.from_file()
     sheet = google_sheet.init_google_sheet()
 
@@ -185,7 +162,6 @@ def main():
     current_state = detect_state(hist_value)
 
     if current_state == position.last_state:
-        wallet.save()
         position.save()
         return
 
@@ -195,7 +171,7 @@ def main():
     if current_state in ['positive', 'negative']:
         position_info = position.close_position(symbol)
         if position_info is None:
-            wallet.update_balance(position_info['pnl'])
+
             # log
             log_trade(
                 sheet,
@@ -216,7 +192,7 @@ def main():
 
     position.last_state = current_state
 
-    wallet.save()
+
     position.save()
 
 
