@@ -40,7 +40,7 @@ class ConsoleCustomFormatter(logging.Formatter):
 #         return super().format(record)
 
 class CustomLogger:
-    def __init__(self, name='', level=os.getenv('LOG_LEVELs', 'INFO')) -> None:
+    def __init__(self, name='', level=os.getenv('LOG_LEVELS', 'INFO')) -> None:
         self.logger_name = name if name != '' else 'default'
         self.level = level.upper()
 
