@@ -5,6 +5,8 @@ import pandas as pd
 
 from trade_engine.binance import binance_auth
 from commons.custom_logger import CustomLogger
+from trading.future_trading_types import PositionSide
+from trading.trading_position import TradingPosition
 
 SET_LEVERAGE_URL = 'https://fapi.binance.com/fapi/v1/leverage'
 GET_POSITION_URL = 'https://fapi.binance.com/fapi/v2/positionRisk'
@@ -13,7 +15,7 @@ GET_KLINES_URL = 'https://fapi.binance.com/fapi/v1/klines'
 
 class BinanceClient:
     def __init__(self):
-        self.logger = CustomLogger(name=BinanceClient.__name__, level=os.getenv('LOG_LEVELs', 'INFO'))
+        self.logger = CustomLogger(name=BinanceClient.__name__)
         self.logger.debug("BinanceClient initialized.")
         self.__creds = binance_auth.load_binance_cred()
 
@@ -110,13 +112,14 @@ class BinanceClient:
                     self.logger.debug(f"Position found: {pos}")
                     return {
                         'symbol': pos['symbol'],
-                        'position_amt': float(pos['positionAmt']),
+                        'amount': float(pos['positionAmt']),
+                        'side': PositionSide.LONG if float(pos['positionAmt']) >= 0 else PositionSide.SHORT,
                         'entry_price': float(pos['entryPrice']),
                         'unrealized_profit': float(pos['unRealizedProfit']),
                         'mark_price': float(pos['markPrice'])
                     }
 
-            self.logger.info(f"No active position found for {symbol}.")
+            self.logger.debug(f"No active position found for {symbol}.")
             return {}
 
         except requests.exceptions.RequestException as e:
@@ -125,11 +128,11 @@ class BinanceClient:
 
 
     # Step 1: Get Kline (candlestick) data
-    def fetch_klines(self, symbol, timeframe, limit=100):
+    def fetch_klines(self, symbol, timeframe, timeframe_limit=100):
         params = {
             'symbol': symbol,
             'interval': timeframe,
-            'limit': limit
+            'limit': timeframe_limit
         }
         self.logger.debug(f'Fetching Klines of {params}')
 
@@ -147,6 +150,8 @@ class BinanceClient:
             df['open_time'] = pd.to_datetime(df['open_time'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Asia/Bangkok')
             df['close'] = df['close'].astype(float)
             df['open'] = df['open'].astype(float)
+            self.logger.debug(f"Fetched {len(df)} Klines for {symbol} at {timeframe} interval.")
+
             return df
         except requests.exceptions.HTTPError as e:
             self.logger.error(f"HTTP error getting Klines: {e}")
