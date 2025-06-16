@@ -34,7 +34,7 @@ class BotManager:
             try:
                 bot_config = BotConfig.from_dict(config_data)
                 bot_runner = BotRunner(bot_config)
-                self.logger.info(f"🤖  {bot_config.run_mode}  {bot_config.strategy}  {bot_config.symbol}  {bot_config.timeframe}")
+                self.logger.debug(f"{bot_runner.bot_fullname}")
                 self.bots.append(bot_runner)
             except Exception as e:
                 self.logger.error(f"Failed to create bot runner: {e}")
@@ -43,19 +43,8 @@ class BotManager:
 
 
     def run_bots(self):
-        self.logger.info(f'Initializing {len(self.raw_bot_configs)} bot(s)')
+        for bot in self.bots:
+            self.logger.info(f'Runnig  🤖   {bot.bot_fullname}')
+            bot.run()
 
-        for config_data in self.raw_bot_configs:
-            try:
-                bot_config = BotConfig.from_dict(config_data)
-                self.logger.info(f"Loaded bot config: Strategy={bot_config.strategy}, Symbol: {bot_config.symbol}, TF: {bot_config.timeframe}")
-
-                bot_runner = BotRunner(bot_config)
-                self.bots.append(bot_runner)
-
-                bot_runner.run()  # For threaded or async, consider bot_runner.start()
-            except Exception as e:
-                self.logger.error(f"Failed to create bot runner: {e}")
-
-        self.logger.info(f"🚀 Total bots started: {len(self.bots)}")
 
