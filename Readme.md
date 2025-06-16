@@ -27,3 +27,17 @@ source ~/.bashrc
 # optional: for unixODBC development headers
 sudo apt-get install -y unixodbc-dev
 ```
+
+# Bot Run Mode
+1. backtest
+2. forwardtest
+3. live
+
+| Feature            | Backtest        | Forwardtest (Simulation) | Live Trading     |
+| ------------------ | --------------- | ------------------------- | ---------------- |
+| Data source        | Historical      | Live (real-time)          | Live (real-time) |
+| Trades executed    | Fake            | Fake                      | Real             |
+| Speed              | Fast            | Real-time                 | Real-time        |
+| Risk               | None            | None                      | Real money       |
+| Purpose            | Strategy design | Pre-deployment test       | Actual trading   |
+| Real-world effects | Ignored         | Partially modeled         | Fully felt       |
