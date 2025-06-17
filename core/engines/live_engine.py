@@ -1,10 +1,8 @@
-import time
-
 from commons.custom_logger import CustomLogger
 
-class BotEngineLive:
+class LiveEngine:
     def __init__(self):
-        self.logger = CustomLogger(name=BotEngineLive.__name__)
+        self.logger = CustomLogger(name=LiveEngine.__name__)
         self.logger.debug('Initializing live bot engine')
 
 

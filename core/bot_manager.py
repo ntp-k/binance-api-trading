@@ -8,13 +8,16 @@ from core.bot_runner import BotRunner
 from commons.custom_logger import CustomLogger
 from commons.common import print_result_table
 from trade_engine.binance.binance_client import BinanceClient
+from models.run_mode import RunMode
+from models.bot_run import BotRun
 
 class BotManager:
-    def __init__(self):
+    def __init__(self, run_mode:RunMode = RunMode.BACKTEST):
         self.logger = CustomLogger(name=self.__class__.__name__)
+        self.run_mode = run_mode
         self.data_adapter = AzureSQLAdapter()
         self.bots = []
-        self.results = []
+        self.bots_run = []
         self.binance_client = BinanceClient()
 
     def load_bot_configs(self):
@@ -31,8 +34,8 @@ class BotManager:
         self.logger.debug("Initializing bots...")
         for config_data in self.raw_bot_configs:
             try:
-                bot_config = BotConfig.from_dict(config_data)
-                bot_runner = BotRunner(bot_config, self.data_adapter, self.binance_client)
+                bot_config: BotConfig = BotConfig.from_dict(config_data)
+                bot_runner: BotRunner = BotRunner(self.run_mode, bot_config, self.data_adapter, self.binance_client)
                 self.logger.debug(f"{bot_runner.bot_fullname}")
                 self.bots.append(bot_runner)
             except Exception as e:
@@ -44,13 +47,12 @@ class BotManager:
     def run_bots(self):
         for bot in self.bots:
             self.logger.info(f'Runnig  🤖   {bot.bot_fullname}')
-            result = bot.run()
-            self.results.append(result)
+            bot_run = bot.run()
+            self.bots_run.append(bot_run.to_dict())
 
-        print_result_table(self.results)
+        print_result_table(self.bots_run)
 
-        self.logger.info(f"Total  🤖  run:  {len(self.results)}")
+        self.logger.info(f"Total  🤖  run:  {len(self.bots_run)}")
         self.logger.info(f"Bye!")
-        print()
 
 # EOF
