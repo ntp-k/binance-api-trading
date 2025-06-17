@@ -1,6 +1,6 @@
 from enum import Enum
 
 class Strategies(Enum):
-    MACD_BASIC = "MACD_BASIC"
+    MACDHIST = "MACDHIST"
 
 # EOF
