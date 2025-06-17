@@ -3,7 +3,6 @@ from typing import Optional
 from datetime import datetime
 
 from commons.custom_logger import CustomLogger
-from core.bot_mode import BotMode
 from models.strategies import Strategies
 
 '''
@@ -33,10 +32,9 @@ LIVE
 
 @dataclass
 class BotConfig:
-    bot_id: str
+    config_id: str
     enabled: bool
     strategy: Strategies
-    run_mode: BotMode
     symbol: str
     leverage: int
     quantity: float
@@ -50,13 +48,13 @@ class BotConfig:
     updated_at: Optional[datetime] = None
 
     def __post_init__(self):
-        self.logger = CustomLogger(name=f'{BotConfig.__name__}_{self.bot_id}')
+        self.logger = CustomLogger(name=f'{BotConfig.__name__}_{self.config_id}')
         self.logger.debug(f"Loaded {self}")
 
         self.validate()
 
     def validate(self):
-        required_fields = ["bot_id", "symbol", "timeframe", "strategy"]
+        required_fields = ["config_id", "symbol", "timeframe", "strategy"]
         for field in required_fields:
             if not getattr(self, field):
                 raise ValueError(f"Missing required field: {field}")
@@ -71,10 +69,9 @@ class BotConfig:
     @classmethod
     def from_dict(cls, data: dict):
         return cls(
-            bot_id=str(data['bot_id']),
+            config_id=str(data['config_id']),
             enabled=bool(data.get("enabled", True)),
             strategy=Strategies(data['strategy'].upper()),
-            run_mode=BotMode(data['run_mode'].upper()),
             symbol=data.get("symbol"),  # type: ignore
             leverage=int(data.get("leverage", 1)),
             quantity=float(data.get("quantity", 0.0)),
@@ -90,10 +87,9 @@ class BotConfig:
     
     def to_dict(self) -> dict:
         return {
-            "bot_id": self.bot_id,
+            "config_id": self.config_id,
             "enabled": self.enabled,
             "strategy": self.strategy.value,
-            "run_mode": self.run_mode.value,
             "symbol": self.symbol,
             "leverage": self.leverage,
             "quantity": self.quantity,
