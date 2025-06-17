@@ -18,60 +18,40 @@
 ## bot_configs
 ```
 CREATE TABLE bnb.bot_configs (
-    bot_id          INT IDENTITY(1,1)   NOT NULL,                                       -- Auto-increment integer (PostgreSQL syntax)
+    config_id       INT IDENTITY(1,1)   NOT NULL,                                       -- Auto-increment integer (PostgreSQL syntax)
     enabled         BIT                 NOT NULL    DEFAULT 1,                          -- Use BIT for booleans in SQL Server
     strategy        NVARCHAR(50)        NOT NULL,
-    run_mode        NVARCHAR(10)        NOT NULL,                                       -- e.g., 'backtest, simulation, live'
     symbol          NVARCHAR(20)        NOT NULL,                                       -- e.g., 'BTCUSDT'
     leverage        INT                 NOT NULL    DEFAULT 1   CHECK (leverage >= 1),
     quantity        FLOAT               NOT NULL    DEFAULT 1   CHECK (quantity >= 0),
     timeframe       NVARCHAR(10)        NOT NULL,                                       -- e.g., '15m'
     timeframe_limit INT                 NOT NULL    DEFAULT 1   CHECK (timeframe_limit BETWEEN 1 AND 1500),
-    param_1         NVARCHAR(50),
-    param_2         NVARCHAR(50),
+    param_1         NVARCHAR(50)                    DEFAULT '120',
+    param_2         NVARCHAR(50)                    DEFAULT '100',
     param_3         NVARCHAR(50),
     param_4         NVARCHAR(50),
     param_5         NVARCHAR(50),
     notes           TEXT,
     created_at      DATETIME2            NOT NULL    DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME2            NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME2            NOT NULL    DEFAULT CURRENT_TIMESTAMP
     
-	CONSTRAINT bot_configs_pk PRIMARY KEY (bot_id)
+	CONSTRAINT bot_configs_pk PRIMARY KEY (config_id)
 );
 
 ```
-
-## bot_positions
+## bot_run
 ```
-CREATE TABLE bnb.bot_positions (
-    position_id     nvarchar(100)   NOT NULL,                               -- e.g. 'macd-BTCUSDT|LONG|64200.0|0.005'
-    strategy        NVARCHAR(50)    NOT NULL,                               -- e.g. 'macd'
-    symbol          NVARCHAR(20)    NOT NULL,                               -- e.g. 'BTCUSDT'
-    side            NVARCHAR(8)     NOT NULL,                               -- 'LONG' or 'SHORT'
-    entry_price     FLOAT           NOT NULL,
-    amount          FLOAT           NOT NULL,
-    open_time       DATETIME        NOT NULL   DEFAULT CURRENT_TIMESTAMP,   -- Stored in GMT+7
-    close_price     FLOAT           NULL,
-    close_time      DATETIME        NULL,
-    unrealized_pnl  FLOAT           NULL,                                   -- optional, you can pre-calculate or compute on read
-    is_closed       BIT             NOT NULL   DEFAULT 0,                   -- to simplify querying active vs closed positions
-
-    CONSTRAINT bot_positions_pk PRIMARY KEY (position_id)
-);
-
-```
-
-## backtest_run
-```
-CREATE TABLE bnb.backtest_run (
+CREATE TABLE bnb.bot_runs (
     run_id              INT IDENTITY(1,1)   NOT NULL,
-    bot_config_id       INT                 NOT NULL,
+    config_id           INT                 NOT NULL,
+    run_mode            NVARCHAR(10)        NOT NULL,                                   -- e.g., 'BACKTEST, FORWARDTEST, LIVE'
+    is_closed           BIT                 NOT NULL    DEFAULT 0,
     start_time          DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP,
     end_time            DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP,
     duration_minutes    INT                 NOT NULL    DEFAULT 0,
-    total_trades        INT                 NOT NULL    DEFAULT 0,
-    winning_trades      INT                 NOT NULL    DEFAULT 0,
-    losing_trades       INT                 NOT NULL    DEFAULT 0,
+    total_positions     INT                 NOT NULL    DEFAULT 0,
+    winning_positions   INT                 NOT NULL    DEFAULT 0,
+    losing_positions    INT                 NOT NULL    DEFAULT 0,
     win_rate            DECIMAL(5, 2)       NOT NULL    DEFAULT 0,
     initial_balance     DECIMAL(18, 2)      NOT NULL    DEFAULT 0,
     final_balance       DECIMAL(18, 2)      NOT NULL    DEFAULT 0,
@@ -81,6 +61,29 @@ CREATE TABLE bnb.backtest_run (
     notes               TEXT,
     created_at          DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP
 
-    CONSTRAINT backtest_run_pk PRIMARY KEY (run_id)
+    CONSTRAINT bot_runs_pk PRIMARY KEY (run_id)
+    CONSTRAINT bot_runs_bot_configs_FK FOREIGN KEY (config_id) REFERENCES [binance-bot-db].bnb.bot_configs(config_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 ```
+
+## bot_positions
+```
+CREATE TABLE bnb.bot_positions (
+    position_id     INT IDENTITY(1,1)   NOT NULL,
+    run_id          INT                 NOT NULL,
+    is_closed       BIT                 NOT NULL    DEFAULT 0,
+    side            NVARCHAR(8)         NOT NULL,   -- 'LONG' or 'SHORT'
+    open_time       DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+    close_time      DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+    entry_price     FLOAT               NOT NULL    DEFAULT 0,
+    mark_price      FLOAT               NOT NULL    DEFAULT 0,
+    close_price     FLOAT               NOT NULL    DEFAULT 0,
+    unrealized_pnl  FLOAT               NOT NULL    DEFAULT 0,
+    pnl             FLOAT               NOT NULL    DEFAULT 0,
+    created_at      DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP
+
+    CONSTRAINT bot_positions_pk PRIMARY KEY (position_id)
+    CONSTRAINT bot_positions_bot_runs_FK FOREIGN KEY (run_id) REFERENCES [binance-bot-db].bnb.bot_runs
+);
+```
+
