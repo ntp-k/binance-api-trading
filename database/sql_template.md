@@ -24,15 +24,17 @@ CREATE TABLE bnb.bot_configs (
     run_mode        NVARCHAR(10)        NOT NULL,                                       -- e.g., 'backtest, simulation, live'
     symbol          NVARCHAR(20)        NOT NULL,                                       -- e.g., 'BTCUSDT'
     leverage        INT                 NOT NULL    DEFAULT 1   CHECK (leverage >= 1),
-    quantity        INT                 NOT NULL    DEFAULT 1   CHECK (quantity >= 1),
+    quantity        FLOAT               NOT NULL    DEFAULT 1   CHECK (quantity >= 0),
     timeframe       NVARCHAR(10)        NOT NULL,                                       -- e.g., '15m'
     timeframe_limit INT                 NOT NULL    DEFAULT 1   CHECK (timeframe_limit BETWEEN 1 AND 1500),
     param_1         NVARCHAR(50),
     param_2         NVARCHAR(50),
     param_3         NVARCHAR(50),
+    param_4         NVARCHAR(50),
+    param_5         NVARCHAR(50),
     notes           TEXT,
-    created_at      DATETIME            NOT NULL    DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME            NOT NULL    DEFAULT CURRENT_TIMESTAMP
+    created_at      DATETIME2            NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME2            NOT NULL    DEFAULT CURRENT_TIMESTAMP,
     
 	CONSTRAINT bot_configs_pk PRIMARY KEY (bot_id)
 );
@@ -57,4 +59,28 @@ CREATE TABLE bnb.bot_positions (
     CONSTRAINT bot_positions_pk PRIMARY KEY (position_id)
 );
 
+```
+
+## backtest_run
+```
+CREATE TABLE bnb.backtest_run (
+    run_id              INT IDENTITY(1,1)   NOT NULL,
+    bot_config_id       INT                 NOT NULL,
+    start_time          DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+    end_time            DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+    duration_minutes    INT                 NOT NULL    DEFAULT 0,
+    total_trades        INT                 NOT NULL    DEFAULT 0,
+    winning_trades      INT                 NOT NULL    DEFAULT 0,
+    losing_trades       INT                 NOT NULL    DEFAULT 0,
+    win_rate            DECIMAL(5, 2)       NOT NULL    DEFAULT 0,
+    initial_balance     DECIMAL(18, 2)      NOT NULL    DEFAULT 0,
+    final_balance       DECIMAL(18, 2)      NOT NULL    DEFAULT 0,
+    roi_percent         DECIMAL(9, 2)       NOT NULL    DEFAULT 0,
+    daily_roi           DECIMAL(9, 2)       NOT NULL    DEFAULT 0,
+    annual_roi          DECIMAL(9, 2)       NOT NULL    DEFAULT 0,
+    notes               TEXT,
+    created_at          DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP
+
+    CONSTRAINT backtest_run_pk PRIMARY KEY (run_id)
+);
 ```

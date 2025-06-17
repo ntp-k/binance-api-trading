@@ -12,8 +12,6 @@ STATE_CHANGE_LOG = '_private_macd_state_change.log'
 
 binance_cred = common.load_binance_cred()
 
-
-
 # --- Position ---
 class Position:
     def __init__(self):

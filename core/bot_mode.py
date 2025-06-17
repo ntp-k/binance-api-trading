@@ -1,10 +1,9 @@
 from enum import Enum
 
-class BotRunMode(Enum):
-    BACKTEST = "backtest"
-    FORWARDTEST = "forwardtest"
-    LIVE = "live"
-
+class BotMode(Enum):
+    BACKTEST = "BACKTEST"
+    FORWARDTEST = "FORWARDTEST"
+    LIVE = "LIVE"
 
 
 '''

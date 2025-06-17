@@ -6,7 +6,6 @@ from commons.custom_logger import CustomLogger
 from data_adapters.base_adapter import BaseAdapter
 
 # Fetch variables
-load_dotenv()
 
 server = os.getenv("AZURE_SQL_DB_SERVER")
 database = os.getenv("AZURE_SQL_DB_DATABASE")
@@ -87,6 +86,8 @@ class AzureSQLAdapter(BaseAdapter):
         except Exception as e:
             self.logger.error(f"Failed to fetch bot position: {e}")
             return []
+
+
 
 
 if __name__ == "__main__":

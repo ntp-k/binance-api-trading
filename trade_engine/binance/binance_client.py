@@ -1,12 +1,10 @@
 import requests
 import time
-import os
 import pandas as pd
 
 from trade_engine.binance import binance_auth
 from commons.custom_logger import CustomLogger
-from trading.future_trading_types import PositionSide
-from trading.trading_position import TradingPosition
+from models.trading_enums import PositionSide
 
 SET_LEVERAGE_URL = 'https://fapi.binance.com/fapi/v1/leverage'
 GET_POSITION_URL = 'https://fapi.binance.com/fapi/v2/positionRisk'
