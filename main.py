@@ -1,5 +1,5 @@
 import sys
-from models.run_mode import RunMode
+from models.enum.run_mode import RunMode
 from core.bot_manager import BotManager
 from commons.custom_logger import CustomLogger
 import subprocess
@@ -31,7 +31,8 @@ def main(logger: CustomLogger):
     logger.info(f"🔄  Starting {run_mode_value} trading bot(s)...")
 
     bot_manager = BotManager(run_mode=run_mode)
-    bot_manager.load_bot_configs()
+    bot_manager.load_active_bots()
+    exit()
     bot_manager.init_bots()
     bot_manager.run_bots()
 

@@ -1,16 +1,17 @@
 from datetime import datetime
 
 from commons.custom_logger import CustomLogger
-from core.bot_config import BotConfig
-from models.run_mode import RunMode
-from models.strategies import Strategies
+from models.bot import Bot
+from models.enum.run_mode import RunMode
+from models.enum.strategies import Strategies
 from trade_engine.binance.binance_client import BinanceClient
 from models.trading_position import TradingPosition
 from data_adapters.base_adapter import BaseAdapter
-from models.bot_run import BotRun
+from models.run import Run
+from models.bot import Bot
 
 class BotRunner:
-    def __init__(self, run_mode: RunMode, bot_config: BotConfig, data_adapter: BaseAdapter, binace_client: BinanceClient):
+    def __init__(self, run_mode: RunMode, bot: Bot, data_adapter: BaseAdapter, binace_client: BinanceClient):
         self.bot_fullname = f'{run_mode.value}|{bot_config.strategy.value}|{bot_config.symbol}|{bot_config.timeframe}'
         self.bot_enging_fullname = f'{BotRunner.__name__}_{self.bot_fullname}'
         self.logger = CustomLogger(name=self.bot_enging_fullname)

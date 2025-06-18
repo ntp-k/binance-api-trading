@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 from datetime import datetime
 
-from models.trading_enums import PositionSide
+from models.enum.positino_side import PositionSide
 
 
 @dataclass
