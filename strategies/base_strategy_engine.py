@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-class BaseStrategy(ABC):
+class BaseStrategyEngine(ABC):
     @abstractmethod
     def on_price_update(self, kline):
         pass

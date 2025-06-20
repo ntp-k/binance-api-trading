@@ -1,23 +1,18 @@
 from enum import Enum
 
-from strategies.base_strategy import BaseStrategy
+from strategies.base_strategy_engine import BaseStrategyEngine
 from commons.custom_logger import CustomLogger
-from models.trading_enums import TradeSignal
-from core.bot_runner import BotRunner
-
-class MACDStage(Enum):
-    NEGATIVE = 'negative'
-    POSITIVE = 'positive'
-    ZERO = 'zero'
+from models.enum.trade_signal import TradeSignal
+from models.enum.macd_stage import MACDStage
 
 DECIMAL = 4
 
-class MACDHistStrategy(BaseStrategy):
-    def __init__(self, but_runner):
-        self.bot_runner: BotRunner = but_runner
-        self.name = f'{MACDHistStrategy.__name__}_{self.bot_runner.bot_fullname}'
+class MACDHistStrategy(BaseStrategyEngine):
+    def __init__(self, bot_fullname: str):
+        self.name = f'{self.__class__.__name__}_{bot_fullname}'
         self.logger = CustomLogger(name=self.name)
         self.last_state = MACDStage.ZERO
+        self.logger.debug(f'Initializing {self.__class__.__name__}')
 
     def calculate_macd(self, df, fast=12, slow=26, signal=9):
         df['ema_fast'] = df['close'].ewm(span=fast, adjust=False).mean()

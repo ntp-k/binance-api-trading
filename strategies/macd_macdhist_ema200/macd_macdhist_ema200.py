@@ -1,5 +1,5 @@
 from enum import Enum
-from strategies.base_strategy import BaseStrategy
+from strategies.base_strategy_engine import BaseStrategy
 from commons.custom_logger import CustomLogger
 from models.trading_enums import TradeSignal
 from core.bot_runner import BotRunner
