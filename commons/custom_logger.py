@@ -10,7 +10,7 @@ load_dotenv()
 class JsonCustomFormatter(jsonlogger.JsonFormatter): # type: ignore
     def __init__(self):
         super().__init__(
-            '%(asctime)s %(levelname)s %(name)s %(lineno)d %(message)s',
+            '%(asctime)s %(levelname)s %(name)s %(message)s',
             json_ensure_ascii=False
         )
 
@@ -23,7 +23,7 @@ class ConsoleCustomFormatter(logging.Formatter):
         logging.CRITICAL: "\x1b[31;1m",     # Bold Red
     }
     RESET = "\x1b[0m"
-    FORMAT_STRING = "%(asctime)s   %(levelname)s  \t[%(name)s:%(lineno)d]   %(message)s"
+    FORMAT_STRING = "%(asctime)s   %(levelname)s  \t[%(name)s]   %(message)s"
 
     def format(self, record):
         color = self.COLORS.get(record.levelno, self.RESET)
@@ -49,9 +49,6 @@ class CustomLogger:
             os.mkdir(log_dir)
         _d = common.get_datetime_now_string_gmt_plus_7()
         self.log_filename = os.path.join(log_dir, f'{_d[:-9].replace('-', '')}.log')
-
-
-
 
         # print(f'{_d}\t  INFO\t\t[{os.path.basename(__file__)[:-3]}]   Initializing logger for {name} : level={self.level}')
         self.logger = logging.getLogger(self.logger_name)

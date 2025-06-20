@@ -43,27 +43,30 @@ class AzureSQLAdapter(BaseAdapter):
 
         return f'DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
 
-    def fetch_active_bots(self) -> list:
+    def fetch_activate_bots(self) -> list:
         try:
             self.logger.debug(
-                "Fetching active bots from Azure SQL Server...")
+                "Fetching activate bots from Azure SQL Server...")
             cursor = self.conn.cursor()
 
-            sql = "SELECT * FROM [binance-bot-db].bnb.active_bots;;"
+            sql = "SELECT * FROM [binance-bot-db].bnb.activate_bots;"
             cursor.execute(sql, (1))
 
             columns = [column[0] for column in cursor.description]
             rows = cursor.fetchall()
-            active_bots = [dict(zip(columns, row)) for row in rows]
+            activate_bots = [dict(zip(columns, row)) for row in rows]
 
             self.logger.debug(
-                f"Retrieved {len(active_bots)} active bot config(s).")
-            self.logger.debug(active_bots)
+                f"Retrieved {len(activate_bots)} activate bot(s).")
+            self.logger.debug(activate_bots)
 
-            return active_bots
+            return activate_bots
         except Exception as e:
-            self.logger.error(f"Failed to fetch active bots configs: {e}")
+            self.logger.error(f"Failed to fetch activate bots configs: {e}")
             return []
+
+    def fetch_bots(self):
+        pass
 
     # def fetch_bot_position(self, bot_name: str) -> list:
     #     try:
