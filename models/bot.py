@@ -16,7 +16,7 @@ class Bot:
     timeframe: str = ""
     timeframe_limit: int = 1
     candle_for_indicator: Optional[int] = None
-    config: Dict[str, Any] = field(default_factory=dict)
+    config: Optional[Dict[str, Any]] = field(default_factory=dict)
     created_at: Optional[datetime] = None
 
     def __post_init__(self):
@@ -28,6 +28,8 @@ class Bot:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
+        if type(data['strategy']) == type('string'):
+            data['strategy'] = Strategies(data['strategy'].upper())
         return cls(**data)
 
 # EOF

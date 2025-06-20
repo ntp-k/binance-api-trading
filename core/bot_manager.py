@@ -1,64 +1,86 @@
-from dotenv import load_dotenv
-
-load_dotenv()
-
-from data_adapters.azure_sql_adapter import AzureSQLAdapter
-from models.bot import Bot
-
+from data_adapters.get_data_adapter import get_data_adapter
 from core.bot_runner import BotRunner
-from commons.custom_logger import CustomLogger
 from commons.common import print_result_table
-from trade_engine.binance.binance_client import BinanceClient
+from commons.custom_logger import CustomLogger
+from models.activate_bot import ActivateBot
+from models.bot import Bot
 from models.enum.run_mode import RunMode
 from models.run import Run
+from trade_engine.get_trade_engine import get_trade_engine
 
 class BotManager:
-    def __init__(self, run_mode:RunMode = RunMode.BACKTEST):
+    def __init__(self, run_mode:RunMode = RunMode.BACKTEST, is_offline: bool = False):
         self.logger = CustomLogger(name=self.__class__.__name__)
-        self.run_mode = run_mode
-        self.data_adapter = AzureSQLAdapter()
-        self.binance_client = BinanceClient()
+        # self.run_mode = run_mode
+        self.is_offline = is_offline
+        
+        self.trade_engine = get_trade_engine(is_offline=is_offline)
+        self.trade_engine.init()
+        self.data_adapter = get_data_adapter(is_offline=is_offline)
+        self.logger.info(f'Trade Engine: {self.trade_engine.__class__.__name__}')
+        self.logger.info(f'Data Adapter: {self.data_adapter.__class__.__name__}')
 
-        self.bots = []
+        # running vars
+        # self.bots =[]
         self.runs = []
+        self.bot_runners = []
 
-    def load_active_bots(self):
-        self.logger.debug("Loading bot configurations...")
-        configs = self.data_adapter.fetch_active_bots()
-        if not configs:
-            self.logger.warning("No active bot configurations found.")
+    def _load_activate_bots(self):
+        self.logger.debug("Starting bot(s) Activation...")
+    
+        activate_bots = self.data_adapter.fetch_activate_bots()
+        if not activate_bots:
+            self.logger.warning("No bot found.")
             return
-        self.raw_bot_configs = configs
-        self.logger.debug(f"Found {len(self.raw_bot_configs)} bot(s).")
+    
+        self.activate_bots = activate_bots
+        self.logger.debug(f"Activating {len(self.activate_bots)} bot(s).")
 
+    def _load_bot(self, bot_id) -> Bot:
+        self.logger.debug(f"Loading bot [{bot_id}] 's data")
+        bot_data = self.data_adapter.fetch_bot(bot_id)
+        if not bot_data:
+            self.logger.warning('No data for bot [{bot_id}]')
+        return bot_data
 
     def init_bots(self):
-        self.logger.debug("Initializing bots...")
-        for config_data in self.raw_bot_configs:
-            try:
-                active_bots = self.load_active_bots()
-                
+        self.logger.debug("Initializing bot(s)...")
+    
+        self._load_activate_bots()
 
-                # bot: Bot = BotConfig.from_dict(config_data)
-                # bot_runner: BotRunner = BotRunner(self.run_mode, bot_config, self.data_adapter, self.binance_client)
-                # self.logger.debug(f"{bot_runner.bot_fullname}")
-                # self.bots.append(bot_runner)
-                pass
+        for activate_bot in self.activate_bots:
+            try:
+                activate_bot: ActivateBot = ActivateBot.from_dict(activate_bot)
+                
+                bot_data = self._load_bot(bot_id=activate_bot.bot_id)
+                bot: Bot = Bot.from_dict(bot_data)
+
+                bot_runner: BotRunner = BotRunner(
+                    activate_bot,
+                    bot,
+                    self.trade_engine,
+                    self.data_adapter
+                )
+
+                self.logger.debug(f"{bot_runner.bot_fullname}")
+                # self.bots.append(bot)
+                self.bot_runners.append(bot_runner)
             except Exception as e:
                 self.logger.error_e(f"Failed to create bot runner:", e)
 
-        self.logger.info(f"🚀  {len(self.bots)}  bot(s)")
+        self.logger.info(f"🚀  {len(self.bot_runners)}  bot(s)")
 
 
     def run_bots(self):
-        for bot in self.bots:
-            self.logger.info(f'Runnig  🤖   {bot.bot_fullname}')
-            bot_run = bot.run()
-            self.bots_run.append(bot_run.to_dict())
+        for bot_runner in self.bot_runners:
+            self.logger.info(f'Runnig  🤖   {bot_runner.bot_fullname}')
+            run_dict = bot_runner.run_bot()
+    
+            self.runs.append(run_dict)
 
-        print_result_table(self.bots_run)
+        print_result_table(self.runs)
 
-        self.logger.info(f"Total  🤖  run:  {len(self.bots_run)}")
+        self.logger.info(f"Total  🤖  run:  {len(self.runs)}")
         self.logger.info(f"Bye!")
 
 # EOF

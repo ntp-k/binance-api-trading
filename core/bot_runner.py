@@ -1,116 +1,102 @@
 from datetime import datetime
 
 from commons.custom_logger import CustomLogger
-from models.bot import Bot
-from models.enum.run_mode import RunMode
-from models.enum.strategies import Strategies
-from trade_engine.binance.binance_client import BinanceClient
-from models.trading_position import TradingPosition
+from core.engines.get_bot_engine import get_bot_engine
+from core.handler.position_handler import PositionHandler
 from data_adapters.base_adapter import BaseAdapter
-from models.run import Run
+from models.activate_bot import ActivateBot
 from models.bot import Bot
+from models.run import Run
+from strategies.get_strategy_engine import get_strategy_engine
+from trade_engine.base_trade_engine import BaseTradeEngine
+
 
 class BotRunner:
-    def __init__(self, run_mode: RunMode, bot: Bot, data_adapter: BaseAdapter, binace_client: BinanceClient):
-        self.bot_fullname = f'{run_mode.value}|{bot_config.strategy.value}|{bot_config.symbol}|{bot_config.timeframe}'
-        self.bot_enging_fullname = f'{BotRunner.__name__}_{self.bot_fullname}'
+    def __init__(
+            self,
+            activate_bot: ActivateBot,
+            bot: Bot,
+            trade_engine: BaseTradeEngine,
+            data_adapter: BaseAdapter
+    ):
+        self.bot_fullname = f'{activate_bot.mode.value}|{bot.strategy.value}|{bot.symbol}|{bot.timeframe}'
+        self.bot_enging_fullname = f'{self.__class__.__name__}_{self.bot_fullname}'
         self.logger = CustomLogger(name=self.bot_enging_fullname)
 
         self.logger.debug('Initializing bot runner')
 
-        self.run_mode: RunMode = run_mode
-        self.config: BotConfig = bot_config
-        self.data_dapter: BaseAdapter = data_adapter
-        self.binace_client: BinanceClient = binace_client
+        self.activate_bot: ActivateBot = activate_bot
+        self.bot: Bot = bot
+        self.trade_engine: BaseTradeEngine = trade_engine
+        self.data_adapter: BaseAdapter = data_adapter
 
-        self.bot_run: BotRun = self.create_bot_run()
-        self.logger.debug(f'Initialized bot run: {self.bot_run}')
+        self.run = self._init_run()
 
-        self.strategy_engine = self.init_strategy(self.config.strategy)
-        self.logger.debug(f'Loaded strategy: {self.strategy_engine.__class__}')
+        self.strategy_engine = self._init_strategy(self.bot.strategy, self.bot_fullname)
+        self.logger.debug(f'Loaded strategy engine: {self.strategy_engine.__class__.__name__}')
 
-        self.bot_engine = self.init_bot_engine(run_mode)
-        self.logger.debug(f'Loaded bot engine: {self.bot_engine.__class__}')
+        self.bot_engine = self._init_bot_engine(self)
+        self.logger.debug(f'Loaded bot engine: {self.bot_engine.__class__.__name__}')
 
-        self.trading_position: TradingPosition = TradingPosition.mock(self.config.symbol)
+        self.position_handler = PositionHandler(self)
+        self.logger.debug('Loaded position handler')       
 
-
-    def create_bot_run(self):
+    def _init_strategy(self, strategy, bot_fullname):
         try:
-
-            bot_run: BotRun = BotRun.from_dict({
-                'config_id': int(self.config.config_id),
-                'run_mode': self.run_mode,
-                'start_time': datetime.now(),
-                'initial_balance': float(self.config.param_2), # type: ignore
-                'is_closed': False,
-            })
-            run_id = self.data_dapter.insert_bot_run(bot_run) # type: ignore
-            bot_run.run_id = run_id
-            return bot_run
+            self.logger.debug(f'Initializing strategy engine for strategy {strategy.value}')
+            return get_strategy_engine(strategy=strategy, bot_fullname=bot_fullname)
         except Exception as e:
-            self.logger.error_e(f'Error creating bot run to database', e)
-            raise e 
-
-    def update_bot_run(self, bot_run: BotRun):
-
-        self.logger.debug(f'Updating bot run {bot_run.run_id} to database')
-
+            self.logger.error_e(f'Unexpected error initializing strategy engine for strategy {strategy.value}:', e)
+            raise e
+    
+    def _init_bot_engine(self, bot_runner):
         try:
-            self.data_dapter.update_bot_run(bot_run) # type: ignore
+            self.logger.debug(f'Initializing bot engine for run mode: {self.run.mode.value}')
+            return get_bot_engine(bot_runner)
         except Exception as e:
-            self.logger.error_e(f'Error updateing bot run {bot_run.run_id} to database:', e)
+            self.logger.error_e(f'Unexpected error initializing bot engine for run mode {self.run.mode.value}:', e)
             raise e
 
-    def init_strategy(self, strategy):
-        try:
-            self.logger.debug(f'Initializing strategy: {strategy}')
-            if strategy == Strategies.MACDHIST:
-                from strategies.macdhist.macdhist import MACDHistStrategy
-                return MACDHistStrategy(self)
-        except ImportError as e:
-            self.logger.error_e(f'Failed to initialize strategy {strategy.value}:', e)
-            raise e
-        except Exception as e:
-            self.logger.error_e(f'Unexpected error initializing strategy {strategy.value}:', e)
-            raise e
+    def _create_run(self, bot_id: int, mode: str, init_balance: float, s_time) -> int:
+        return self.data_adapter.create_run(
+            bot_id,
+            mode,
+            init_balance,
+            s_time
+        )
 
-    def init_bot_engine(self, run_mode):
-        try:
-            self.logger.debug(f'Initializing bot engine for run mode: {run_mode.value}')
-            if run_mode == RunMode.LIVE:
-                from core.engines.live_engine import LiveEngine
-                return LiveEngine()
-            elif run_mode == RunMode.FORWARDTEST:
-                from core.engines.forwardtest_engine import ForwardtestEngine
-                return ForwardtestEngine()
-            else:
-                from core.engines.backtest_engine import BacktestEngine
-                return BacktestEngine(self, self.strategy_engine)
-        except ImportError as e:
-            self.logger.error_e(f'Failed to initialize bot engine for run mode {run_mode.value}:', e)
-            raise e
-        except Exception as e:
-            self.logger.error_e(f'Unexpected error initializing bot engine for run mode {run_mode.value}:', e)
-            raise e
+    def _update_run(self, run_dict):
+        self.run.end_time = run_dict.get('end_time')
+        self.run.total_trades = run_dict.get('total_trades')
+        self.run.total_positions = run_dict.get('total_positions')
+        self.run.winning_positions = run_dict.get('winning_positions')
+        self.run.final_balance = run_dict.get('final_balance')
+        self.data_adapter.update_run(run = self.run)
 
+    def _init_run(self):
+        run_id: int = self._create_run(
+            bot_id=self.bot.bot_id,
+            mode=self.activate_bot.mode,
+            init_balance=self.activate_bot.initial_balance,
+            s_time=datetime.now()
+        )
+        run: Run = Run.from_dict({
+            'run_id': run_id,
+            'bot_id': self.bot.bot_id,
+            'mode': self.activate_bot.mode,
+            'start_time': datetime.now(),
+            'initial_balance': self.activate_bot.initial_balance
+        })
+        return run
 
-    def close_position(self, position: TradingPosition):
-        pass
-
-    def open_position(self, position: TradingPosition):
-        pass
-
-
-    def run(self):
+    def run_bot(self):
         try:
             self.logger.info(f'Starting bot runner for {self.bot_fullname}')
-            self.bot_run: BotRun = self.bot_engine.run() # type: ignore
-
-            self.update_bot_run(self.bot_run)
+            _run_dict = self.bot_engine.run() # type: ignore
+            self._update_run(_run_dict)
             self.logger.info(f'Bot runner for {self.bot_fullname} completed successfully')
-    
-            return self.bot_run
+            self.logger.debug(_run_dict)
+            return _run_dict
 
         except Exception as e:
             self.logger.error_e(f'Error running bot {self.bot_fullname}:', e)
