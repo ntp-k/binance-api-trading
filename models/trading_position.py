@@ -4,6 +4,21 @@ from datetime import datetime
 
 from models.enum.positino_side import PositionSide
 
+'''
+CREATE TABLE bnb.positions (
+    position_id     INT IDENTITY(1,1)   NOT NULL,
+    run_id          INT                 NOT NULL,
+    position_side   NVARCHAR(8)         NOT NULL,   -- 'LONG' or 'SHORT'
+    entry_price     FLOAT               NOT NULL    DEFAULT 0,
+    open_time       DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+    close_time      DATETIME2                       DEFAULT CURRENT_TIMESTAMP,
+    close_price     FLOAT                           DEFAULT 0,
+    created_at      DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP
+
+    CONSTRAINT positions_pk PRIMARY KEY (position_id)
+    CONSTRAINT positions_runs_FK FOREIGN KEY (run_id) REFERENCES [binance-bot-db].bnb.runs
+);
+'''
 
 @dataclass
 class TradingPosition:
@@ -11,7 +26,7 @@ class TradingPosition:
     run_id: Optional[int]
     symbol: str
     amount: float
-    side: PositionSide
+    position_side: PositionSide
     entry_price: float
     mark_price: float
     unrealized_profit: float

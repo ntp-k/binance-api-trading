@@ -2,7 +2,6 @@ import requests
 import time
 import pandas as pd
 
-from trade_engine.binance import binance_auth
 from commons.custom_logger import CustomLogger
 from models.enum.positino_side import PositionSide
 
@@ -13,9 +12,12 @@ GET_KLINES_URL = 'https://fapi.binance.com/fapi/v1/klines'
 
 class BinanceClient:
     def __init__(self):
-        self.logger = CustomLogger(name=BinanceClient.__name__)
-        self.logger.debug("BinanceClient initialized.")
+        self.logger = CustomLogger(name=self.__class__.__name__)
+    
+    def init(self):
+        from trade_engine.binance import binance_auth
         self.__creds = binance_auth.load_binance_cred()
+        self.logger.debug("BinanceClient initialized.")
 
     def set_leverage(self, symbol: str, leverage: int) -> dict:
         """

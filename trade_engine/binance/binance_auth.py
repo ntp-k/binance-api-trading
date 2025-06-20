@@ -3,6 +3,7 @@ import hmac
 import requests
 import hashlib
 import urllib.parse
+
 from commons.custom_logger import CustomLogger
 
 logger = CustomLogger(name=os.path.basename(__file__)[:-3])
