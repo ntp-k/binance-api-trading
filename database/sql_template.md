@@ -40,14 +40,15 @@ JSON Example {"a": "val_a", "b": "val_b"}
 
 ## active_bots
 ```
-CREATE TABLE bnb.active_bots (
-    active_id           INT IDENTITY(1,1)   NOT NULL,
+CREATE TABLE bnb.activate_bots (
+    activate_id           INT IDENTITY(1,1)   NOT NULL,
     bot_id              INT                 NOT NULL,
     mode                NVARCHAR(10)        NOT NULL,
+    initial_balance     DECIMAL(18, 2)      NOT NULL,
     created_at          DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP
- 
-    CONSTRAINT active_bots_pk PRIMARY KEY (active_id)
-    CONSTRAINT active_bots_bots_FK FOREIGN KEY (bot_id) REFERENCES [binance-bot-db].bnb.bots(bot_id) ON DELETE CASCADE ON UPDATE CASCADE
+
+    CONSTRAINT activate_bots_pk PRIMARY KEY (activate_id)
+    CONSTRAINT activate_bots_bots_FK FOREIGN KEY (bot_id) REFERENCES [binance-bot-db].bnb.bots(bot_id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 ```
@@ -99,8 +100,8 @@ CREATE TABLE bnb.positions (
     position_side   NVARCHAR(8)         NOT NULL,   -- 'LONG' or 'SHORT'
     entry_price     FLOAT               NOT NULL    DEFAULT 0,
     open_time       DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP,
-    close_time      DATETIME2                       DEFAULT CURRENT_TIMESTAMP,
-    close_price     FLOAT                           DEFAULT 0,
+    close_time      DATETIME2,
+    close_price     FLOAT,
     created_at      DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP
 
     CONSTRAINT positions_pk PRIMARY KEY (position_id)
