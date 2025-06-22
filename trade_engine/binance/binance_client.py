@@ -3,7 +3,7 @@ import time
 import pandas as pd
 
 from commons.custom_logger import CustomLogger
-from models.enum.positino_side import PositionSide
+from models.enum.position_side import PositionSide
 
 SET_LEVERAGE_URL = 'https://fapi.binance.com/fapi/v1/leverage'
 GET_POSITION_URL = 'https://fapi.binance.com/fapi/v2/positionRisk'

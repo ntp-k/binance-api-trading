@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 from datetime import datetime
 
-from models.enum.positino_side import PositionSide
+from models.enum.position_side import PositionSide
 
 '''
 CREATE TABLE bnb.positions (

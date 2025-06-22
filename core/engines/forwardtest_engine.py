@@ -1,6 +1,6 @@
 from commons.custom_logger import CustomLogger
 from core.bot_runner import BotRunner
-from models.enum.positino_side import PositionSide
+from models.enum.position_side import PositionSide
 from models.enum.trade_signal import TradeSignal
 
 class ForwardtestEngine:

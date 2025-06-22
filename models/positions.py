@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 
 from commons.custom_logger import CustomLogger
-from models.enum.positino_side import PositionSide
+from models.enum.position_side import PositionSide
 
 @dataclass
 class Position:

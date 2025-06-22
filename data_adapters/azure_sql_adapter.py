@@ -248,8 +248,8 @@ if __name__ == "__main__":
     # records = cursor.fetchall()
     # for r in records:
     #     print(r)
-    az = AzureSQLAdapter()
-    az.fetch_active_bots()
+    # az = AzureSQLAdapter()
+    # az.fetch_active_bots()
 
     print('Bye!')
 

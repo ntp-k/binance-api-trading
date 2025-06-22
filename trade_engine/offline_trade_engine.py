@@ -2,7 +2,7 @@ import pandas as pd
 import random
 from datetime import datetime, timedelta
 from commons.custom_logger import CustomLogger
-from models.enum.positino_side import PositionSide
+from models.enum.position_side import PositionSide
 
 class OfflineTradeEngine:
     def __init__(self):

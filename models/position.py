@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, Dict, Any
-from models.enum.positino_side import PositionSide
+from models.enum.position_side import PositionSide
 
 @dataclass
 class Position:
