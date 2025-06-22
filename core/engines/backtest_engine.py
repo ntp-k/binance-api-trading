@@ -1,15 +1,14 @@
-from core.bot_runner import BotRunner
 from commons.custom_logger import CustomLogger
 from commons.common import calculate_roi_metrics
+from core.bot_runner import BotRunner
 from models.enum.positino_side import PositionSide
 from models.enum.trade_signal import TradeSignal
 
 
 class BacktestEngine:
     def __init__(self, bot_runner: BotRunner):
-        self.name = f'{BacktestEngine.__name__}_{bot_runner.bot_fullname}'
+        self.name = f'{self.__class__.__name__}_{bot_runner.bot_fullname}'
         self.logger = CustomLogger(name=self.name)
-
         self.logger.debug(f'Initializing {self.__class__.__name__}')
 
         self.bot_runner: BotRunner = bot_runner
