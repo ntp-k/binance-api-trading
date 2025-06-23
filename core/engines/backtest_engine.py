@@ -3,6 +3,7 @@ from commons.common import calculate_roi_metrics
 from core.bot_runner import BotRunner
 from models.enum.position_side import PositionSide
 from models.enum.trade_signal import TradeSignal
+import threading
 
 
 class BacktestEngine:
@@ -13,13 +14,12 @@ class BacktestEngine:
 
         self.bot_runner: BotRunner = bot_runner
 
-        self.start_candle = int(self.bot_runner.bot.candle_for_indicator)
+        self.start_candle = int(self.bot_runner.bot.candle_for_indicator) # type: ignore
         self.initial_balance = float(self.bot_runner.run.initial_balance)
         self.balance = self.initial_balance
         self.pnl = 0.0
         self.winning_positions = 0
         self.positions = []
-
 
     def _log_position_to_datastore(self, position):
         try:
@@ -28,7 +28,6 @@ class BacktestEngine:
         except Exception as e:
             self.logger.error_e(f'Error logging position to datastore', e)
             raise e
-
 
     def run(self):
         self.logger.debug(
@@ -112,8 +111,8 @@ class BacktestEngine:
             f'Balance: {self.initial_balance:.2f}  ->  {self.balance:.2f}  |  ROI: {roi:.2f}%  |  Daily ROI: {daily_roi:.2f}%  |  Annual ROI: {annual_roi:.2f}%')
 
         return {
-            'bot_id': int(self.bot_runner.bot.bot_id), # will not be updated
-            'run_id': int(self.bot_runner.run.run_id), # will not be updated
+            'bot_id': int(self.bot_runner.bot.bot_id), # will not be updated # type: ignore
+            'run_id': int(self.bot_runner.run.run_id), # will not be updated # type: ignore
             'bot_fullname': self.bot_runner.bot_fullname, # will not be updated
             'run_mode': self.bot_runner.run.mode, # will not be updated
             'start_time': start_time, # will not be updated

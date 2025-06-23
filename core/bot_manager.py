@@ -8,10 +8,12 @@ from models.enum.run_mode import RunMode
 from models.run import Run
 from trade_engine.get_trade_engine import get_trade_engine
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 class BotManager:
     def __init__(self, run_mode:RunMode = RunMode.BACKTEST, is_offline: bool = False):
         self.logger = CustomLogger(name=self.__class__.__name__)
-        # self.run_mode = run_mode
+        self.run_mode = run_mode
         self.is_offline = is_offline
         
         self.trade_engine = get_trade_engine(is_offline=is_offline)
@@ -41,7 +43,7 @@ class BotManager:
         bot_data = self.data_adapter.fetch_bot(bot_id)
         if not bot_data:
             self.logger.warning('No data for bot [{bot_id}]')
-        return bot_data
+        return bot_data # type: ignore
 
     def init_bots(self):
         self.logger.debug("Initializing bot(s)...")
@@ -50,16 +52,16 @@ class BotManager:
 
         for activate_bot in self.activate_bots:
             try:
-                activate_bot: ActivateBot = ActivateBot.from_dict(activate_bot)
+                activate_bot: ActivateBot = ActivateBot.from_dict(activate_bot) # type: ignore
                 
                 bot_data = self._load_bot(bot_id=activate_bot.bot_id)
-                bot: Bot = Bot.from_dict(bot_data)
+                bot: Bot = Bot.from_dict(bot_data) # type: ignore
 
                 bot_runner: BotRunner = BotRunner(
                     activate_bot,
                     bot,
-                    self.trade_engine,
-                    self.data_adapter
+                    self.trade_engine, # type: ignore
+                    self.data_adapter  # type: ignore
                 )
 
                 self.logger.debug(f"{bot_runner.bot_fullname}")
@@ -72,15 +74,29 @@ class BotManager:
 
 
     def run_bots(self):
-        for bot_runner in self.bot_runners:
-            self.logger.info(f'Runnig  🤖   {bot_runner.bot_fullname}')
-            run_dict = bot_runner.run_bot()
-    
-            self.runs.append(run_dict)
+        # run in backtest mode
+        if self.run_mode == RunMode.BACKTEST:
+            for bot_runner in self.bot_runners:
+                if bot_runner.activate_bot.mode != RunMode.BACKTEST:
+                    continue
+                self.logger.info(f'Runnig  🤖   {bot_runner.bot_fullname}')
+                run_dict = bot_runner.run_bot()
+        
+                self.runs.append(run_dict)
 
-        print_result_table(self.runs)
+            print_result_table(self.runs)
 
-        self.logger.info(f"Total  🤖  run:  {len(self.runs)}")
-        self.logger.info(f"Bye!")
+            self.logger.info(f"Total   🤖   run:  {len(self.runs)}")
+            self.logger.info(f"Bye!")
+            return
+
+        # run forwardtest or live mode
+        while True:
+            for bot_runner in self.bot_runners:
+                if bot_runner.activate_bot.mode == RunMode.BACKTEST:
+                    continue
+                self.logger.info(f'Runnig  🤖   {bot_runner.bot_fullname}')
+                run_dict = bot_runner.run_bot()
+            self.logger.info(f"Total   🤖   run:  {len(self.runs)}")
 
 # EOF

@@ -6,6 +6,7 @@ from core.handler.position_handler import PositionHandler
 from data_adapters.base_adapter import BaseAdapter
 from models.activate_bot import ActivateBot
 from models.bot import Bot
+from models.enum.run_mode import RunMode
 from models.run import Run
 from strategies.get_strategy_engine import get_strategy_engine
 from trade_engine.base_trade_engine import BaseTradeEngine
@@ -59,7 +60,7 @@ class BotRunner:
 
     def _create_run(self, bot_id: int, mode: str, init_balance: float, s_time) -> int:
         return self.data_adapter.create_run(
-            bot_id,
+            bot_id, # type: ignore
             mode,
             init_balance,
             s_time
@@ -67,27 +68,39 @@ class BotRunner:
 
     def _update_run(self, run_dict):
         self.run.end_time = run_dict.get('end_time')
-        self.run.total_trades = run_dict.get('total_trades')
+        # self.run.total_trades = run_dict.get('total_trades')
         self.run.total_positions = run_dict.get('total_positions')
         self.run.winning_positions = run_dict.get('winning_positions')
         self.run.final_balance = run_dict.get('final_balance')
-        self.data_adapter.update_run(run = self.run)
+
+        self.logger.debug(f"Updating run_id [{self.run.run_id}]...")
+
+        self.data_adapter.update_run(run = self.run) # type: ignore
 
     def _init_run(self):
-        run_id: int = self._create_run(
-            bot_id=self.bot.bot_id,
-            mode=self.activate_bot.mode,
-            init_balance=self.activate_bot.initial_balance,
-            s_time=datetime.now()
-        )
-        run: Run = Run.from_dict({
-            'run_id': run_id,
-            'bot_id': self.bot.bot_id,
-            'mode': self.activate_bot.mode,
-            'start_time': datetime.now(),
-            'initial_balance': self.activate_bot.initial_balance
-        })
-        return run
+        try:
+            self.logger.debug("Initializing run...")
+            run_id: int = self._create_run(
+                bot_id=self.bot.bot_id,         # type: ignore
+                mode=self.activate_bot.mode,    # type: ignore
+                init_balance=self.activate_bot.initial_balance,
+                s_time=datetime.now()
+            ) 
+
+            run: Run = Run.from_dict({
+                'run_id': run_id,
+                'bot_id': self.bot.bot_id,
+                'mode': self.activate_bot.mode,
+                'start_time': datetime.now(),
+                'initial_balance': self.activate_bot.initial_balance
+            })
+
+            self.logger.debug(f"Run initialized successfully: run_id={run_id}")
+            return run
+
+        except Exception as e:
+            self.logger.error_e("Failed to initialize run", e)
+            raise e
 
     def run_bot(self):
         try:

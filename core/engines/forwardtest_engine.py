@@ -18,12 +18,22 @@ class ForwardtestEngine:
         self.winning_positions = 0
         self.positions = []
 
+        self.running: bool = True
+
 
     def run(self):
         self.logger.debug(
             f'Starting forwardtest for {self.bot_runner.bot_fullname}')
+    
+        # Simulate the backtest process
+        klines = self.bot_runner.trade_engine.fetch_klines(
+            self.bot_runner.bot.symbol,
+            self.bot_runner.bot.timeframe,
+            self.bot_runner.bot.timeframe_limit
+        )
+        klines_with_strategy_df = self.bot_runner.strategy_engine.init(klines)
+        last_row = klines_with_strategy_df.iloc[-1]
 
-        
-        signal: TradeSignal = TradeSignal.HOLD       
+        signal = self.bot_runner.strategy_engine.on_update(last_row)
 
 # EOF
