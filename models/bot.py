@@ -7,7 +7,7 @@ from models.enum.strategies import Strategies
 
 @dataclass
 class Bot:
-    bot_id: Optional[int] = None
+    bot_id: Optional[int] = -1
     bot_name: str = ""
     strategy: Strategies = Strategies.MACDHIST
     symbol: str = ""
@@ -15,8 +15,9 @@ class Bot:
     quantity: float = 1.0
     timeframe: str = ""
     timeframe_limit: int = 1
-    candle_for_indicator: Optional[int] = None
+    candle_for_indicator: Optional[int] = 0
     config: Optional[Dict[str, Any]] = field(default_factory=dict)
+    note: Optional[str] = ''
     created_at: Optional[datetime] = None
 
     def __post_init__(self):

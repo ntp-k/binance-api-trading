@@ -16,7 +16,9 @@ class Position:
 
     def to_dict(self) -> Dict[str, Any]:
         d = self.__dict__
-        d['position_side'] = self.position_side.value
+        # print(self.position_side.value)
+        # print(d)
+        # d['position_side'] = self.position_side.value
         return d
 
     @classmethod

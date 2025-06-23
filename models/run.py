@@ -16,7 +16,6 @@ class Run:
 
     # update at the end
     end_time: Optional[datetime] = None
-    total_trades: Optional[int] = None
     total_positions: Optional[int] = None
     winning_positions: Optional[int] = None
     final_balance: Optional[float] = None
