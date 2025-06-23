@@ -43,7 +43,7 @@ JSON Example {"a": "val_a", "b": "val_b"}
 CREATE TABLE bnb.activate_bots (
     activate_id           INT IDENTITY(1,1)   NOT NULL,
     bot_id              INT                 NOT NULL,
-    mode                NVARCHAR(10)        NOT NULL,
+    mode                NVARCHAR(20)        NOT NULL,
     initial_balance     DECIMAL(18, 2)      NOT NULL,
     created_at          DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP
 
@@ -58,7 +58,7 @@ CREATE TABLE bnb.activate_bots (
 CREATE TABLE bnb.runs (
     run_id             INT IDENTITY(1,1)    NOT NULL,
     bot_id              INT                 NOT NULL,
-    mode                NVARCHAR(10)        NOT NULL,                                   -- e.g., 'BACKTEST, FORWARDTEST, LIVE'
+    mode                NVARCHAR(20)        NOT NULL,                                   -- e.g., 'BACKTEST, FORWARDTEST, LIVE'
     start_time          DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP,
     end_time            DATETIME2,
     total_trades        INT,
@@ -99,9 +99,9 @@ CREATE TABLE bnb.positions (
     run_id          INT                 NOT NULL,
     position_side   NVARCHAR(8)         NOT NULL,   -- 'LONG' or 'SHORT'
     entry_price     FLOAT               NOT NULL    DEFAULT 0,
+    close_price     FLOAT,
     open_time       DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP,
     close_time      DATETIME2,
-    close_price     FLOAT,
     created_at      DATETIME2           NOT NULL    DEFAULT CURRENT_TIMESTAMP
 
     CONSTRAINT positions_pk PRIMARY KEY (position_id)
