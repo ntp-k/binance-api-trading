@@ -1,3 +1,4 @@
+
 from datetime import datetime
 
 from commons.custom_logger import CustomLogger
@@ -31,7 +32,12 @@ class PositionHandler:
         self.position.close_price = close_price
         self.position.close_time = close_time
 
-        pnl = ((close_price - self.position.entry_price) if self.position.position_side == PositionSide.LONG else (self.position.entry_price - close_price)) * self.bot_runner.bot.quantity
+        pnl = 0
+        if self.position.position_side == PositionSide.LONG:
+            pnl = close_price - self.position.entry_price * self.bot_runner.bot.quantity
+        elif self.position.position_side == PositionSide.SHORT:
+            pnl = self.position.entry_price - close_price * self.bot_runner.bot.quantity
+
         self.logger.debug(
             f'{close_time}  |  {"Close":<8}  |  {self.position.position_side.value:<5}  |  {close_price:.2f}')
 
