@@ -40,15 +40,19 @@ class ConsoleCustomFormatter(logging.Formatter):
 #         return super().format(record)
 
 class CustomLogger:
-    def __init__(self, name='', level=os.getenv('LOG_LEVELS', 'INFO')) -> None:
+    def __init__(self, name='', level=os.getenv('LOG_LEVELS', 'INFO'), log_filename: str = '') -> None:
         self.logger_name = name if name != '' else 'default'
         self.level = level.upper()
 
         log_dir = os.path.join(os.getcwd(), 'logs')
         if not os.path.exists(log_dir):
             os.mkdir(log_dir)
-        _d = common.get_datetime_now_string_gmt_plus_7()
-        self.log_filename = os.path.join(log_dir, f'{_d[:-9].replace('-', '')}.log')
+        
+        if log_filename == '':
+            _d = common.get_datetime_now_string_gmt_plus_7(format='%Y%m%d_%H%M%S')
+            self.log_filename = os.path.join(log_dir, f'{_d}.log')
+        else:
+            self.log_filename = os.path.join(log_dir, log_filename)
 
         # print(f'{_d}\t  INFO\t\t[{os.path.basename(__file__)[:-3]}]   Initializing logger for {name} : level={self.level}')
         self.logger = logging.getLogger(self.logger_name)
