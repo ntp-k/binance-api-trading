@@ -1,8 +1,11 @@
 from datetime import datetime, timezone, timedelta
 
-def get_datetime_now_string_gmt_plus_7():
+def get_datetime_now_string_gmt_plus_7(format=None):
     dt = datetime.now(timezone.utc) + timedelta(hours=7)
-    dt_str = dt.strftime('%Y-%m-%d %H:%M:%S')
+    if format is None:
+        dt_str = dt.strftime('%Y-%m-%d %H:%M:%S')
+    else:
+        dt_str = dt.strftime(format)
     return dt_str
 
 
