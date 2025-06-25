@@ -112,7 +112,7 @@ class BinanceClient:
                     self.logger.debug(f"Position found: {pos}")
                     return {
                         'symbol': pos['symbol'],
-                        'amount': float(pos['positionAmt']),
+                        'quantity': float(pos['positionAmt']),
                         'side': PositionSide.LONG if float(pos['positionAmt']) >= 0 else PositionSide.SHORT,
                         'entry_price': float(pos['entryPrice']),
                         'unrealized_profit': float(pos['unRealizedProfit']),

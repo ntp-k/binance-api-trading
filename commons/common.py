@@ -1,5 +1,9 @@
 from datetime import datetime, timezone, timedelta
 
+
+def get_datetime_now_gmt_plus_7():
+    return datetime.now(timezone.utc) + timedelta(hours=7)
+
 def get_datetime_now_string_gmt_plus_7(format=None):
     dt = datetime.now(timezone.utc) + timedelta(hours=7)
     if format is None:
