@@ -7,6 +7,14 @@ __pycache__/
 .env
 .venv
 
+# logs
 *.log
 logs
+
+# private files
 _private_*
+
+# backup
+v1/
+v2/
+v3/
