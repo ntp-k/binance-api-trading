@@ -9,7 +9,7 @@ class Bot:
     # strategy: BaseStrategy
 
     def __init__(self, offline: False, bot_config: BotConfig):
-        self.logger = CustomLogger(name=f'{self.__class__.__name__}:{bot_config.bot_name.replace(' ', '_')}')
+        self.logger = CustomLogger(name=f"{self.__class__.__name__}:{bot_config.bot_name.replace(' ', '_')}")
         self.logger.debug(message=f'Initializing {self.__class__.__name__}')
 
         self.bot_config: BotConfig = bot_config
