@@ -15,7 +15,7 @@ class BinanceCredentials:
         self.binance_api_key = binance_api_key
         self.binance_secret_key = binance_secret_key
 
-        self.logger.debug("BinanceCredentials initialized.")
+        self.logger.debug(message="Initialized BinanceCredentials")
 
 def load_binance_cred():
     """
@@ -32,7 +32,7 @@ def load_binance_cred():
         EnvironmentError: If any required variable is missing.
     """
     
-    logger.debug("Attempting to load Binance credentials from .env.")
+    logger.debug("Attempting to load Binance credentials from .env flie.")
 
 
     binance_api_key = os.getenv('BINANCE_API_KEY', 'Not Set')
