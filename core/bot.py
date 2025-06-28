@@ -12,6 +12,7 @@ class Bot:
         self.logger = CustomLogger(name=f'{self.__class__.__name__}:{bot_config.bot_name.replace(' ', '_')}')
         self.logger.debug(message=f'Initializing {self.__class__.__name__}')
 
+        self.offline = offline
         self.bot_config: BotConfig = bot_config
 
         self._init_trade_client(run_mode=bot_config.run_mode)
@@ -22,7 +23,7 @@ class Bot:
     def _init_trade_client(self, run_mode: RunMode):
         try:
             self.logger.debug(message=f'Initializing trade client')
-            self.trade_client = get_trade_client(run_mode=run_mode)
+            self.trade_client = get_trade_client(run_mode=run_mode, offline=self.offline)
             klines_df = self.trade_client.fetch_klines(
                 symbol=self.bot_config.symbol,
                 timeframe=self.bot_config.timeframe,
