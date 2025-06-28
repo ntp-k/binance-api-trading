@@ -4,7 +4,7 @@ import pandas as pd
 
 from trade_clients.base_live_trade_client import BaseLiveTradeClient
 from models.enum.position_side import PositionSide
-import trade_clients.binance_auth as binance_auth
+import trade_clients.binance.binance_auth as binance_auth
 
 SET_LEVERAGE_URL = 'https://fapi.binance.com/fapi/v1/leverage'
 GET_POSITION_URL = 'https://fapi.binance.com/fapi/v2/positionRisk'
