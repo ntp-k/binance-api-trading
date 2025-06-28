@@ -18,6 +18,7 @@ class Bot:
 
         self._init_trade_client(run_mode=bot_config.run_mode, trade_client=bot_config.trade_client)
         self._init_entry_strategy(entry_strategy=self.bot_config.entry_strategy, dynamic_config=self.bot_config.dynamic_config)
+        self._init_exit_strategy(exit_strategy=self.bot_config.exit_strategy, dynamic_config=self.bot_config.dynamic_config)
 
     
 
@@ -39,7 +40,8 @@ class Bot:
         except Exception as e:
             self.logger.error_e(message='Error while initializing trade client', e=e)
 
-    # def _init_exit_strategy(self, exit_strategy, strategy_config):
+    def _init_exit_strategy(self, exit_strategy, dynamic_config):
+        pass
     #     try:
     #         self.exit_strategy = get_trade_client(run_mode=run_mode)
     #         return self.exit_strategy
@@ -50,7 +52,6 @@ class Bot:
 
 
     def execute(self):
-        pass
         # market_data = self.client.fetch_market()
         # position_data = self.client.fetch_position()
         # processed_data = self.strategy.process(market_data)
@@ -60,18 +61,15 @@ class Bot:
         # elif self.strategy.should_close(processed_data, position_data):
         #     self.client.trade_sell()
         
-        # self.client.wait()
+        self.trade_client.wait()
 
     def run(self):
-        pass
-        # count = 0
-        # while True:
-        #     try:
-        #         print(count)
-        #         self.execute()
-        #         count += 1
-        #     except:
-        #         print('Error')
-        #         break
+        while self.trade_client.running:
+            self.execute()
+
+            
+            
+
+            
 
 # EOF

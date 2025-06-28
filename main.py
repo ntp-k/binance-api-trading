@@ -5,7 +5,7 @@ def main():
     logger = CustomLogger(name='main')
     logger.info(message='🚀  Starting Trading Bot 🤖...')
     bot_manager = BotManager()
-    bot_manager.init_bots()
+    bot_manager.run()
     logger.info(message=f'👋  See you next time!')
 
 
