@@ -1,0 +1,36 @@
+[
+    {
+        "bot_id": 1,
+        "run_id": 1,
+        "bot_name": "my first bot",
+        "run_mode": "backtest",
+        "entry_strategy": "macdhist_state",
+        "exit_strategy": "macdhist_state",
+        "symbol": "BTCUSDT",
+        "leverage": 10,
+        "quantity": 0.001,
+        "timeframe": "15m",
+        "timeframe_limit": 1500,
+        "strategy_config": {
+            "candle_for_indicator": 200
+        },
+        "created_at": "2024-06-20T12:00:00"
+    },
+    {
+        "bot_id": 2,
+        "run_id": 2,
+        "bot_name": "my second bot",
+        "run_mode": "live",
+        "entry_strategy": "macdhist_2con_ema200",
+        "exit_strategy": "macdhist_state",
+        "symbol": "BTCUSDT",
+        "leverage": 10,
+        "quantity": 1,
+        "timeframe": "15m",
+        "timeframe_limit": 1500,
+        "strategy_config": {
+            "candle_for_indicator": 500
+        },
+        "created_at": "2024-06-20T12:00:00"
+    }
+]
