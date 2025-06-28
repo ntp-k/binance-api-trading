@@ -8,7 +8,7 @@ class Bot:
     # client: BaseClient
     # strategy: BaseStrategy
 
-    def __init__(self, bot_config: BotConfig):
+    def __init__(self, offline: False, bot_config: BotConfig):
         self.logger = CustomLogger(name=f'{self.__class__.__name__}:{bot_config.bot_name.replace(' ', '_')}')
         self.logger.debug(message=f'Initializing {self.__class__.__name__}')
 
@@ -23,6 +23,13 @@ class Bot:
         try:
             self.logger.debug(message=f'Initializing trade client')
             self.trade_client = get_trade_client(run_mode=run_mode)
+            klines_df = self.trade_client.fetch_klines(
+                symbol=self.bot_config.symbol,
+                timeframe=self.bot_config.timeframe,
+                timeframe_limit=self.bot_config.timeframe_limit
+            )
+            print(klines_df)
+
             self.logger.debug(message=f'Initialized trade client {self.trade_client.__class__.__name__}')
             return self.trade_client
         except Exception as e:

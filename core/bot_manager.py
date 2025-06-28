@@ -6,8 +6,9 @@ from core.bot import Bot
 BOT_CONFIG_PATH = 'config/bots_config.json'
 
 class BotManager:
-    def __init__(self):
+    def __init__(self, offline: bool = False):
         self.logger = CustomLogger(name=self.__class__.__name__)
+        self.offline = offline
         self.bot_config_loader = bot_config_loader
 
 
@@ -24,7 +25,7 @@ class BotManager:
             try:
                 self.logger.debug(message=bot_config)
                 self.logger.info(message=f'Loading {bot_config.bot_name}')
-                bot: Bot = Bot(bot_config=bot_config)
+                bot: Bot = Bot(offline=self.offline, bot_config=bot_config)
 
             except Exception as e:
                 self.logger.error_e(message=f"Failed to create bot runner:", e=e)
