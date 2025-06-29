@@ -1,5 +1,5 @@
 from models.enum.position_side import PositionSide
-from strategies.base_entry_strategy import BaseEntryStrategy
+from abstracts.base_entry_strategy import BaseEntryStrategy
 import strategies.data_processor as data_processor
 
 class MacdHistEMAV1Strategy(BaseEntryStrategy):
@@ -46,5 +46,3 @@ class MacdHistEMAV1Strategy(BaseEntryStrategy):
         return should_open, position_side
 
 # EOF
-
-

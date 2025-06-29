@@ -2,7 +2,7 @@ import requests
 import time
 import pandas as pd
 
-from trade_clients.base_live_trade_client import BaseLiveTradeClient
+from abstracts.base_live_trade_client import BaseLiveTradeClient
 from models.enum.position_side import PositionSide
 import trade_clients.binance.binance_auth as binance_auth
 
