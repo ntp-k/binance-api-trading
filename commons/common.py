@@ -12,8 +12,12 @@ def get_datetime_now_string_gmt_plus_7(format=None):
         dt_str = dt.strftime(format)
     return dt_str
 
-
 def format_duration_minutes(minutes: int) -> str:
+    '''
+    examples:
+        print(format_duration_minutes(minutes=600)) -> 10h
+        print(format_duration_minutes(minutes=60030)) -> 41d 16h 30m
+    '''
     days = minutes // (24 * 60)
     hours = (minutes % (24 * 60)) // 60
     mins = minutes % 60
@@ -28,14 +32,12 @@ def format_duration_minutes(minutes: int) -> str:
 
     return " ".join(parts)
 
-
 def print_result_table(bots_run: list[dict]):
     # Define header
     header = f"| {'Bot':<40} {'Duration':<20} {'Position':<8} {'Win Rate':<10} {'Initial':<10} {'Final':<10} {'ROI':<11} {'Daily ROI':<11} {'Auunal ROI':<8} |"
     print("\n" + "-" * len(header))
     print(header)
     print("-" * len(header))
-
 
     # Print each row
     for r in bots_run:

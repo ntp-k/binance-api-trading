@@ -6,7 +6,20 @@ __pycache__/
 # Environments
 .env
 .venv
+venv
 
+# config
+config/*
+!config/bots_config_example.json
+
+# logs
 *.log
 logs
+
+# private files
 _private_*
+
+# backup
+_v1/
+_v2/
+_v3/

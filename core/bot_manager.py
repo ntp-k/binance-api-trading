@@ -1,102 +1,59 @@
-from data_adapters.get_data_adapter import get_data_adapter
-from core.bot_runner import BotRunner
-from commons.common import print_result_table
-from commons.custom_logger import CustomLogger
-from models.activate_bot import ActivateBot
-from models.bot import Bot
-from models.enum.run_mode import RunMode
-from models.run import Run
-from trade_engine.get_trade_engine import get_trade_engine
+from threading import Thread
+from typing import List
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from commons.custom_logger import CustomLogger
+from models.bot_config import BotConfig
+import core.bot_config_loader as bot_config_loader
+from core.bot import Bot
+
+BOT_CONFIG_PATH = 'config/bots_config.json'
 
 class BotManager:
-    def __init__(self, run_mode:RunMode = RunMode.BACKTEST, is_offline: bool = False):
+    bots: List[Bot]
+    threads: List[Thread]
+    def __init__(self):
         self.logger = CustomLogger(name=self.__class__.__name__)
-        self.run_mode = run_mode
-        self.is_offline = is_offline
-        
-        self.trade_engine = get_trade_engine(is_offline=is_offline)
-        self.trade_engine.init()
-        self.data_adapter = get_data_adapter(is_offline=is_offline)
-        self.logger.info(f'Trade Engine: {self.trade_engine.__class__.__name__}')
-        self.logger.info(f'Data Adapter: {self.data_adapter.__class__.__name__}')
+        self.bots: List[Bot] = []
+        self.threads: List[Thread] = []
 
-        # running vars
-        # self.bots =[]
-        self.runs = []
-        self.bot_runners = []
 
-    def _load_activate_bots(self):
-        self.logger.debug("Starting bot(s) Activation...")
+    def _load_bots_config(self):
+        return bot_config_loader.load_config(file_path=BOT_CONFIG_PATH)
+
+
+    def _init_bots(self):
+        self.logger.debug(message="Initializing bot(s)...")
     
-        activate_bots = self.data_adapter.fetch_activate_bots()
-        if not activate_bots:
-            self.logger.warning("No bot found.")
-            return
-    
-        self.activate_bots = activate_bots
-        self.logger.debug(f"Activating {len(self.activate_bots)} bot(s).")
+        self.bots_config: list[BotConfig] = self._load_bots_config()
 
-    def _load_bot(self, bot_id) -> Bot:
-        self.logger.debug(f"Loading bot [{bot_id}] 's data")
-        bot_data = self.data_adapter.fetch_bot(bot_id)
-        if not bot_data:
-            self.logger.warning('No data for bot [{bot_id}]')
-        return bot_data # type: ignore
-
-    def init_bots(self):
-        self.logger.debug("Initializing bot(s)...")
-    
-        self._load_activate_bots()
-
-        for activate_bot in self.activate_bots:
+        for bot_config in self.bots_config:
             try:
-                activate_bot: ActivateBot = ActivateBot.from_dict(activate_bot) # type: ignore
-                
-                bot_data = self._load_bot(bot_id=activate_bot.bot_id)
-                bot: Bot = Bot.from_dict(bot_data) # type: ignore
+                self.logger.debug(message=bot_config)
+                self.logger.info(message=f'Loading {bot_config.bot_name}')
+                bot: Bot = Bot(bot_config=bot_config)
+                self.bots.append(bot)
 
-                bot_runner: BotRunner = BotRunner(
-                    activate_bot,
-                    bot,
-                    self.trade_engine, # type: ignore
-                    self.data_adapter  # type: ignore
-                )
-
-                self.logger.debug(f"{bot_runner.bot_fullname}")
-                # self.bots.append(bot)
-                self.bot_runners.append(bot_runner)
             except Exception as e:
-                self.logger.error_e(f"Failed to create bot runner:", e)
+                self.logger.error_e(message=f"Failed to create bot runner:", e=e)
 
-        self.logger.info(f"🚀  {len(self.bot_runners)}  bot(s)")
+        self.logger.info(message=f"Loaded  {len(self.bots_config)}  🤖")
 
+    def execute(self):
+        for bot in self.bots:
+            thread = Thread(target=bot.run, name=bot.bot_config.bot_name)
+            thread.start()
+            self.threads.append(thread)
+            self.logger.info(message=f"Started bot thread: {bot.bot_config.bot_name}")
 
-    def run_bots(self):
-        # run in backtest mode
-        if self.run_mode == RunMode.BACKTEST:
-            for bot_runner in self.bot_runners:
-                if bot_runner.activate_bot.mode != RunMode.BACKTEST:
-                    continue
-                self.logger.info(f'Runnig  🤖   {bot_runner.bot_fullname}')
-                run_dict = bot_runner.run_bot()
-        
-                self.runs.append(run_dict)
+        # Optionally, wait for all threads to finish
+        for thread in self.threads:
+            thread.join()
 
-            print_result_table(self.runs)
+        self.logger.info(message="All bots completed.")
 
-            self.logger.info(f"Total   🤖   run:  {len(self.runs)}")
-            self.logger.info(f"Bye!")
-            return
-
-        # run forwardtest or live mode
-        while True:
-            for bot_runner in self.bot_runners:
-                if bot_runner.activate_bot.mode == RunMode.BACKTEST:
-                    continue
-                self.logger.info(f'Runnig  🤖   {bot_runner.bot_fullname}')
-                run_dict = bot_runner.run_bot()
-            self.logger.info(f"Total   🤖   run:  {len(self.runs)}")
+    def run(self):
+        self._init_bots()
+        self.execute()
+        self.logger.info(f"Total   🤖   run:  {len(self.bots)}")
 
 # EOF

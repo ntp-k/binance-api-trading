@@ -1,9 +1,8 @@
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 import logging
 import os
 from pythonjsonlogger import jsonlogger
-
-import commons.common as common
 
 load_dotenv()
 
@@ -30,90 +29,77 @@ class ConsoleCustomFormatter(logging.Formatter):
         formatter = logging.Formatter(f"{color}{self.FORMAT_STRING}{self.RESET}")
         return formatter.format(record)
 
-# class FileCustomFormatter(logging.Formatter):
-#     FORMAT_STRING = "%(asctime)s   %(levelname)s  \t[%(name)s:%(lineno)d]   %(message)s"
-
-#     def __init__(self):
-#         super().__init__(self.FORMAT_STRING)
-
-#     def format(self, record):
-#         return super().format(record)
-
 class CustomLogger:
-    def __init__(self, name='', level=os.getenv('LOG_LEVELS', 'INFO'), log_filename: str = '') -> None:
+    def __init__(self, name='', level=os.getenv(key='LOG_LEVELS', default='INFO'), log_filename: str = '') -> None:
         self.logger_name = name if name != '' else 'default'
         self.level = level.upper()
 
         log_dir = os.path.join(os.getcwd(), 'logs')
-        if not os.path.exists(log_dir):
-            os.mkdir(log_dir)
+        if not os.path.exists(path=log_dir):
+            os.mkdir(path=log_dir)
         
         if log_filename == '':
-            _d = common.get_datetime_now_string_gmt_plus_7(format='%Y%m%d_%H%M%S')
-            self.log_filename = os.path.join(log_dir, f'{_d}.log')
+            _dt = datetime.now(timezone.utc) + timedelta(hours=7)
+            _dt_str = _dt.strftime(format='%Y%m%d_%H%M%S')
+            self.log_filename = os.path.join(log_dir, f'{_dt_str}.log')
         else:
             self.log_filename = os.path.join(log_dir, log_filename)
 
-        # print(f'{_d}\t  INFO\t\t[{os.path.basename(__file__)[:-3]}]   Initializing logger for {name} : level={self.level}')
-        self.logger = logging.getLogger(self.logger_name)
-        self.logger.setLevel(self.level)
+        self.logger = logging.getLogger(name=self.logger_name)
+        self.logger.setLevel(level='DEBUG')
 
-        json_handler = logging.FileHandler( self.log_filename)
-        json_handler.setFormatter(JsonCustomFormatter())
-        self.logger.addHandler(json_handler)
+        json_handler = logging.FileHandler(filename=self.log_filename)
+        json_handler.setLevel(level='DEBUG')
+        json_handler.setFormatter(fmt=JsonCustomFormatter())
+        self.logger.addHandler(hdlr=json_handler)
 
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(self.level)
-        console_handler.setFormatter(ConsoleCustomFormatter())
-        self.logger.addHandler(console_handler)
-
-        # file_handler = logging.FileHandler(self.log_filepath)
-        # file_handler.setLevel(self.level)
-        # file_handler.setFormatter(FileCustomFormatter())
-        # self.logger.addHandler(file_handler)
+        console_handler.setLevel(level=self.level)
+        console_handler.setFormatter(fmt=ConsoleCustomFormatter())
+        self.logger.addHandler(hdlr=console_handler)
 
     def debug(self, message):
-        self.logger.debug(message)
+        self.logger.debug(msg=message)
         return message
 
     def info(self, message):
-        self.logger.info(message)
+        self.logger.info(msg=message)
         return message
 
     def warning(self, message):
-        self.logger.warning(message)
+        self.logger.warning(msg=message)
         return message
 
     def warning_e(self, message, e):
-        self.logger.warning(message)
-        self.logger.warning(f'{type(e)}: {e}')
+        self.logger.warning(msg=message)
+        self.logger.warning(msg=f'{type(e)}: {e}')
         return message
 
     def error(self, message):
-        self.logger.error(message)
+        self.logger.error(msg=message)
         return message
 
     def error_e(self, message, e):
-        self.logger.error(message)
-        self.logger.error(f'{type(e)}: {e}')
+        self.logger.error(msg=message)
+        self.logger.error(msg=f'{type(e)}: {e}')
         return message
 
     def critical(self, message):
-        self.logger.critical(message)
+        self.logger.critical(msg=message)
         return message
 
     def critical_e(self, message, e):
-        self.logger.critical(message)
-        self.logger.critical(f'{type(e)}: {e}')
+        self.logger.critical(msg=message)
+        self.logger.critical(msg=f'{type(e)}: {e}')
         return message
 
 
 if __name__ == '__main__':
-    logger = CustomLogger(__name__, 'DEBUG')
-    logger.debug("debug message")
-    logger.info("info message")
-    logger.warning("warning message")
-    logger.error("error message")
-    logger.critical("critical message")
+    logger = CustomLogger(name=__name__, level='DEBUG')
+    logger.debug(message="debug message")
+    logger.info(message="info message")
+    logger.warning(message="warning message")
+    logger.error(message="error message")
+    logger.critical(message="critical message")
 
 # EOF
