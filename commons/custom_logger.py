@@ -33,6 +33,7 @@ class CustomLogger:
     def __init__(self, name='', level=os.getenv(key='LOG_LEVELS', default='INFO'), log_filename: str = '') -> None:
         self.logger_name = name if name != '' else 'default'
         self.level = level.upper()
+        # print(f'Init logger: {self.logger_name}, level: {self.level}')
 
         log_dir = os.path.join(os.getcwd(), 'logs')
         if not os.path.exists(path=log_dir):
@@ -46,17 +47,21 @@ class CustomLogger:
             self.log_filename = os.path.join(log_dir, log_filename)
 
         self.logger = logging.getLogger(name=self.logger_name)
-        self.logger.setLevel(level='DEBUG')
+        self.logger.setLevel(level=logging.DEBUG)
 
-        json_handler = logging.FileHandler(filename=self.log_filename)
-        json_handler.setLevel(level='DEBUG')
-        json_handler.setFormatter(fmt=JsonCustomFormatter())
-        self.logger.addHandler(hdlr=json_handler)
+        # remove duplicate handlers if multiple init
+        if not self.logger.handlers:
+            # JSON file handler, always debug
+            json_handler = logging.FileHandler(filename=self.log_filename)
+            json_handler.setLevel(level=logging.DEBUG)
+            json_handler.setFormatter(fmt=JsonCustomFormatter())
+            self.logger.addHandler(hdlr=json_handler)
 
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(level=self.level)
-        console_handler.setFormatter(fmt=ConsoleCustomFormatter())
-        self.logger.addHandler(hdlr=console_handler)
+            # console handler, uses env level
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(level=self.level)
+            console_handler.setFormatter(fmt=ConsoleCustomFormatter())
+            self.logger.addHandler(hdlr=console_handler)
 
     def debug(self, message):
         self.logger.debug(msg=message)
