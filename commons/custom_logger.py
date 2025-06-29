@@ -46,13 +46,15 @@ class CustomLogger:
             self.log_filename = os.path.join(log_dir, log_filename)
 
         self.logger = logging.getLogger(name=self.logger_name)
-        self.logger.setLevel(level=self.level)
+        self.logger.setLevel(level='DEBUG')
 
         json_handler = logging.FileHandler(filename=self.log_filename)
+        json_handler.setLevel(level='DEBUG')
         json_handler.setFormatter(fmt=JsonCustomFormatter())
         self.logger.addHandler(hdlr=json_handler)
 
         console_handler = logging.StreamHandler()
+        console_handler.setLevel(level=self.level)
         console_handler.setFormatter(fmt=ConsoleCustomFormatter())
         self.logger.addHandler(hdlr=console_handler)
 
