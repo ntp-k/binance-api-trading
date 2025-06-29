@@ -7,11 +7,17 @@ class BaseExitStrategy(ABC):
         self.logger = CustomLogger(name=self.__class__.__name__)
     
     @abstractmethod
-    def process_data(self, klines_df) :
+    def _process_data(self, klines_df) :
+        """
+        Subclass must implement.
+        """
         pass
 
     @abstractmethod
-    def should_close(klines_df) -> bool:
+    def should_close(self, klines_df) -> bool:
+        """
+        Subclass must implement.
+        """
         pass
 
 # EOF

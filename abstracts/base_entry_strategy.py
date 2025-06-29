@@ -10,11 +10,18 @@ class BaseEntryStrategy(ABC):
     
     @abstractmethod
     def _process_data(self, klines_df) :
-        self.logger.debug(message='Processing klines')
+        """
+        Subclass must implement.
+        """
+        pass
 
     @abstractmethod
     def should_open(self, klines_df) -> tuple[bool, PositionSide]:
+        """
+        Subclass must implement.
+        """
         pass
+
 
 # EOF
 
