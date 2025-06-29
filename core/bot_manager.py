@@ -11,6 +11,7 @@ BOT_CONFIG_PATH = 'config/bots_config.json'
 class BotManager:
     bots: List[Bot]
     threads: List[Thread]
+
     def __init__(self):
         self.logger = CustomLogger(name=self.__class__.__name__)
         self.bots: List[Bot] = []
@@ -29,7 +30,7 @@ class BotManager:
         for bot_config in self.bots_config:
             try:
                 self.logger.debug(message=bot_config)
-                self.logger.info(message=f'Loading {bot_config.bot_name}')
+                self.logger.info(message=f'Loading 🤖  [{bot_config.bot_name}] ...')
                 bot: Bot = Bot(bot_config=bot_config)
                 self.bots.append(bot)
 
@@ -40,10 +41,11 @@ class BotManager:
 
     def execute(self):
         for bot in self.bots:
+            self.logger.debug(message=f"Starting thread for 🤖  [{bot.bot_config.bot_name}] ...")
             thread = Thread(target=bot.run, name=bot.bot_config.bot_name)
             thread.start()
             self.threads.append(thread)
-            self.logger.info(message=f"Started bot thread: {bot.bot_config.bot_name}")
+            self.logger.debug(message=f"Started thread for 🤖  [{bot.bot_config.bot_name}]")
 
         # Optionally, wait for all threads to finish
         for thread in self.threads:

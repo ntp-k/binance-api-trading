@@ -35,42 +35,36 @@ class Bot:
     def _init_entry_strategy(self, entry_strategy, dynamic_config):
         try:
             self.logger.debug(message=f'Initializing entry strategy')
-            self.entry_strategy = get_strategy.get_entry(entry_strategy=entry_strategy, dynamic_config=dynamic_config)
-            self.logger.debug(message=f'Initialized entry strategy {self.entry_strategy.__class__.__name__}')
+            self.entry_strategy = get_strategy.get_entry_strategy(entry_strategy=entry_strategy, dynamic_config=dynamic_config)
+            self.logger.debug(message=f'Entry Strategy {self.entry_strategy.__class__.__name__}')
             return self.entry_strategy
         except Exception as e:
-            self.logger.error_e(message='Error while initializing trade client', e=e)
+            self.logger.error_e(message='Error while initializing entry strategy', e=e)
 
     def _init_exit_strategy(self, exit_strategy, dynamic_config):
-        pass
-    #     try:
-    #         self.exit_strategy = get_trade_client(run_mode=run_mode)
-    #         return self.exit_strategy
-    #     except Exception as e:
-    #         self.logger.error_e(message='Error while initializing trade client', e=e)
-
-
+        try:
+            self.logger.debug(message=f'Initializing exit strategy')
+            self.exit_strategy = get_strategy.get_exit_strategy(exit_strategy=exit_strategy, dynamic_config=dynamic_config)
+            self.logger.debug(message=f'Exit Strategy {self.exit_strategy.__class__.__name__}')
+            return self.entry_strategy
+        except Exception as e:
+            self.logger.error_e(message='Error while initializing exit strategy', e=e)
 
 
     def execute(self):
-        # market_data = self.client.fetch_market()
-        # position_data = self.client.fetch_position()
-        # processed_data = self.strategy.process(market_data)
+        klineS_df = self.trade_client.fetch_klines(
+            symbol=self.bot_config.symbol,
+            timeframe=self.bot_config.timeframe,
+            timeframe_limit=self.bot_config.timeframe_limit
+        )
 
-        # if self.strategy.should_open(processed_data, position_data):
-        #     self.client.trade_buy()
-        # elif self.strategy.should_close(processed_data, position_data):
-        #     self.client.trade_sell()
+        continue here
         
-        self.trade_client.wait()
 
     def run(self):
         while self.trade_client.running:
+            self.logger.critical(self.bot_config.bot_id)
             self.execute()
-
-            
-            
-
-            
+            self.trade_client.wait()
 
 # EOF
