@@ -4,11 +4,11 @@ from models.enum.run_mode import RunMode
 from trade_clients.get_trade_client import get_trade_client
 from models.enum.trade_client import TradeClient
 import strategies.get_strategy as get_strategy
+from abstracts.base_trade_client import BaseTradeClient
 
 class Bot:
     bot_config: BotConfig
-    trade_client: TradeClient
-
+    trade_client: BaseTradeClient
 
     def __init__(self, bot_config: BotConfig):
         self.logger = CustomLogger(name=f"{self.__class__.__name__}:{bot_config.bot_name.replace(' ', '_')}")
@@ -25,7 +25,8 @@ class Bot:
     def _init_trade_client(self, run_mode: RunMode, trade_client: TradeClient):
         try:
             self.logger.debug(message=f'Initializing trade client')
-            self.trade_client = get_trade_client(run_mode=run_mode, trade_client=trade_client)
+            self.trade_client: BaseTradeClient = get_trade_client(run_mode=run_mode, trade_client=trade_client) # type: ignore
+            self.trade_client.set_running(running=True)
             self.logger.debug(message=f'Initialized trade client {self.trade_client.__class__.__name__}')
             return self.trade_client
         except Exception as e:
