@@ -10,10 +10,13 @@ SET_LEVERAGE_URL = 'https://fapi.binance.com/fapi/v1/leverage'
 GET_POSITION_URL = 'https://fapi.binance.com/fapi/v2/positionRisk'
 SET_ORDER_URL = 'https://fapi.binance.com/fapi/v1/order'
 GET_KLINES_URL = 'https://fapi.binance.com/fapi/v1/klines'
+GET_TICKER_PRICE_URL = 'https://fapi.binance.com/fapi/v1/ticker/price'
 
 class BinanceLiveTradeClient(BaseLiveTradeClient):
     def __init__(self) -> None:
         super().__init__()
+        self.set_wait_time(wait_time_sec=30)
+        self.set_running(running=True)
     
     def init(self):
         self.__creds = binance_auth.load_binance_cred()
@@ -127,39 +130,54 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             return {"error": str(e)}
 
 
-    # Step 1: Get Kline (candlestick) data
     def fetch_klines(self, symbol, timeframe, timeframe_limit=100):
+        df = None
+
+        # fetch klines
         params = {
             'symbol': symbol,
             'interval': timeframe,
             'limit': timeframe_limit
         }
-        self.logger.debug(f'Fetching Klines of {params}')
+        self.logger.debug(message=f'Fetching Klines of {params}')
 
         headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
-
         try:
-            response = requests.get(GET_KLINES_URL, headers= headers, params=signed_params)
+            response = requests.get(url=GET_KLINES_URL, headers= headers, params=signed_params)
             response.raise_for_status()
             data = response.json()
-            df = pd.DataFrame(data, columns=[
+            df = pd.DataFrame(data=data, columns=[
                 'open_time', 'open', 'high', 'low', 'close', 'volume',
                 'close_time', 'quote_asset_volume', 'num_trades',
                 'taker_buy_base_volume', 'taker_buy_quote_volume', 'ignore'
             ])
-            df['open_time'] = pd.to_datetime(df['open_time'], unit='ms').dt.tz_localize('UTC').dt.tz_convert('Asia/Bangkok') # type: ignore
-            df['close'] = df['close'].astype(float)
-            df['open'] = df['open'].astype(float)
-            self.logger.debug(f"Fetched {len(df)} Klines for {symbol} at {timeframe} interval.")
-
-            return df
+            df['open_time'] = pd.to_datetime(arg=df['open_time'], unit='ms').dt.tz_localize(tz='UTC').dt.tz_convert(tz='Asia/Bangkok') # type: ignore
+            df['close'] = df['close'].astype(dtype=float)
+            df['open'] = df['open'].astype(dtype=float)
+            self.logger.debug(message=f"Fetched {len(df)} Klines for {symbol} at {timeframe} interval.")
         except requests.exceptions.HTTPError as e:
-            self.logger.error(f"HTTP error getting Klines: {e}")
-            self.logger.debug(f"Response: {response.text}") # type: ignore
-            return {"error": str(e), "response": response.text} # type: ignore
+            self.logger.error_e(message=f"HTTP error getting Klines", e=e)
+            self.logger.debug(message=f"Response: {response.text}") # type: ignore
+            return df
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"Network error getting Klines: {e}")
-            return {"error": str(e)}
-       
+            self.logger.error_e(message=f"Network error getting Klines", e=e)
+            return df
+
+        # fetch current price
+        params_2 = {'symbol': symbol}
+        self.logger.debug(message=f'Fetching current price of {params_2}')
+        headers_2, signed_params_2 = binance_auth.sign_request(params=params_2, binance_credential=self.__creds)
+        try:
+            response_2 = requests.get(url=GET_TICKER_PRICE_URL, headers= headers_2, params=signed_params_2)
+            response_2.raise_for_status()
+            current_price = float(response_2.json()["price"])
+            df["current_price"] = df["close"]
+            df.loc[df.index[-1], "current_price"] = current_price
+            self.logger.debug(message=f"Fetched current price for {symbol}: {current_price}")
+        except Exception as e:
+            self.logger.error_e(message=f"error getting price", e=e)
+            return df
+
+        return df 
 
 # EOF

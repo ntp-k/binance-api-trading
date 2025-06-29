@@ -19,6 +19,9 @@ class BaseTradeClient(ABC):
         """
         pass
 
+    def set_wait_time(self, wait_time_sec: int):
+        self.wait_time = wait_time_sec
+
     def set_running(self, running: bool = False):
         self.running = running
 
