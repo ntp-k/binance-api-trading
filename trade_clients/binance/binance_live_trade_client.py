@@ -116,9 +116,9 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
                     return {
                         'symbol': pos['symbol'],
                         'quantity': float(pos['positionAmt']),
-                        'side': PositionSide.LONG if float(pos['positionAmt']) >= 0 else PositionSide.SHORT,
+                        'position_side': PositionSide.LONG if float(pos['positionAmt']) >= 0 else PositionSide.SHORT,
                         'entry_price': float(pos['entryPrice']),
-                        'unrealized_profit': float(pos['unRealizedProfit']),
+                        'pnl': float(pos['unRealizedProfit']),
                         'mark_price': float(pos['markPrice'])
                     }
 

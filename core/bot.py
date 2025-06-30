@@ -52,13 +52,15 @@ class Bot:
 
 
     def execute(self):
-        klineS_df = self.trade_client.fetch_klines(
+        klines_df = self.trade_client.fetch_klines(
             symbol=self.bot_config.symbol,
             timeframe=self.bot_config.timeframe,
             timeframe_limit=self.bot_config.timeframe_limit
         )
+        active_position_dict: dict = self.trade_client.fetch_position(symbol=self.bot_config.symbol)
+        
 
-        continue here
+
         
 
     def run(self):

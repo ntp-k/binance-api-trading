@@ -18,6 +18,8 @@ logs
 
 # private files
 _private_*
+position_records/
+position_states/
 
 # backup
 _v1/

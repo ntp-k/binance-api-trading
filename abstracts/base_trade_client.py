@@ -13,6 +13,10 @@ class BaseTradeClient(ABC):
         self.logger.debug(message=f'Initializing {self.__class__.__name__}')
 
     @abstractmethod
+    def fetch_position(self, symbol) -> dict:
+        pass
+
+    @abstractmethod
     def fetch_klines(self, symbol, timeframe, timeframe_limit=100) -> pd.DataFrame:
         """
         Subclass must implement.
