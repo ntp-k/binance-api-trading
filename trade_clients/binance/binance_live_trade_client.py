@@ -112,6 +112,9 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
 
             for pos in positions:
                 if pos['symbol'] == symbol:
+                    if float(pos['positionAmt']) == 0:
+                        continue
+
                     self.logger.debug(f"Position found: {pos}")
                     return {
                         'symbol': pos['symbol'],
