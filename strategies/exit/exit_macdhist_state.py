@@ -50,7 +50,7 @@ class ExitMacdHistState(BaseExitStrategy):
             # price does not move much, prevent sideways market
             elif price_diff_percent < self.close_price_diff_thsd:
                 position_signal.position_side = position.position_side
-                position_signal.reason = f'Skipping close: price difference {price_diff_percent:.2f} % / {self.close_price_diff_thsd:.2f} %'  
+                position_signal.reason = f'Skipping close: price difference within threshold {price_diff_percent:.2f} % / {self.close_price_diff_thsd:.2f} %'  
 
         return position_signal
 
