@@ -56,7 +56,18 @@ class PositionHandler:
                             f"entry_price={self.position.entry_price}")
         except Exception as e:
             self.logger.error_e("Error while setting position from dict", e=e)
+
+    def update_pnl(self, fetched_position: dict):
+        if self.position.position_side != fetched_position.get('position_side') \
+            or self.position.entry_price != fetched_position.get('entry_price'):
+            self.logger.critical(f'local position and fetched position not synced')
+            self.logger.critical(f'local position: {self.position.to_dict()}')
+            self.logger.critical(f'fetched position: {fetched_position}')
+            raise ValueError()
         
+        self.position.pnl = fetched_position['pnl']
+
+
     def is_open(self) -> bool:
         return self.position is not None
 
