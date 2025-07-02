@@ -61,7 +61,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             dict or None: Response from Binance API.
         """
 
-        self.logger.info(f"Placing order: {order_type} {order_side} {quantity} {symbol} (reduce_only={reduce_only})")
+        self.logger.debug(f"Placing order: {order_type} {order_side} {quantity} {symbol} (reduce_only={reduce_only})")
 
         # Base parameters
         params = {

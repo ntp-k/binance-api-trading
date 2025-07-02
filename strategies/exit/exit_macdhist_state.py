@@ -49,16 +49,16 @@ class ExitMacdHistState(BaseExitStrategy):
             (position.position_side == PositionSide.SHORT and current_hist > 0)
         )
         if histogram_against_position:
-            checklist_reasons.append(f"MACD Hist against {position.position_side.name}: ✅")
+            checklist_reasons.append(f"MACD Hist {current_hist} against {position.position_side.name}: ✅")
         else:
-            checklist_reasons.append(f"MACD Hist against {position.position_side.name}: ❌")
+            checklist_reasons.append(f"MACD Hist {current_hist} against {position.position_side.name}: ❌")
 
         # Condition 2: Different candle
         different_candle = position.open_candle != current_candle_open_time
         if different_candle:
-            checklist_reasons.append("Different candle: ✅")
+            checklist_reasons.append(f"Different candle {position.open_candle}/{current_candle_open_time}: ✅")
         else:
-            checklist_reasons.append("Different candle: ❌")
+            checklist_reasons.append(f"Different candle {position.open_candle}/{current_candle_open_time}: ❌")
         
         # Condition 3: Price difference over threshold
         price_diff_percent = abs(current_price - position.entry_price) / position.entry_price * 100
@@ -73,7 +73,7 @@ class ExitMacdHistState(BaseExitStrategy):
             )
 
         reason_message = " | ".join(checklist_reasons)
-        self.logger.debug(reason_message)
+        self.logger.info(reason_message)
         if histogram_against_position and different_candle and price_diff_over_threshold:
             self.logger.debug(f'cur_hist: {current_hist}, open_c: {position.open_candle}, cur_c: {current_candle_open_time}, cur_p: {current_price}, p_diff: {different_candle:.2f}%')
             new_position_side = PositionSide.ZERO # close position
