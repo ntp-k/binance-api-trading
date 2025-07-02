@@ -69,13 +69,14 @@ class Bot:
         if not active_position_dict and self.position_handler.is_open():
             self.logger.warning(message="Bot has position in memory but trade client has none; resetting state.")
             self.position_handler.clear_position()
-        elif (active_position_dict and not self.position_handler.is_open()) or \
-            (active_position_dict['position_side'] != self.position_handler.position.position_side) or \
-            (active_position_dict['entry_price'] != self.position_handler.position.entry_price):
-            self.logger.warning(message="Trade client position and Bot in memory position is not sync; resetting state")
+        elif active_position_dict and not self.position_handler.is_open():
             active_position_dict['run_id'] = self.bot_config.run_id
             active_position_dict['open_candle'] = candle_open_time
             self.position_handler.open_position(position_dict=active_position_dict)
+        elif active_position_dict:
+            if (active_position_dict['position_side'] != self.position_handler.position.position_side) or \
+            (active_position_dict['entry_price'] != self.position_handler.position.entry_price):
+                self.logger.warning(message="Trade client position and Bot in memory position is not sync; resetting state")
 
     def _place_order_to_open_position(self, position_side: PositionSide):
         _order_side = OrderSide.BUY.value if position_side == PositionSide.LONG else OrderSide.SELL.value
@@ -121,7 +122,7 @@ class Bot:
             timeframe_limit=self.bot_config.timeframe_limit
         )
         active_position_dict: dict = self.trade_client.fetch_position(symbol=self.bot_config.symbol)
-        self._sync_position_state(active_position_dict=active_position_dict, candle_open_time=klines_df.iloc[-1]["open_time"])
+        self._sync_position_state(active_position_dict=active_position_dict, candle_open_time=str(klines_df.iloc[-1]["open_time"]))
 
         # CASE 1: no active trade position
         if not active_position_dict:
@@ -129,7 +130,7 @@ class Bot:
 
             if entry_signal.position_side != PositionSide.ZERO:
                 self.logger.debug(message=f'{self.bot_config.symbol} Entry signal triggered')
-                self.logger.debug(message=entry_signal.reason)
+                self.logger.info(message=entry_signal.reason)
 
                 _new_positino_dict = self._place_order_to_open_position(position_side=entry_signal.position_side)
                 
@@ -146,15 +147,15 @@ class Bot:
             if exit_signal.position_side == PositionSide.ZERO:
                 self.logger.debug(message=f'{self.bot_config.symbol} Exit signal triggered')
                 self.logger.debug(message=f'Active position: {active_position_dict}')
-                self.logger.debug(message=exit_signal.reason)
+                self.logger.info(message=exit_signal.reason)
 
                 self._place_order_to_close_position(position_dict=active_position_dict)
 
                 active_position_dict['close_reason'] = exit_signal.reason
                 self.position_handler.close_position(position_dict=active_position_dict)
-
-
         
+        if self.position_handler.position is not None:
+            self.position_handler.dump_position_state()
 
     def run(self):
         while self.trade_client.running:
