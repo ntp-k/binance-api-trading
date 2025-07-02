@@ -3,11 +3,17 @@ from abstracts.base_exit_strategy import BaseExitStrategy
 from abstracts.base_trade_client import BaseTradeClient
 from commons.custom_logger import CustomLogger
 from core.position_handler import PositionHandler
+from models import position
 from models.bot_config import BotConfig
+from models.enum import order_side
+from models.enum.order_side import OrderSide
+from models.enum.order_type import OrderType
 from models.enum.position_side import PositionSide
 from models.enum.run_mode import RunMode
 from models.enum.trade_client import TradeClient
+from models.position import Position
 from models.position_signal import PositionSignal
+from time import sleep
 from trade_clients.get_trade_client import get_trade_client
 import strategies.get_strategy as get_strategy
 
@@ -58,6 +64,56 @@ class Bot:
             self.logger.error_e(message='Error while initializing exit strategy', e=e)
 
 
+    def _sync_position_state(self, active_position_dict, candle_open_time):
+        # if the client has NO position but our bot has one in memory, maybe reload it
+        if not active_position_dict and self.position_handler.is_open():
+            self.logger.warning(message="Bot has position in memory but trade client has none; resetting state.")
+            self.position_handler.clear_position()
+        elif (active_position_dict and not self.position_handler.is_open()) or \
+            (active_position_dict['position_side'] != self.position_handler.position.position_side) or \
+            (active_position_dict['entry_price'] != self.position_handler.position.entry_price):
+            self.logger.warning(message="Trade client position and Bot in memory position is not sync; resetting state")
+            active_position_dict['run_id'] = self.bot_config.run_id
+            active_position_dict['open_candle'] = candle_open_time
+            self.position_handler.open_position(position_dict=active_position_dict)
+
+    def _place_order_to_open_position(self, position_side: PositionSide):
+        _order_side = OrderSide.BUY.value if position_side == PositionSide.LONG else OrderSide.SELL.value
+        _order = self.trade_client.place_order(
+            symbol=self.bot_config.symbol,
+            order_side=_order_side,
+            order_type=OrderType.MARKET.value,
+            quantity=self.bot_config.quantity,
+            reduce_only=False,
+        )
+        self.logger.debug(message=f'placed order: {_order}')
+
+        sleep(2) # wait for binance to process order
+
+        new_position_dict: dict = self.trade_client.fetch_position(symbol=self.bot_config.symbol)
+        if not new_position_dict:
+            self.logger.critical(message=f'💥 Failed to place order to binance!')
+            raise Exception('💥 Failed to place order to binance!')
+        
+        self.logger.info(message=f"{self.bot_config.symbol} | {'OPEN':<5} | {position_side.value:<5} | {new_position_dict["entry_price"]}")
+        return new_position_dict
+
+    def _place_order_to_close_position(self, position_dict: dict):
+        _order_side = OrderSide.BUY.value if position_dict['position_side'] == PositionSide.SHORT else OrderSide.SELL.value
+        _order = self.trade_client.place_order(
+            symbol=self.bot_config.symbol,
+            order_side=_order_side,
+            order_type=OrderType.MARKET.value,
+            quantity=self.bot_config.quantity,
+            reduce_only=True,
+        )
+        self.logger.debug(message=f'placed order: {_order}')
+
+        close_price = position_dict['mark_price']
+        pnl = position_dict['pnl']
+        self.logger.info(message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {position_dict['position_side'].value:<5} | {position_dict['entry_price']:.2f} -> {close_price:.2f} | {'+' if pnl >= 0 else ''}{pnl:.2f}")
+
+
     def execute(self):
         klines_df = self.trade_client.fetch_klines(
             symbol=self.bot_config.symbol,
@@ -65,25 +121,39 @@ class Bot:
             timeframe_limit=self.bot_config.timeframe_limit
         )
         active_position_dict: dict = self.trade_client.fetch_position(symbol=self.bot_config.symbol)
+        self._sync_position_state(active_position_dict=active_position_dict, candle_open_time=klines_df.iloc[-1]["open_time"])
 
-        if len(active_position_dict) != 0 and self.position_handler.position is None:
-            self.position_handler.update_pnl(position_dict=active_position_dict)
-            self.logger.debug(f'Active position: {active_position_dict}')
-            exit_signal: PositionSignal = self.exit_strategy.should_close(klines_df=klines_df, position=self.position_handler.position)
-
-            if exit_signal.position_side == PositionSide.ZERO:
-                pass
-                # close position
-                # update pnl
-                # log position record
-
-        elif len(active_position_dict) == 1 and self.position_handler.position is not None:
+        # CASE 1: no active trade position
+        if not active_position_dict:
             entry_signal: PositionSignal = self.entry_strategy.should_open(klines_df=klines_df)
 
             if entry_signal.position_side != PositionSide.ZERO:
-                pass
-                # open position
-                # update position
+                self.logger.debug(message=f'{self.bot_config.symbol} Entry signal triggered')
+                self.logger.debug(message=entry_signal.reason)
+
+                _new_positino_dict = self._place_order_to_open_position(position_side=entry_signal.position_side)
+                
+                _new_positino_dict['run_id'] = self.bot_config.run_id
+                _new_positino_dict['open_candle'] = str(object=klines_df.iloc[-1]["open_time"])
+                _new_positino_dict['open_reason'] = entry_signal.reason
+                self.position_handler.open_position(position_dict=_new_positino_dict)
+
+        # CASE 2: active trade position
+        else:
+            position = self.position_handler.get_position() 
+            exit_signal: PositionSignal = self.exit_strategy.should_close(klines_df=klines_df, position=position)
+
+            if exit_signal.position_side == PositionSide.ZERO:
+                self.logger.debug(message=f'{self.bot_config.symbol} Exit signal triggered')
+                self.logger.debug(message=f'Active position: {active_position_dict}')
+                self.logger.debug(message=exit_signal.reason)
+
+                self._place_order_to_close_position(position_dict=active_position_dict)
+
+                active_position_dict['close_reason'] = exit_signal.reason
+                self.position_handler.close_position(position_dict=active_position_dict)
+
+
         
 
     def run(self):

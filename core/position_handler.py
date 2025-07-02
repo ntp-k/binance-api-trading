@@ -5,6 +5,7 @@ from commons.custom_logger import CustomLogger
 from models.bot_config import BotConfig
 from models.enum.position_side import PositionSide
 from models.position import Position
+from commons.common import get_datetime_now_string_gmt_plus_7
 
 POSITION_RECORDS_DIR = "position_records"
 POSITION_RECORD_FILENAME_TEMPLATE = "runid_{run_id}_record_{count}.json"
@@ -28,59 +29,43 @@ class PositionHandler:
         _position_state_file_name = POSITION_STATES_FILENAME_TEMPLATE.format(run_id=self.bot_config.run_id)
         self.position_state_file_path = os.path.join(POSITION_STATES_DIR, _position_state_file_name)
 
-    def open_position(self, position_side: PositionSide, price: float, candle: str):
-        if self.position:
-            self.logger.warning('Already had openned position')
-            return
-
-        self.position = Position(
-            position_side=position_side,
-            entry_price=price,
-            open_candle=candle
-        )
-        self.logger.info(f"Opened {position_side.name} position at {price}")
-
-    def close_position(self, reason: str):
-        if not self.position:
-            self.logger.warning('No position ti close')
-            return
-
-        self.logger.info(f"Closing position {self.position.position_side.name} due to {reason}")
-
-        self.position = None
-
-    def set_position(self, position_dict: dict):
+    def open_position(self, position_dict: dict):
         try:
             self.position = Position.from_dict(position_dict)
-            self.logger.info(f"Restored position from dict: side={self.position.position_side.name}, "
+            self.logger.info(message=f"Restored position from dict: side={self.position.position_side.name}, "
                             f"entry_price={self.position.entry_price}")
         except Exception as e:
-            self.logger.error_e("Error while setting position from dict", e=e)
+            self.logger.error_e(message="Error while setting position from dict", e=e)
 
-    def update_pnl(self, fetched_position: dict):
-        if self.position.position_side != fetched_position.get('position_side') \
-            or self.position.entry_price != fetched_position.get('entry_price'):
-            self.logger.critical(f'local position and fetched position not synced')
-            self.logger.critical(f'local position: {self.position.to_dict()}')
-            self.logger.critical(f'fetched position: {fetched_position}')
-            raise ValueError()
-        
-        self.position.pnl = fetched_position['pnl']
+    def close_position(self, position_dict: dict):
+        self.position.close_reason = position_dict['close_reason']
+        self.position.close_price = position_dict['mark_price']
+        self.position.close_time = get_datetime_now_string_gmt_plus_7(format='%Y-%m-%d %H:%M:%S')
+        self.position.pnl = position_dict['pnl']
 
+        self._dump_position_record()
+        self.position = None
+
+
+    def update_pnl(self, pnl: float):        
+        self.position.pnl = pnl
 
     def is_open(self) -> bool:
         return self.position is not None
+
+    def clear_position(self):
+        self.position = None
 
     def get_position(self) -> Position | None:
         return self.position
 
     def _dump_position(self, file_path):
         if not self.position:
-            self.logger.warn("No position to dump.")
+            self.logger.warning("No position to dump.")
             return
-        with open(file_path, "w") as f:
-            json.dump(self.position.to_dict(), f, indent=4)
-        self.logger.debug(f"Position dumped to {file_path}")
+        with open(file=file_path, mode="w") as f:
+            json.dump(obj=self.position.to_dict(), fp=f, indent=4)
+        self.logger.debug(message=f"Position dumped to {file_path}")
 
     def _dump_position_record(self):
         file_name = POSITION_RECORD_FILENAME_TEMPLATE.format(run_id=self.bot_config.run_id, count=self.position_count)
@@ -92,12 +77,14 @@ class PositionHandler:
         self._dump_position(file_path=self.position_state_file_path)
     
     def read_position_state(self):
-        if not os.path.exists(self.position_state_file_path):
-            self.logger.warning('No position state file')
-            return
-        with open(self.position_state_file_path, 'r') as f:
-            data = json.load(f)
-            self.position = Position.from_dict(data=data)
-            self.position.run_id = self.bot_config.run_id
+        try:
+            with open(file=self.position_state_file_path, mode='r') as f:
+                data = json.load(fp=f)
+                self.position = Position.from_dict(data=data)
+                self.position.run_id = self.bot_config.run_id
+        except Exception as e:
+            self.logger.error_e(message="Could not restore position state", e=e)
+            self.position = None
+
 
 # EOF

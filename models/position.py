@@ -4,49 +4,53 @@ from datetime import datetime
 from typing import Optional
 from models.enum.position_side import PositionSide
 from datetime import datetime
+from commons.common import get_datetime_now_string_gmt_plus_7
 
 @dataclass
 class Position:
     position_id: Optional[int] = None
     run_id: int = 0
+    symbol: str = ''
     position_side: PositionSide = PositionSide.LONG
     entry_price: float = 0.0
     open_candle: str = ''
+    open_reason: str = ''
     open_time: datetime = get_datetime_now_string_gmt_plus_7()
     close_time: Optional[datetime] = None
     close_price: Optional[float] = 0.0
     pnl: Optional[float] = 0.0
-    open_signal: Optional[str] = ''
-    close_signal: Optional[str] = ''
+    close_reason: Optional[str] = ''
     created_at: Optional[datetime] = get_datetime_now_string_gmt_plus_7()
     
     def to_dict(self):
         return {
             "run_id": self.run_id,
+            "symbol": self.symbol,
             "position_side": self.position_side.name,  # <-- note this
             "entry_price": self.entry_price,
             "open_candle": self.open_candle,
+            "open_reason": self.open_reason,
             "open_time": self.open_time,
             "close_time": self.close_time,
             "close_price": self.close_price,
             "pnl": self.pnl,
-            "open_signal": self.open_signal,
-            "close_signal": self.close_signal
+            "close_reason": self.close_reason
         }
 
     @classmethod
     def from_dict(cls, data: dict):
         return cls(
             run_id=data["run_id"],
-            position_side=PositionSide[data["position_side"]],  # convert back from name
+            symbol=data["symbol"],
+            position_side=PositionSide[data["position_side"]] if type(data["position_side"]) == type('a') else data["position_side"],
             entry_price=data["entry_price"],
             open_candle=data["open_candle"],
-            open_time=data["open_time"],
-            close_time=data["close_time"],
+            open_reason=data.get("open_reason", ""),
+            open_time=data.get("open_time", get_datetime_now_string_gmt_plus_7(format='%Y-%m-%d %H:%M:%S')),
+            close_time=data.get("close_time", 0.0),
             close_price=data.get("close_price", 0.0),
             pnl=data.get('pnl', 0.0),
-            open_signal=data.get("open_signal", ""),
-            close_signal=data.get("close_signal", "")
+            close_reason=data.get("close_reason", "")
         )
 
 
