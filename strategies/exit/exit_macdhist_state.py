@@ -6,52 +6,78 @@ import strategies.data_processor as data_processor
 
 class ExitMacdHistState(BaseExitStrategy):
     """
-    Exit strategy that closes the position when the MACD histogram
-    changes sign (crosses from positive to negative or vice versa).
+    Exit strategy:
+    - Closes LONG if MACD histogram goes negative
+    - Closes SHORT if MACD histogram goes positive
+    - But:
+        * ignores exit on same candle as entry
+        * ignores exit if price change is within a threshold
     """
+    dynamic_config: dict
+    macd_decimal: float
+    close_price_diff_threshold: float
 
     def __init__(self, dynamic_config):
         super().__init__()
         self.dynamic_config = dynamic_config
         self.macd_decimal = dynamic_config.get('macd_decimal', 2)
-        self.close_price_diff_thsd = dynamic_config.get('close_price_diff_thsd', 0)
+        self.close_price_diff_threshold = dynamic_config.get('close_price_diff_thsd', 0)
 
     def _process_data(self, klines_df):
         klines_df = data_processor.calculate_macd(df=klines_df, decimal=self.macd_decimal)
         return klines_df
 
     def should_close(self, klines_df, position: Position) -> PositionSignal:
+        '''
+        return
+            - position.position_side if no need to close
+            - PositionSide.ZERO if need to close
+        '''
+
         klines_df = self._process_data(klines_df=klines_df)
-        position_signal: PositionSignal = PositionSignal(
-            position_side=position.position_side,
-            reason='Hold position'
+        new_position_side = position.position_side
+        checklist_reasons  = [f'{position.symbol} Exit Signal']
+
+        latest_kline = klines_df.iloc[-1]
+        current_price = latest_kline['current_price']
+        current_hist = latest_kline['histogram']
+        current_candle_open_time  = str(object=latest_kline['open_time'])
+
+        # Condition 1: MACD Histogram against position
+        histogram_against_position = (
+            (position.position_side == PositionSide.LONG and current_hist < 0) or
+            (position.position_side == PositionSide.SHORT and current_hist > 0)
         )
+        if histogram_against_position:
+            checklist_reasons.append(f"MACD Hist against {position.position_side.name}: ✅")
+        else:
+            checklist_reasons.append(f"MACD Hist against {position.position_side.name}: ❌")
 
-        current_price = klines_df.iloc[-1]['current_price']
-        current_hist = klines_df.iloc[-1]['histogram']
-        current_candle = str(object=klines_df.iloc[-1]['open_time'])
-
-        long_position_but_negative_hist = position.position_side == PositionSide.LONG and current_hist < 0
-        short_position_but_positive_hist = position.position_side == PositionSide.SHORT and current_hist > 0
-       
-        if long_position_but_negative_hist:
-            position_signal.position_side = PositionSide.ZERO # should close position
-            position_signal.reason = f'LONG position with negative histogram'
-        elif short_position_but_positive_hist:
-            position_signal.position_side = PositionSide.ZERO # should close position
-            position_signal.reason = f'SHORT position with positive histogram'
+        # Condition 2: Different candle
+        different_candle = position.open_candle != current_candle_open_time
+        if different_candle:
+            checklist_reasons.append("Different candle: ✅")
+        else:
+            checklist_reasons.append("Different candle: ❌")
         
-        if position_signal.position_side == PositionSide.ZERO:
-            price_diff_percent = abs(current_price - position.entry_price) / position.entry_price * 100
-            # just openned on this candle which can still constantly switch between positive and negative 
-            if position.open_candle == current_candle:
-                position_signal.position_side = position.position_side
-                position_signal.reason = f'Skipping close: cannot close on open candle'
-            # price does not move much, prevent sideways market
-            elif price_diff_percent < self.close_price_diff_thsd:
-                position_signal.position_side = position.position_side
-                position_signal.reason = f'Skipping close: price difference within threshold {price_diff_percent:.2f} % / {self.close_price_diff_thsd:.2f} %'  
+        # Condition 3: Price difference over threshold
+        price_diff_percent = abs(current_price - position.entry_price) / position.entry_price * 100
+        price_diff_over_threshold = price_diff_percent > self.close_price_diff_threshold
+        if price_diff_over_threshold:
+            checklist_reasons.append(
+                f"Price diff over threshold ({price_diff_percent:.2f}% >= {self.close_price_diff_threshold:.2f}%): ✅"
+            )
+        else:
+            checklist_reasons.append(
+                f"Price diff over threshold ({price_diff_percent:.2f}% < {self.close_price_diff_threshold:.2f}%): ❌"
+            )
 
-        return position_signal
+        reason_message = " | ".join(checklist_reasons)
+        self.logger.debug(reason_message)
+        if histogram_against_position and different_candle and price_diff_over_threshold:
+            self.logger.debug(f'cur_hist: {current_hist}, open_c: {position.open_candle}, cur_c: {current_candle_open_time}, cur_p: {current_price}, p_diff: {different_candle:.2f}%')
+            new_position_side = PositionSide.ZERO # close position
+
+        return PositionSignal(position_side = new_position_side, reason = reason_message)
 
 # EOF
