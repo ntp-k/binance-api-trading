@@ -126,11 +126,12 @@ class Bot:
 
         # CASE 1: no active trade position
         if not active_position_dict:
-            entry_signal: PositionSignal = self.entry_strategy.should_open(klines_df=klines_df)
+            entry_signal: PositionSignal = self.entry_strategy.should_open(klines_df=klines_df, position_handler=self.position_handler)
+            self.logger.debug(entry_signal.position_side)
+            self.logger.debug(entry_signal.reason)
 
             if entry_signal.position_side != PositionSide.ZERO:
                 self.logger.debug(message=f'{self.bot_config.symbol} Entry signal triggered')
-                self.logger.info(message=entry_signal.reason)
 
                 _new_positino_dict = self._place_order_to_open_position(position_side=entry_signal.position_side)
                 
@@ -141,13 +142,13 @@ class Bot:
 
         # CASE 2: active trade position
         else:
-            position = self.position_handler.get_position() 
-            exit_signal: PositionSignal = self.exit_strategy.should_close(klines_df=klines_df, position=position)
+            exit_signal: PositionSignal = self.exit_strategy.should_close(klines_df=klines_df, position_handler=self.position_handler)
+            self.logger.debug(exit_signal.position_side)
+            self.logger.debug(exit_signal.reason)
 
             if exit_signal.position_side == PositionSide.ZERO:
                 self.logger.debug(message=f'{self.bot_config.symbol} Exit signal triggered')
                 self.logger.debug(message=f'Active position: {active_position_dict}')
-                self.logger.info(message=exit_signal.reason)
 
                 self._place_order_to_close_position(position_dict=active_position_dict)
 

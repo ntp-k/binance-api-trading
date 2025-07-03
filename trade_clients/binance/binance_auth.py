@@ -60,17 +60,17 @@ def sign_request(params: dict, binance_credential) -> tuple:
             - signed_params (dict): Parameters with 'signature' added.
             - headers (dict): Headers with 'X-MBX-APIKEY'.
     """
-    logger.debug(f"Signing request with params: {params}")
+    # logger.debug(f"Signing request with params: {params}")
 
     query_string = urllib.parse.urlencode(params)
-    logger.debug(f"Query string to sign: {query_string}")
+    # logger.debug(f"Query string to sign: {query_string}")
 
     signature = hmac.new(
         binance_credential.binance_secret_key.encode(),
         query_string.encode(),
         hashlib.sha256
     ).hexdigest()
-    logger.debug(f"Signature generated: {signature[:2]}***{signature[-2:]}")
+    # logger.debug(f"Signature generated: {signature[:2]}***{signature[-2:]}")
 
     params['signature'] = signature
 
@@ -78,9 +78,9 @@ def sign_request(params: dict, binance_credential) -> tuple:
         "X-MBX-APIKEY": binance_credential.binance_api_key
     }
 
-    logger.debug(f"Headers set with API key prefix: {binance_credential.binance_api_key[:2]}***{binance_credential.binance_api_key[-2:]}")
-    params_str = str(params).split('signature')[0] + 'signature' + str(params).split('signature')[1][:6] + '***' + str(params).split('signature')[1][-4:]
-    logger.debug(f"Params set: {params_str}")
+    # logger.debug(f"Headers set with API key prefix: {binance_credential.binance_api_key[:2]}***{binance_credential.binance_api_key[-2:]}")
+    # params_str = str(params).split('signature')[0] + 'signature' + str(params).split('signature')[1][:6] + '***' + str(params).split('signature')[1][-4:]
+    # logger.debug(f"Params set: {params_str}")
 
     return headers, params
 
