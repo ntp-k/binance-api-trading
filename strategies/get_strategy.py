@@ -5,6 +5,9 @@ def get_entry_strategy(entry_strategy, dynamic_config):
     if entry_strategy == EntryStrategy.MACDHIST_EMA_V1:
         from strategies.entry.entry_macdhist_ema_v1 import EntryMacdHistEMAV1
         return EntryMacdHistEMAV1(dynamic_config=dynamic_config)
+    elif entry_strategy == EntryStrategy.MACDHIST_STATE:
+        from strategies.entry.entry_macdhist_state import EntryMacdHistState
+        return EntryMacdHistState(dynamic_config=dynamic_config)
 
 def get_exit_strategy(exit_strategy, dynamic_config):
     if exit_strategy == ExitStrategy.MACDHIST_STATE:

@@ -22,7 +22,7 @@ class EntryMacdHistEMAV1(BaseEntryStrategy):
         klines_df = data_processor.calculate_ema(df=klines_df, ema=self.ema_period)
         return klines_df
 
-    def should_open(self, klines_df) -> PositionSignal:
+    def should_open(self, klines_df, position_handler) -> PositionSignal:
         klines_df = self._process_data(klines_df=klines_df)
         position_signal = PositionSignal(
             position_side=PositionSide.ZERO,
@@ -46,7 +46,7 @@ class EntryMacdHistEMAV1(BaseEntryStrategy):
             position_signal.position_side = PositionSide.SHORT
             position_signal.reason = f'Price {current_price} below ema {current_ema_200:.2f}, histogram positive {prev_prev_hist} followed by 2 decreasing negative {prev_hist} {current_hist}'       
 
-        self.logger.info(position_signal.reason)
+        # self.logger.info(position_signal.reason)
         return position_signal
 
 # EOF
