@@ -128,7 +128,7 @@ class Bot:
         if not active_position_dict:
             entry_signal: PositionSignal = self.entry_strategy.should_open(klines_df=klines_df, position_handler=self.position_handler)
             self.logger.debug(entry_signal.position_side)
-            self.logger.debug(entry_signal.reason)
+            self.logger.info(entry_signal.reason)
 
             if entry_signal.position_side != PositionSide.ZERO:
                 self.logger.debug(message=f'{self.bot_config.symbol} Entry signal triggered')
@@ -144,7 +144,7 @@ class Bot:
         else:
             exit_signal: PositionSignal = self.exit_strategy.should_close(klines_df=klines_df, position_handler=self.position_handler)
             self.logger.debug(exit_signal.position_side)
-            self.logger.debug(exit_signal.reason)
+            self.logger.info(exit_signal.reason)
 
             if exit_signal.position_side == PositionSide.ZERO:
                 self.logger.debug(message=f'{self.bot_config.symbol} Exit signal triggered')
