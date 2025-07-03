@@ -15,6 +15,13 @@ class BaseTradeClient(ABC):
         self.logger.debug(message=f'Initializing {self.__class__.__name__}')
 
     @abstractmethod
+    def set_leverage(self, symbol: str, leverage: int) -> dict:
+        """
+        Subclass must implement.
+        """
+        pass
+       
+    @abstractmethod
     def fetch_position(self, symbol) -> dict:
         """
         Subclass must implement.

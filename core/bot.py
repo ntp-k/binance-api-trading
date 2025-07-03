@@ -32,6 +32,8 @@ class Bot:
         self.position_handler: PositionHandler = PositionHandler(bot_config=bot_config)
 
         self.trade_client = self._init_trade_client(run_mode=bot_config.run_mode, trade_client=bot_config.trade_client)
+        self._set_leverage()
+
         self.entry_strategy = self._init_entry_strategy(entry_strategy=self.bot_config.entry_strategy, dynamic_config=self.bot_config.dynamic_config)
         self.exit_strategy = self._init_exit_strategy(exit_strategy=self.bot_config.exit_strategy, dynamic_config=self.bot_config.dynamic_config)
 
@@ -63,6 +65,9 @@ class Bot:
         except Exception as e:
             self.logger.error_e(message='Error while initializing exit strategy', e=e)
 
+    def _set_leverage(self):
+        self.trade_client.set_leverage(symbol=self.bot_config.symbol, leverage=self.bot_config.leverage)
+        self.logger.debug(f'Leverage is setted to {self.bot_config.leverage}')
 
     def _sync_position_state(self, active_position_dict, candle_open_time):
         # if the client has NO position but our bot has one in memory, maybe reload it
