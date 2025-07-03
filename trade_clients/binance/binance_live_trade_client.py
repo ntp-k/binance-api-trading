@@ -20,13 +20,13 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
     
     def init(self):
         self.__creds = binance_auth.load_binance_cred()
-        self.logger.debug(f"Initialized {self.__class__.__name__}")
+        self.logger.debug(message=f"Initialized {self.__class__.__name__}")
 
     def set_leverage(self, symbol: str, leverage: int) -> dict:
         """
         Change leverage for a given futures trading pair on Binance.
         """
-        self.logger.info(f"Setting leverage for {symbol} to {leverage}.")
+        self.logger.debug(message=f"Setting leverage for {symbol} to {leverage}.")
         params = {
             "timestamp": int(time.time() * 1000),
             "symbol": symbol.upper(),
@@ -35,13 +35,13 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
 
         headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
         try:
-            response = requests.post(SET_LEVERAGE_URL, headers=headers, params=signed_params)
+            response = requests.post(url=SET_LEVERAGE_URL, headers=headers, params=signed_params)
             response.raise_for_status()
-            self.logger.info(f"Leverage set successfully: {response.json()}")
+            self.logger.debug(message=f"Leverage set successfully: {response.json()}")
             return response.json()
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"Failed to set leverage: {e}")
-            return {"error": str(e)}
+            self.logger.error(message=f"Failed to set leverage: {e}")
+            return {"error": str(object=e)}
 
     def place_order(self, symbol: str, order_side: str, order_type: str, quantity: float,
                     price: float = 0, reduce_only: bool = False, time_in_force: str = "GTC") -> dict:
@@ -61,7 +61,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             dict or None: Response from Binance API.
         """
 
-        self.logger.debug(f"Placing order: {order_type} {order_side} {quantity} {symbol} (reduce_only={reduce_only})")
+        self.logger.debug(message=f"Placing order: {order_type} {order_side} {quantity} {symbol} (reduce_only={reduce_only})")
 
         # Base parameters
         params = {
@@ -70,7 +70,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             'type': order_type.upper(),
             'quantity': quantity,
             'reduceOnly': reduce_only,
-            'timestamp': int(time.time() * 1000)
+            'timestamp': int(x=time.time() * 1000)
         }
 
         if order_type.upper() == 'LIMIT':
@@ -84,53 +84,53 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
 
         headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
         try:
-            response = requests.post(SET_ORDER_URL, headers=headers, params=signed_params)
+            response = requests.post(url=SET_ORDER_URL, headers=headers, params=signed_params)
             response.raise_for_status()
-            self.logger.debug(f"Order placed: {response.json()}")
+            self.logger.debug(message=f"Order placed: {response.json()}")
             return response.json()
         except requests.exceptions.HTTPError as e:
-            self.logger.error(f"HTTP error placing order: {e}")
-            self.logger.debug(f"Response: {response.text}") # type: ignore
-            return {"error": str(e), "response": response.text} # type: ignore
+            self.logger.error(message=f"HTTP error placing order: {e}")
+            self.logger.debug(message=f"Response: {response.text}") # type: ignore
+            return {"error": str(object=e), "response": response.text} # type: ignore
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"Network error placing order: {e}")
-            return {"error": str(e)}
+            self.logger.error(message=f"Network error placing order: {e}")
+            return {"error": str(object=e)}
 
     def fetch_position(self, symbol):
         """
         Get the current futures position for a given symbol.
         """
-        self.logger.debug(f"Fetching position for {symbol}...")
+        self.logger.debug(message=f"Fetching position for {symbol}...")
 
-        params = {'timestamp': int(time.time() * 1000)}
+        params = {'timestamp': int(x=time.time() * 1000)}
         headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
 
         try:
-            response = requests.get(GET_POSITION_URL, headers=headers, params=signed_params)
+            response = requests.get(url=GET_POSITION_URL, headers=headers, params=signed_params)
             response.raise_for_status()
             positions = response.json()
 
             for pos in positions:
                 if pos['symbol'] == symbol:
-                    if float(pos['positionAmt']) == 0:
+                    if float(x=pos['positionAmt']) == 0:
                         continue
 
-                    self.logger.debug(f"Position found: {pos}")
+                    self.logger.debug(message=f"Position found: {pos}")
                     return {
                         'symbol': pos['symbol'],
-                        'quantity': float(pos['positionAmt']),
-                        'position_side': PositionSide.LONG if float(pos['positionAmt']) >= 0 else PositionSide.SHORT,
-                        'entry_price': float(pos['entryPrice']),
-                        'pnl': float(pos['unRealizedProfit']),
-                        'mark_price': float(pos['markPrice'])
+                        'quantity': float(x=pos['positionAmt']),
+                        'position_side': PositionSide.LONG if float(x=pos['positionAmt']) >= 0 else PositionSide.SHORT,
+                        'entry_price': float(x=pos['entryPrice']),
+                        'pnl': float(x=pos['unRealizedProfit']),
+                        'mark_price': float(x=pos['markPrice'])
                     }
 
-            self.logger.debug(f"No active position found for {symbol}.")
+            self.logger.debug(message=f"No active position found for {symbol}.")
             return {}
 
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"Failed to fetch position: {e}")
-            return {"error": str(e)}
+            self.logger.error(message=f"Failed to fetch position: {e}")
+            return {"error": str(object=e)}
 
 
     def fetch_klines(self, symbol, timeframe, timeframe_limit=100):
@@ -173,7 +173,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         try:
             response_2 = requests.get(url=GET_TICKER_PRICE_URL, headers= headers_2, params=signed_params_2)
             response_2.raise_for_status()
-            current_price = float(response_2.json()["price"])
+            current_price = float(x=response_2.json()["price"])
             df["current_price"] = df["close"]
             df.loc[df.index[-1], "current_price"] = current_price
             self.logger.debug(message=f"Fetched current price for {symbol}: {current_price}")
