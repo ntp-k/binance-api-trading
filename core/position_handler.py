@@ -8,7 +8,7 @@ from models.position import Position
 from commons.common import get_datetime_now_string_gmt_plus_7
 
 POSITION_RECORDS_DIR = "position_records"
-POSITION_RECORD_FILENAME_TEMPLATE = "runid_{run_id}_record_{count}.json"
+POSITION_RECORD_FILENAME_TEMPLATE = "runid_{run_id}_record_{dt}.json"
 POSITION_STATES_DIR = "position_states"
 POSITION_STATES_FILENAME_TEMPLATE = "runid_{run_id}_state.json"
 
@@ -16,7 +16,6 @@ POSITION_STATES_FILENAME_TEMPLATE = "runid_{run_id}_state.json"
 class PositionHandler:
     bot_config: BotConfig
     position: Position | None = None
-    position_count: int = 1
 
     def __init__(self, bot_config: BotConfig):
         self.logger = CustomLogger(
@@ -32,6 +31,8 @@ class PositionHandler:
             run_id=self.bot_config.run_id)
         self.position_state_file_path = os.path.join(
             POSITION_STATES_DIR, _position_state_file_name)
+    
+        self.read_position_state()
 
     def open_position(self, position_dict: dict):
         try:
@@ -49,6 +50,8 @@ class PositionHandler:
 
         self._dump_position_record()
         self.position = None
+        if os.path.exists(self.position_state_file_path):
+            os.remove(self.position_state_file_path)
 
     def update_pnl(self, pnl: float):
         self.position.pnl = pnl
@@ -58,7 +61,8 @@ class PositionHandler:
 
     def clear_position(self):
         self.position = None
-        self.dump_position_state()
+        if os.path.exists(self.position_state_file_path):
+            os.remove(self.position_state_file_path)
 
     def get_position(self) -> Position | None:
         return self.position
@@ -67,13 +71,14 @@ class PositionHandler:
         if not self.position:
             self.logger.warning("No position to dump.")
             return
-        with open(file=file_path, mode="w") as f:
+        with open(file=file_path, mode="w", encoding="utf-8") as f:
             json.dump(obj=self.position.to_dict(), fp=f, indent=4)
         self.logger.debug(message=f"Position dumped to {file_path}")
 
     def _dump_position_record(self):
+        _dt = get_datetime_now_string_gmt_plus_7(format='%Y%m%d_%H%M%S')
         file_name = POSITION_RECORD_FILENAME_TEMPLATE.format(
-            run_id=self.bot_config.run_id, count=self.position_count)
+            run_id=self.bot_config.run_id, dt=_dt)
         file_path = os.path.join(POSITION_RECORDS_DIR, file_name)
         self._dump_position(file_path=file_path)
         self.position_count += 1
@@ -83,10 +88,11 @@ class PositionHandler:
 
     def read_position_state(self):
         try:
-            with open(file=self.position_state_file_path, mode='r') as f:
-                data = json.load(fp=f)
-                self.position = Position.from_dict(data=data)
-                self.position.run_id = self.bot_config.run_id
+            if os.path.exists(self.position_state_file_path):
+                with open(file=self.position_state_file_path, mode='r', encoding="utf-8") as f:
+                    data = json.load(fp=f)
+                    self.position = Position.from_dict(data=data)
+                    self.position.run_id = self.bot_config.run_id
         except Exception as e:
             self.logger.error_e(
                 message="Could not restore position state", e=e)
