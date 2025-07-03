@@ -81,7 +81,6 @@ class PositionHandler:
             run_id=self.bot_config.run_id, dt=_dt)
         file_path = os.path.join(POSITION_RECORDS_DIR, file_name)
         self._dump_position(file_path=file_path)
-        self.position_count += 1
 
     def dump_position_state(self):
         self._dump_position(file_path=self.position_state_file_path)
