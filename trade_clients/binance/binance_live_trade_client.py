@@ -70,7 +70,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             'type': order_type.upper(),
             'quantity': quantity,
             'reduceOnly': reduce_only,
-            'timestamp': int(x=time.time() * 1000)
+            'timestamp': int(time.time() * 1000)
         }
 
         if order_type.upper() == 'LIMIT':
@@ -102,7 +102,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         """
         self.logger.debug(message=f"Fetching position for {symbol}...")
 
-        params = {'timestamp': int(x=time.time() * 1000)}
+        params = {'timestamp': int(time.time() * 1000)}
         headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
 
         try:
@@ -112,17 +112,17 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
 
             for pos in positions:
                 if pos['symbol'] == symbol:
-                    if float(x=pos['positionAmt']) == 0:
+                    if float(pos['positionAmt']) == 0:
                         continue
 
                     self.logger.debug(message=f"Position found: {pos}")
                     return {
                         'symbol': pos['symbol'],
-                        'quantity': float(x=pos['positionAmt']),
-                        'position_side': PositionSide.LONG if float(x=pos['positionAmt']) >= 0 else PositionSide.SHORT,
-                        'entry_price': float(x=pos['entryPrice']),
-                        'pnl': float(x=pos['unRealizedProfit']),
-                        'mark_price': float(x=pos['markPrice'])
+                        'quantity': float(pos['positionAmt']),
+                        'position_side': PositionSide.LONG if float(pos['positionAmt']) >= 0 else PositionSide.SHORT,
+                        'entry_price': float(pos['entryPrice']),
+                        'pnl': float(pos['unRealizedProfit']),
+                        'mark_price': float(pos['markPrice'])
                     }
 
             self.logger.debug(message=f"No active position found for {symbol}.")
@@ -173,7 +173,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         try:
             response_2 = requests.get(url=GET_TICKER_PRICE_URL, headers= headers_2, params=signed_params_2)
             response_2.raise_for_status()
-            current_price = float(x=response_2.json()["price"])
+            current_price = float(response_2.json()["price"])
             df["current_price"] = df["close"]
             df.loc[df.index[-1], "current_price"] = current_price
             self.logger.debug(message=f"Fetched current price for {symbol}: {current_price}")
