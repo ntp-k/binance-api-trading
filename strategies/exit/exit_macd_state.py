@@ -50,9 +50,9 @@ class ExitMacdState(BaseExitStrategy):
             (position.position_side == PositionSide.SHORT and current_macd > 0)
         )
         if macd_against_position:
-            checklist_reasons.append(f"MACD {current_macd} against {position.position_side.name}: ✅")
+            checklist_reasons.append(f"MACD {current_macd:.4f} against {position.position_side.name}: ✅")
         else:
-            checklist_reasons.append(f"MACD {current_macd} against {position.position_side.name}: ❌")
+            checklist_reasons.append(f"MACD {current_macd:.4f} against {position.position_side.name}: ❌")
 
         # Condition 2: Different candle
         different_candle = position.open_candle != current_candle_open_time
@@ -70,7 +70,7 @@ class ExitMacdState(BaseExitStrategy):
             )
         else:
             checklist_reasons.append(
-                f"pdiff > thrsd ({price_diff_percent:.2f}% < {self.close_price_diff_threshold:.2f}%): ❌"
+                f"pdiff > thrsd ({price_diff_percent:.2f}% > {self.close_price_diff_threshold:.2f}%): ❌"
             )
 
         reason_message = " | ".join(checklist_reasons)
@@ -78,7 +78,7 @@ class ExitMacdState(BaseExitStrategy):
 
          # actual logic
         if macd_against_position and different_candle and price_diff_over_threshold:
-            self.logger.debug(f'cur_macd: {current_macd}, open_c: {position.open_candle}, cur_c: {current_candle_open_time}, cur_p: {current_price}, p_diff: {different_candle:.2f}%')
+            self.logger.debug(f'cur_macd: {current_macd:.4f}, open_c: {position.open_candle}, cur_c: {current_candle_open_time}, cur_p: {current_price}, p_diff: {different_candle:.2f}%')
             new_position_side = PositionSide.ZERO # close position
 
         return PositionSignal(position_side = new_position_side, reason = reason_message)

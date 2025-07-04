@@ -30,7 +30,7 @@ class BotManager:
         for bot_config in self.bots_config:
             try:
                 self.logger.debug(message=bot_config)
-                self.logger.info(message=f'Loading 🤖  [{bot_config.bot_name}] ...')
+                self.logger.debug(message=f'Loading 🤖  [{bot_config.bot_name}] ...')
                 bot: Bot = Bot(bot_config=bot_config)
                 self.bots.append(bot)
 
@@ -40,7 +40,9 @@ class BotManager:
         self.logger.info(message=f"Loaded  {len(self.bots_config)}  🤖")
 
     def execute(self):
+        self.logger.debug(message="Initializing bot(s)...")
         for bot in self.bots:
+            self.logger.info(message=f'Starting 🤖  [{bot.bot_config.bot_name}] ...')
             self.logger.debug(message=f"Starting thread for 🤖  [{bot.bot_config.bot_name}] ...")
             thread = Thread(target=bot.run, name=bot.bot_config.bot_name)
             thread.start()
