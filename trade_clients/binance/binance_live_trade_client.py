@@ -142,7 +142,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             'interval': timeframe,
             'limit': timeframe_limit
         }
-        self.logger.debug(message=f'Fetching Klines of {params}')
+        # self.logger.debug(message=f'Fetching Klines of {params}')
 
         headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
         try:
@@ -157,7 +157,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             df['open_time'] = pd.to_datetime(arg=df['open_time'], unit='ms').dt.tz_localize(tz='UTC').dt.tz_convert(tz='Asia/Bangkok') # type: ignore
             df['close'] = df['close'].astype(dtype=float)
             df['open'] = df['open'].astype(dtype=float)
-            self.logger.debug(message=f"Fetched {len(df)} Klines for {symbol} at {timeframe} interval.")
+            # self.logger.debug(message=f"Fetched {len(df)} Klines for {symbol} at {timeframe} interval.")
         except requests.exceptions.HTTPError as e:
             self.logger.error_e(message=f"HTTP error getting Klines", e=e)
             self.logger.debug(message=f"Response: {response.text}") # type: ignore
@@ -168,7 +168,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
 
         # fetch current price
         params_2 = {'symbol': symbol}
-        self.logger.debug(message=f'Fetching current price of {params_2}')
+        # self.logger.debug(message=f'Fetching current price of {params_2}')
         headers_2, signed_params_2 = binance_auth.sign_request(params=params_2, binance_credential=self.__creds)
         try:
             response_2 = requests.get(url=GET_TICKER_PRICE_URL, headers= headers_2, params=signed_params_2)
@@ -176,7 +176,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             current_price = float(response_2.json()["price"])
             df["current_price"] = df["close"]
             df.loc[df.index[-1], "current_price"] = current_price
-            self.logger.debug(message=f"Fetched current price for {symbol}: {current_price}")
+            # self.logger.debug(message=f"Fetched current price for {symbol}: {current_price}")
         except Exception as e:
             self.logger.error_e(message=f"error getting price", e=e)
             return df
