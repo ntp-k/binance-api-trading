@@ -147,6 +147,7 @@ class Bot:
 
         # CASE 2: active trade position
         else:
+            self.position_handler.update_pnl(active_position_dict['pnl'])
             exit_signal: PositionSignal = self.exit_strategy.should_close(klines_df=klines_df, position_handler=self.position_handler)
             self.logger.debug(exit_signal.position_side)
             self.logger.info(exit_signal.reason)

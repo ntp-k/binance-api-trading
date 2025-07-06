@@ -54,6 +54,8 @@ class PositionHandler:
             os.remove(self.position_state_file_path)
 
     def update_pnl(self, pnl: float):
+        self.position.max_pnl = max(pnl, self.position.pnl)
+        self.position.min_pnl = min(pnl, self.position.pnl)
         self.position.pnl = pnl
 
     def is_open(self) -> bool:

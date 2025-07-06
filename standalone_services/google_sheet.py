@@ -35,19 +35,20 @@ class GoogleSheetService:
             worksheet = self.sheet.add_worksheet(title=worksheet_name, rows="1000", cols="20")
             # add headers
             worksheet.append_row([
-                "position_side", "entry_price", "close_price", "pnl", 
-                "open_time", "close_time", "open_reason", "close_reason"
+                "position_side", "entry_price", "close_price", "open_time", "close_time", "open_reason", "close_reason", "max_pnl", "min_pnl", "pnl"
             ])
         
         row = [
             position_data.get("position_side", ""),
             position_data.get("entry_price", ""),
             position_data.get("close_price", ""),
-            position_data.get("pnl", ""),
             position_data.get("open_time", ""),
             position_data.get("close_time", ""),
             position_data.get("open_reason", ""),
             position_data.get("close_reason", ""),
+            position_data.get("max_pnl", ""),
+            position_data.get("min_pnl", ""),
+            position_data.get("pnl", ""),
         ]
         worksheet.append_row(row, value_input_option="RAW")
 

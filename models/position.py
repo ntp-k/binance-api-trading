@@ -21,6 +21,8 @@ class Position:
     pnl: Optional[float] = 0.0
     close_reason: Optional[str] = ''
     created_at: Optional[datetime] = get_datetime_now_string_gmt_plus_7()
+    max_pnl: Optional[float] = 0.0
+    min_pnl: Optional[float] = 0.0
     
     def to_dict(self):
         return {
@@ -34,7 +36,9 @@ class Position:
             "close_time": self.close_time,
             "close_price": self.close_price,
             "pnl": self.pnl,
-            "close_reason": self.close_reason
+            "close_reason": self.close_reason,
+            "max_pnl": self.max_pnl,
+            "min_pnl": self.min_pnl
         }
 
     @classmethod
@@ -50,7 +54,9 @@ class Position:
             close_time=data.get("close_time", 0.0),
             close_price=data.get("close_price", 0.0),
             pnl=data.get('pnl', 0.0),
-            close_reason=data.get("close_reason", "")
+            close_reason=data.get("close_reason", ""),
+            max_pnl=data.get("max_pnl", 0),
+            min_pnl=data.get("min_pnl", 0.0)
         )
 
 
