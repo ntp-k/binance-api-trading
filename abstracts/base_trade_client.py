@@ -29,6 +29,13 @@ class BaseTradeClient(ABC):
         pass
 
     @abstractmethod
+    def fetch_price(self, symbol) -> float:
+        """
+        Subclass must implement.
+        """
+        pass
+
+    @abstractmethod
     def fetch_klines(self, symbol, timeframe, timeframe_limit=100) -> pd.DataFrame:
         """
         Subclass must implement.
@@ -36,7 +43,21 @@ class BaseTradeClient(ABC):
         pass
 
     @abstractmethod
+    def fetch_order(self, symbol, order_id: str = ''):
+        """
+        Subclass must implement.
+        """
+        pass
+
+    @abstractmethod
     def place_order(self, symbol: str, order_side: str, order_type: str, quantity: float, price: float = 0, reduce_only: bool = False, time_in_force: str = "GTC") -> dict:
+        """
+        Subclass must implement.
+        """
+        pass
+
+    @abstractmethod
+    def cancel_order(self, symbol, order_id: str = ''):
         """
         Subclass must implement.
         """

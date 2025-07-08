@@ -5,12 +5,15 @@ import pandas as pd
 from abstracts.base_live_trade_client import BaseLiveTradeClient
 from models.enum.position_side import PositionSide
 import trade_clients.binance.binance_auth as binance_auth
+from models.enum.order_type import OrderType
+from models.enum.order_side import OrderSide
 
 SET_LEVERAGE_URL = 'https://fapi.binance.com/fapi/v1/leverage'
 GET_POSITION_URL = 'https://fapi.binance.com/fapi/v2/positionRisk'
 SET_ORDER_URL = 'https://fapi.binance.com/fapi/v1/order'
 GET_KLINES_URL = 'https://fapi.binance.com/fapi/v1/klines'
 GET_TICKER_PRICE_URL = 'https://fapi.binance.com/fapi/v1/ticker/price'
+GET_ORDER = 'https://fapi.binance.com/fapi/v1/order'
 
 class BinanceLiveTradeClient(BaseLiveTradeClient):
     def __init__(self) -> None:
@@ -132,6 +135,19 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             self.logger.error(message=f"Failed to fetch position: {e}")
             return {"error": str(object=e)}
 
+    def fetch_price(self, symbol):
+        params = {'symbol': symbol}
+        # self.logger.debug(message=f'Fetching current price of {params_2}')
+        headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
+        try:
+            response = requests.get(url=GET_TICKER_PRICE_URL, headers= headers, params=signed_params)
+            response.raise_for_status()
+            current_price = float(response.json()["price"])
+            return current_price
+            # self.logger.debug(message=f"Fetched current price for {symbol}: {current_price}")
+        except Exception as e:
+            self.logger.error_e(message=f"error getting price", e=e)
+            return 0.0
 
     def fetch_klines(self, symbol, timeframe, timeframe_limit=100):
         df = None
@@ -167,20 +183,44 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             return df
 
         # fetch current price
-        params_2 = {'symbol': symbol}
-        # self.logger.debug(message=f'Fetching current price of {params_2}')
-        headers_2, signed_params_2 = binance_auth.sign_request(params=params_2, binance_credential=self.__creds)
-        try:
-            response_2 = requests.get(url=GET_TICKER_PRICE_URL, headers= headers_2, params=signed_params_2)
-            response_2.raise_for_status()
-            current_price = float(response_2.json()["price"])
-            df["current_price"] = df["close"]
-            df.loc[df.index[-1], "current_price"] = current_price
-            # self.logger.debug(message=f"Fetched current price for {symbol}: {current_price}")
-        except Exception as e:
-            self.logger.error_e(message=f"error getting price", e=e)
-            return df
+        current_price = self.fetch_price(symbol=symbol)
+        df["current_price"] = df["close"]
+        df.loc[df.index[-1], "current_price"] = current_price
 
         return df 
+
+    def fetch_order(self, symbol, order_id: str = ''):
+        params = {
+            'symbol': symbol,
+            'orderId': order_id,
+            'timestamp': int(time.time() * 1000)
+        }
+        headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
+        try:
+            response = requests.get(url=GET_ORDER, headers= headers, params=signed_params)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            self.logger.error_e(message=f"error getting order", e=e)
+            return {}
+
+    def cancel_order(self, symbol, order_id: str = ''):
+        params = {
+            'symbol': symbol,
+            'orderId': order_id,
+            'timestamp': int(time.time() * 1000)
+        }
+        headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
+        try:
+            response = requests.delete(url=GET_ORDER, headers= headers, params=signed_params)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            self.logger.error_e(message=f"error canceling order", e=e)
+            return {}
+
+
+if __name__ == "__main__":
+    pass
 
 # EOF
