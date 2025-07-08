@@ -6,6 +6,7 @@ from models.enum.entry_strategy import EntryStrategy
 from models.enum.exit_strategy import ExitStrategy
 from models.enum.run_mode import RunMode
 from models.enum.trade_client import TradeClient
+from models.enum.order_type import OrderType
 
 @dataclass
 class BotConfig:
@@ -21,6 +22,7 @@ class BotConfig:
     quantity: float
     timeframe: str
     timeframe_limit: int
+    order_type: OrderType
     dynamic_config: Dict[str, Any]
     created_at: datetime
 
@@ -34,6 +36,8 @@ class BotConfig:
             data['exit_strategy'] = ExitStrategy(value=data['exit_strategy'].upper())
         if type(data['trade_client']) == type('string'):
             data['trade_client'] = TradeClient(value=data['trade_client'].upper())
+        if type(data['order_type']) == type('string'):
+            data['order_type'] = OrderType(value=data['order_type'].upper())
         return cls(**data)
 
     def to_dict(self) -> dict:
