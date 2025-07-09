@@ -14,6 +14,7 @@ SET_ORDER_URL = 'https://fapi.binance.com/fapi/v1/order'
 GET_KLINES_URL = 'https://fapi.binance.com/fapi/v1/klines'
 GET_TICKER_PRICE_URL = 'https://fapi.binance.com/fapi/v1/ticker/price'
 GET_ORDER = 'https://fapi.binance.com/fapi/v1/order'
+GET_TRADE = 'https://fapi.binance.com/fapi/v1/userTrades'
 
 class BinanceLiveTradeClient(BaseLiveTradeClient):
     def __init__(self) -> None:
@@ -44,59 +45,6 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             return response.json()
         except requests.exceptions.RequestException as e:
             self.logger.error(message=f"Failed to set leverage: {e}")
-            return {"error": str(object=e)}
-
-    def place_order(self, symbol: str, order_side: str, order_type: str, quantity: float,
-                    price: float = 0, reduce_only: bool = False, time_in_force: str = "GTC") -> dict:
-        """
-        Place a futures order on Binance USDT-Margined Futures.
-
-        Args:
-            symbol (str): Trading symbol (e.g., 'BTCUSDT').
-            order_side (str): 'BUY' or 'SELL'.
-            order_type (str): 'MARKET' or 'LIMIT'.
-            quantity (float): Order quantity.
-            price (float, optional): Required for LIMIT orders.
-            reduce_only (bool): True will ensures your order will only reduce, close, or flatten an existing position.
-            time_in_force (str, optional): Default is 'GTC' (Good Till Cancelled).
-
-        Returns:
-            dict or None: Response from Binance API.
-        """
-
-        self.logger.debug(message=f"Placing order: {order_type} {order_side} {quantity} {symbol} (reduce_only={reduce_only})")
-
-        # Base parameters
-        params = {
-            'symbol': symbol.upper(),
-            'side': order_side.upper(),
-            'type': order_type.upper(),
-            'quantity': quantity,
-            'reduceOnly': reduce_only,
-            'timestamp': int(time.time() * 1000)
-        }
-
-        if order_type.upper() == 'LIMIT':
-            if not price:
-                raise ValueError("Price must be specified for LIMIT orders.")
-            params.update({
-                'price': price,
-                'timeInForce': time_in_force
-            })
-
-
-        headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
-        try:
-            response = requests.post(url=SET_ORDER_URL, headers=headers, params=signed_params)
-            response.raise_for_status()
-            self.logger.debug(message=f"Order placed: {response.json()}")
-            return response.json()
-        except requests.exceptions.HTTPError as e:
-            self.logger.error(message=f"HTTP error placing order: {e}")
-            self.logger.debug(message=f"Response: {response.text}") # type: ignore
-            return {"error": str(object=e), "response": response.text} # type: ignore
-        except requests.exceptions.RequestException as e:
-            self.logger.error(message=f"Network error placing order: {e}")
             return {"error": str(object=e)}
 
     def fetch_position(self, symbol):
@@ -222,6 +170,78 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             self.logger.error_e(message=f"error canceling order", e=e)
             return {}
 
+    def place_order(self, symbol: str, order_side: str, order_type: str, quantity: float,
+                    price: float = 0, reduce_only: bool = False, time_in_force: str = "GTC") -> dict:
+        """
+        Place a futures order on Binance USDT-Margined Futures.
+
+        Args:
+            symbol (str): Trading symbol (e.g., 'BTCUSDT').
+            order_side (str): 'BUY' or 'SELL'.
+            order_type (str): 'MARKET' or 'LIMIT'.
+            quantity (float): Order quantity.
+            price (float, optional): Required for LIMIT orders.
+            reduce_only (bool): True will ensures your order will only reduce, close, or flatten an existing position.
+            time_in_force (str, optional): Default is 'GTC' (Good Till Cancelled).
+
+        Returns:
+            dict or None: Response from Binance API.
+        """
+
+        self.logger.debug(message=f"Placing order: {order_type} {order_side} {quantity} {symbol} (reduce_only={reduce_only})")
+
+        # Base parameters
+        params = {
+            'symbol': symbol.upper(),
+            'side': order_side.upper(),
+            'type': order_type.upper(),
+            'quantity': quantity,
+            'reduceOnly': reduce_only,
+            'timestamp': int(time.time() * 1000)
+        }
+
+        if order_type.upper() == 'LIMIT':
+            if not price:
+                raise ValueError("Price must be specified for LIMIT orders.")
+            params.update({
+                'price': price,
+                'timeInForce': time_in_force
+            })
+
+
+        headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
+        try:
+            response = requests.post(url=SET_ORDER_URL, headers=headers, params=signed_params)
+            response.raise_for_status()
+            self.logger.debug(message=f"Order placed: {response.json()}")
+            return response.json()
+        except requests.exceptions.HTTPError as e:
+            self.logger.error(message=f"HTTP error placing order: {e}")
+            self.logger.debug(message=f"Response: {response.text}") # type: ignore
+            return {"error": str(object=e), "response": response.text} # type: ignore
+        except requests.exceptions.RequestException as e:
+            self.logger.error(message=f"Network error placing order: {e}")
+            return {"error": str(object=e)}
+
+    def fetch_trade(self, symbol: str = '', order_id: str = ''):
+        params = {
+            'timestamp': int(time.time() * 1000)
+        }
+
+        if symbol != '':
+            params['symbol'] = symbol
+
+        if order_id != '':
+            params['orderId'] = order_id
+
+        headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
+        try:
+            response = requests.get(url=GET_TRADE, headers= headers, params=signed_params)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            self.logger.error_e(message=f"error getting order", e=e)
+            return {}
 
 if __name__ == "__main__":
     pass

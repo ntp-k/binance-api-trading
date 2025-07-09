@@ -63,6 +63,13 @@ class BaseTradeClient(ABC):
         """
         pass
 
+    @abstractmethod
+    def fetch_trade(self, symbol: str = '', order_id: str = ''):
+        """
+        Subclass must implement.
+        """
+        pass
+
     def set_wait_time(self, wait_time_sec: int):
         self.wait_time = wait_time_sec
 
