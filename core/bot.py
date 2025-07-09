@@ -113,48 +113,82 @@ class Bot:
             reduce_only=reduce_only,
         )
         sleep(2) # wait for binance to process order
-        return _order
+
+        _order_id = _order.get('orderId')
+        _order_filled = False
+        while not _order_filled:
+            _order_status = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=_order_id)
+            _order_filled = _order_status.get('status') == 'FILLED'
+
+            if not _order_filled:
+                self.logger.info(message="Order still pending. Waiting...")
+            else:
+                self.logger.info(message="Order filled")
+                break
+
+        self.logger.debug(message=f'Getting trade history order_id: {_order_id}')
+        trades = self.trade_client.fetch_trade(symbol=self.bot_config.symbol, order_id=_order_id)
+        return trades[0]
 
     def _place_limit_order(self, order_side, reduce_only):
-        order_filled = False
-        while not order_filled:
+        _order_filled = False
+        _order_id = ''
+        _last_price = None
+        while not _order_filled:
             price_now = self.trade_client.fetch_price(symbol=self.bot_config.symbol)
-            self.logger.debug(message='Placing limit order')
 
-            _order = self.trade_client.place_order(
-                symbol=self.bot_config.symbol,
-                order_side=order_side,
-                order_type=OrderType.LIMIT.value,
-                quantity=self.bot_config.quantity,
-                price=price_now,
-                reduce_only=reduce_only,
-            )
-            _order_id = _order.get('orderId')
+            if _last_price != price_now:
+                self.logger.info(message=f"Placing new LIMIT order at price: {price_now}")
+
+                _order = self.trade_client.place_order(
+                    symbol=self.bot_config.symbol,
+                    order_side=order_side,
+                    order_type=OrderType.LIMIT.value,
+                    quantity=self.bot_config.quantity,
+                    price=price_now,
+                    reduce_only=reduce_only,
+                )
+                self.logger.debug(message=f"New order: {_order}")
+                _order_id = _order.get('orderId')
+            else:
+                self.logger.debug(message="Price unchanged. Skipping re-order.")
 
             sleep(10)  # wait for order to filled
-    
-            _check_order = self.trade_client.fetch_order(
-                symbol=self.bot_config.symbol, order_id=_order_id)
-            order_filled = _check_order.get('status') == 'FILLED'
 
-            if not order_filled:
+            _check_order = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=_order_id)
+            self.logger.debug(message=f"Order status: {_check_order}")
+            _order_filled = _check_order.get('status') == 'FILLED'
+            self.logger.debug(message=f"Order filled: {_order_filled}")
+
+            if not _order_filled and _last_price != price_now:
                 self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=_order_id)
+                self.logger.info(message="Order canceled due to price change")
                 sleep(1) # wait for binance to cancle order
-            else:
-                return _check_order
+            elif not _order_filled:
+                self.logger.info(message="Order still pending. Waiting...")
+            else: # order filled
+                self.logger.info(message="Order filled")
+                break
+            
+            _last_price = price_now
+    
+        self.logger.debug(message=f'Getting trade history order_id: {_order_id}')
+        trades = self.trade_client.fetch_trade(symbol=self.bot_config.symbol, order_id=_order_id)
+        return trades[0]
+                
 
     def _place_order_to_open_position(self, position_side: PositionSide):
         _order_side = OrderSide.BUY.value if position_side == PositionSide.LONG else OrderSide.SELL.value
-        _order = None
+        _trade = None
 
         self.logger.info(message='Placing order to open position')
 
         if self.bot_config.order_type == OrderType.MARKET:
-            _order = self._place_market_order(order_side=_order_side, reduce_only=False)
+            _trade = self._place_market_order(order_side=_order_side, reduce_only=False)
         else:  # LIMIT
-            _order = self._place_limit_order(order_side=_order_side, reduce_only=False)
+            _trade = self._place_limit_order(order_side=_order_side, reduce_only=False)
 
-        self.logger.info(message=f'Placed order: {_order}')
+        self.logger.info(message=f'Trade: {_trade}')
 
         new_position_dict: dict = self.trade_client.fetch_position(
             symbol=self.bot_config.symbol)
@@ -162,28 +196,31 @@ class Bot:
             self.logger.critical(
                 message=f'💥 Failed to place order to binance!')
             raise Exception('💥 Failed to place order to binance!')
-
+        
+        new_position_dict['open_fee'] = float(_trade.get('commission', '0'))
         self.logger.info(
             message=f"{self.bot_config.symbol} | {'OPEN':<5} | {position_side.value:<5} | {new_position_dict["entry_price"]}")
         return new_position_dict
 
     def _place_order_to_close_position(self, position_dict: dict):
         _order_side = OrderSide.BUY.value if position_dict['position_side'] == PositionSide.SHORT else OrderSide.SELL.value
-        _order = None
+        _trade = None
 
         self.logger.info(message='Placing order to close position')
     
         if self.bot_config.order_type == OrderType.MARKET:
-            _order = self._place_market_order(order_side=_order_side, reduce_only=True)
+            _trade = self._place_market_order(order_side=_order_side, reduce_only=True)
         else:
-            _order = self._place_limit_order(order_side=_order_side, reduce_only=True)
+            _trade = self._place_limit_order(order_side=_order_side, reduce_only=True)
 
-        self.logger.info(message=f'Placed order: {_order}')
+        self.logger.info(message=f'Trade: {_trade}')
 
         close_price = position_dict['mark_price']
         pnl = position_dict['pnl']
+        position_dict['close_fee'] = float(_trade.get('commission', '0'))
         self.logger.info(
             message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {position_dict['position_side'].value:<5} | {position_dict['entry_price']:.2f} -> {close_price:.2f} | {'+' if pnl >= 0 else ''}{pnl:.2f}")
+        return position_dict
 
     def execute(self):
         klines_df = self.trade_client.fetch_klines(
@@ -231,12 +268,12 @@ class Bot:
                 self.logger.debug(
                     message=f'Active position: {active_position_dict}')
 
-                self._place_order_to_close_position(
+                closed_position_dict = self._place_order_to_close_position(
                     position_dict=active_position_dict)
 
-                active_position_dict['close_reason'] = exit_signal.reason
+                closed_position_dict['close_reason'] = exit_signal.reason
                 self.position_handler.close_position(
-                    position_dict=active_position_dict)
+                    position_dict=closed_position_dict)
 
         if self.position_handler.position is not None:
             self.position_handler.dump_position_state()
