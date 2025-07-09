@@ -104,6 +104,7 @@ class Bot:
                     message="Trade client position and Bot in memory position is not sync; resetting state")
 
     def _place_market_order(self, order_side, reduce_only):
+        self.logger.debug(message='Placing merket order')
         _order = self.trade_client.place_order(
             symbol=self.bot_config.symbol,
             order_side=order_side,
@@ -118,6 +119,7 @@ class Bot:
         order_filled = False
         while not order_filled:
             price_now = self.trade_client.fetch_price(symbol=self.bot_config.symbol)
+            self.logger.debug(message='Placing limit order')
 
             _order = self.trade_client.place_order(
                 symbol=self.bot_config.symbol,
@@ -145,14 +147,14 @@ class Bot:
         _order_side = OrderSide.BUY.value if position_side == PositionSide.LONG else OrderSide.SELL.value
         _order = None
 
-        self.logger.debug(message='Placing order to open position')
+        self.logger.info(message='Placing order to open position')
 
         if self.bot_config.order_type == OrderType.MARKET:
             _order = self._place_market_order(order_side=_order_side, reduce_only=False)
         else:  # LIMIT
             _order = self._place_limit_order(order_side=_order_side, reduce_only=False)
 
-        self.logger.debug(message=f'Placed order: {_order}')
+        self.logger.info(message=f'Placed order: {_order}')
 
         new_position_dict: dict = self.trade_client.fetch_position(
             symbol=self.bot_config.symbol)
@@ -169,14 +171,14 @@ class Bot:
         _order_side = OrderSide.BUY.value if position_dict['position_side'] == PositionSide.SHORT else OrderSide.SELL.value
         _order = None
 
-        self.logger.debug(message='Placing order to close position')
+        self.logger.info(message='Placing order to close position')
     
         if self.bot_config.order_type == OrderType.MARKET:
             _order = self._place_market_order(order_side=_order_side, reduce_only=True)
         else:
             _order = self._place_limit_order(order_side=_order_side, reduce_only=True)
 
-        self.logger.debug(message=f'Placed order: {_order}')
+        self.logger.info(message=f'Placed order: {_order}')
 
         close_price = position_dict['mark_price']
         pnl = position_dict['pnl']
@@ -198,7 +200,7 @@ class Bot:
         if not active_position_dict:
             entry_signal: PositionSignal = self.entry_strategy.should_open(
                 klines_df=klines_df, position_handler=self.position_handler)
-            self.logger.debug(entry_signal.position_side)
+            # self.logger.debug(entry_signal.position_side)
             self.logger.info(entry_signal.reason)
 
             if entry_signal.position_side != PositionSide.ZERO:
@@ -220,7 +222,7 @@ class Bot:
             self.position_handler.update_pnl(pnl=active_position_dict['pnl'])
             exit_signal: PositionSignal = self.exit_strategy.should_close(
                 klines_df=klines_df, position_handler=self.position_handler)
-            self.logger.debug(exit_signal.position_side)
+            # self.logger.debug(exit_signal.position_side)
             self.logger.info(exit_signal.reason)
 
             if exit_signal.position_side == PositionSide.ZERO:

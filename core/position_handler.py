@@ -75,7 +75,7 @@ class PositionHandler:
             return
         with open(file=file_path, mode="w", encoding="utf-8") as f:
             json.dump(obj=self.position.to_dict(), fp=f, indent=4)
-        self.logger.debug(message=f"Position dumped to {file_path}")
+        # self.logger.debug(message=f"Position dumped to {file_path}")
 
     def _dump_position_record(self):
         _dt = get_datetime_now_string_gmt_plus_7(format='%Y%m%d_%H%M%S')

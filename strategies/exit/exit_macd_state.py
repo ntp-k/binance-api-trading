@@ -66,7 +66,7 @@ class ExitMacdState(BaseExitStrategy):
         price_diff_over_threshold = price_diff_percent > self.close_price_diff_threshold
         if price_diff_over_threshold:
             checklist_reasons.append(
-                f"pdiff > thrsd ({price_diff_percent:.2f}% >= {self.close_price_diff_threshold:.2f}%): ✅"
+                f"pdiff > thrsd ({price_diff_percent:.2f}% > {self.close_price_diff_threshold:.2f}%): ✅"
             )
         else:
             checklist_reasons.append(

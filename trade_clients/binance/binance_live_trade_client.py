@@ -103,7 +103,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         """
         Get the current futures position for a given symbol.
         """
-        self.logger.debug(message=f"Fetching position for {symbol}...")
+        # self.logger.debug(message=f"Fetching position for {symbol}...")
 
         params = {'timestamp': int(time.time() * 1000)}
         headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
@@ -118,13 +118,16 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
                     if float(pos['positionAmt']) == 0:
                         continue
 
-                    self.logger.debug(message=f"Position found: {pos}")
+                    pnl = float(pos['unRealizedProfit'])
+                    position_side = PositionSide.LONG if float(pos['positionAmt']) >= 0 else PositionSide.SHORT
+                    self.logger.debug(message=f"Position found: {pos['symbol']} | {position_side.value} | {'+' if pnl >= 0 else ''}{pnl:.2f}")
+
                     return {
                         'symbol': pos['symbol'],
                         'quantity': float(pos['positionAmt']),
-                        'position_side': PositionSide.LONG if float(pos['positionAmt']) >= 0 else PositionSide.SHORT,
+                        'position_side': position_side,
                         'entry_price': float(pos['entryPrice']),
-                        'pnl': float(pos['unRealizedProfit']),
+                        'pnl': pnl,
                         'mark_price': float(pos['markPrice'])
                     }
 
