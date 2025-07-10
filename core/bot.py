@@ -280,7 +280,11 @@ class Bot:
 
     def run(self):
         while self.trade_client.running:
-            self.execute()
+            try:
+                self.execute()
+            except Exception as e:
+                self.logger.error_e(message='Error executing bot', e=e)
+
             self.trade_client.wait()
 
 # EOF
