@@ -7,6 +7,7 @@ from core.position_handler import PositionHandler
 from models import position
 from models.bot_config import BotConfig
 from models.enum import order_side
+from models.enum import position_side
 from models.enum.order_side import OrderSide
 from models.enum.order_type import OrderType
 from models.enum.position_side import PositionSide
@@ -17,6 +18,7 @@ from models.position_signal import PositionSignal
 from time import sleep
 from trade_clients.get_trade_client import get_trade_client
 import strategies.get_strategy as get_strategy
+from models.enum.exit_strategy import ExitStrategy
 
 
 class Bot:
@@ -103,6 +105,43 @@ class Bot:
                 self.logger.warning(
                     message="Trade client position and Bot in memory position is not sync; resetting state")
 
+    def _place_tp_order(self, position_side, tp_price):
+        order_side = OrderSide.SELL.value if position_side == PositionSide.LONG else OrderSide.BUY.value
+
+        self.logger.debug(message='Placing take profit order')
+        tp_order = self.trade_client.place_order(
+            symbol=self.bot_config.symbol,
+            order_side=order_side,
+            order_type=OrderType.LIMIT.value,
+            price=tp_price,
+            quantity=self.bot_config.quantity,
+            reduce_only=True
+        )
+        self.logger.info(message=f"TP order placed at {tp_price}")
+        _order_id = tp_order.get('orderId')
+        self.position_handler.set_tp_order_id(id=_order_id)
+        self.position_handler.set_tp_order_price(price=tp_price)
+        return tp_order
+
+    def _place_sl_order(self, position_side, sl_price):
+        order_side = OrderSide.SELL.value if position_side == PositionSide.LONG else OrderSide.BUY.value
+
+        self.logger.debug(message='Placing stop loss order')
+        sl_order = self.trade_client.place_order(
+            symbol=self.bot_config.symbol,
+            order_side=order_side,
+            order_type=OrderType.STOP_MARKET.value,
+            stop_price=sl_price,
+            quantity=self.bot_config.quantity,
+            reduce_only=True,
+            closePosition=True
+        )
+        self.logger.info(message=f"SL order placed at {sl_price}")
+        _order_id = sl_order.get('orderId')
+        self.position_handler.set_sl_order_id(id=_order_id)
+        self.position_handler.set_sl_order_price(price=sl_price)
+        return sl_order
+
     def _place_market_order(self, order_side, reduce_only):
         self.logger.debug(message='Placing merket order')
         _order = self.trade_client.place_order(
@@ -176,7 +215,6 @@ class Bot:
         trades = self.trade_client.fetch_trade(symbol=self.bot_config.symbol, order_id=_order_id)
         return trades[0]
                 
-
     def _place_order_to_open_position(self, position_side: PositionSide):
         _order_side = OrderSide.BUY.value if position_side == PositionSide.LONG else OrderSide.SELL.value
         _trade = None
@@ -222,22 +260,40 @@ class Bot:
             message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {position_dict['position_side'].value:<5} | {position_dict['entry_price']:.2f} -> {close_price:.2f} | {'+' if pnl >= 0 else ''}{pnl:.2f}")
         return position_dict
 
+    def _place_position_tp_sl(self, klines_df):
+        position = self.position_handler.position
+        position_side = position.position_side
+        entry_price = position.entry_price
+
+        tp_price, sl_price = self.entry_strategy.calculate_tp_sl(
+            klines_df=klines_df,
+            position_side=position_side,
+            entry_price=entry_price
+        )
+
+        _tp_order = self._place_tp_order(position_side=position_side, tp_price=tp_price)
+        _sl_order = self._place_sl_order(position_side=position_side, sl_price=sl_price)
+
     def execute(self):
         klines_df = self.trade_client.fetch_klines(
             symbol=self.bot_config.symbol,
             timeframe=self.bot_config.timeframe,
             timeframe_limit=self.bot_config.timeframe_limit
         )
-        active_position_dict: dict = self.trade_client.fetch_position(
-            symbol=self.bot_config.symbol)
-        self._sync_position_state(active_position_dict=active_position_dict, candle_open_time=str(
-            klines_df.iloc[-1]["open_time"]))
+
+        try:
+            active_position_dict: dict = self.trade_client.fetch_position(
+                symbol=self.bot_config.symbol)
+            self._sync_position_state(active_position_dict=active_position_dict, candle_open_time=str(
+                klines_df.iloc[-1]["open_time"]))
+        except Exception as e:
+            self.logger.critical_e(message='Failed to fetch or sync position', e=e)
 
         # CASE 1: no active trade position
         if not active_position_dict:
             entry_signal: PositionSignal = self.entry_strategy.should_open(
                 klines_df=klines_df, position_handler=self.position_handler)
-            # self.logger.debug(entry_signal.position_side)
+            self.logger.debug(entry_signal.position_side)
             self.logger.info(entry_signal.reason)
 
             if entry_signal.position_side != PositionSide.ZERO:
@@ -253,14 +309,22 @@ class Bot:
                 _new_positino_dict['open_reason'] = entry_signal.reason
                 self.position_handler.open_position(
                     position_dict=_new_positino_dict)
+            
+            if self.bot_config.exit_strategy == ExitStrategy.TP_SL:
+                self._place_position_tp_sl(klines_df=klines_df)
+        
+        # CASE 2: active with TP/SL enabled
+        elif self.bot_config.exit_strategy == ExitStrategy.TP_SL:
+            pass
+            edit here
 
-        # CASE 2: active trade position
+        # CASE 3: active trade position
         else:
             self.position_handler.update_pnl(pnl=active_position_dict['pnl'])
             exit_signal: PositionSignal = self.exit_strategy.should_close(
                 klines_df=klines_df, position_handler=self.position_handler)
             # self.logger.debug(exit_signal.position_side)
-            self.logger.info(exit_signal.reason)
+            self.logger.info(message=exit_signal.reason)
 
             if exit_signal.position_side == PositionSide.ZERO:
                 self.logger.debug(

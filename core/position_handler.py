@@ -16,12 +16,20 @@ POSITION_STATES_FILENAME_TEMPLATE = "runid_{run_id}_state.json"
 class PositionHandler:
     bot_config: BotConfig
     position: Position | None = None
+    tp_order_id: str
+    tp_price: float
+    sl_order_id: str
+    sl_price: float
 
     def __init__(self, bot_config: BotConfig):
         self.logger = CustomLogger(
             name=f"PositionHandler:{bot_config.bot_name}")
         self.bot_config: BotConfig = bot_config
         self.position: Position | None = None
+        self.tp_order_id = ''
+        self.tp_price = 0.0
+        self.sl_order_id = ''
+        self.sl_price = 0.0
 
         if not os.path.exists(POSITION_RECORDS_DIR):
             os.mkdir(POSITION_RECORDS_DIR)
@@ -33,6 +41,22 @@ class PositionHandler:
             POSITION_STATES_DIR, _position_state_file_name)
     
         self.read_position_state()
+    
+    def set_tp_order_id(self, id):
+        self.tp_order_id = id
+        self.position.tp_order_id = id
+    
+    def set_tp_price(self, price):
+        self.tp_price = price
+        self.position.tp_price = price
+    
+    def set_sl_order_id(self, id):
+        self.sl_order_id = id
+        self.position.sl_order_id = id
+    
+    def set_sl_price(self, price):
+        self.sl_price = price
+        self.position.sl_price = price
 
     def open_position(self, position_dict: dict):
         try:
