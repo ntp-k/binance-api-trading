@@ -122,6 +122,8 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
                 'taker_buy_base_volume', 'taker_buy_quote_volume', 'ignore'
             ])
             df['open_time'] = pd.to_datetime(arg=df['open_time'], unit='ms').dt.tz_localize(tz='UTC').dt.tz_convert(tz='Asia/Bangkok') # type: ignore
+            df['high'] = df['high'].astype(dtype=float)
+            df['low'] = df['low'].astype(dtype=float)
             df['close'] = df['close'].astype(dtype=float)
             df['open'] = df['open'].astype(dtype=float)
             # self.logger.debug(message=f"Fetched {len(df)} Klines for {symbol} at {timeframe} interval.")
@@ -171,7 +173,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             return {}
 
     def place_order(self, symbol: str, order_side: str, order_type: str, quantity: float,
-                    price: float = 0, reduce_only: bool = False, time_in_force: str = "GTC") -> dict:
+                    price: float = 0, reduce_only: bool = False, time_in_force: str = "GTC", close_position: bool = False) -> dict:
         """
         Place a futures order on Binance USDT-Margined Futures.
 
@@ -197,6 +199,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             'type': order_type.upper(),
             'quantity': quantity,
             'reduceOnly': reduce_only,
+            'closePosition': 'true' if close_position else 'false',
             'timestamp': int(time.time() * 1000)
         }
 
