@@ -29,6 +29,9 @@ class BotManager:
 
         for bot_config in self.bots_config:
             try:
+                if not bot_config.is_enabled:
+                    self.logger.debug(message=f'Bot: {bot_config.bot_name} is disabled')
+                    continue
                 self.logger.debug(message=bot_config)
                 self.logger.debug(message=f'Loading 🤖  [{bot_config.bot_name}] ...')
                 bot: Bot = Bot(bot_config=bot_config)

@@ -10,6 +10,7 @@ from models.enum.order_type import OrderType
 
 @dataclass
 class BotConfig:
+    is_enabled: bool
     bot_id: int
     run_id: int
     bot_name: str
