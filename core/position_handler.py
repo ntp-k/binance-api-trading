@@ -50,6 +50,9 @@ class PositionHandler:
         self.tp_price = price
         self.position.tp_price = price
     
+    def get_tp_order_id(self):
+        return self.position.tp_order_id
+    
     def set_sl_order_id(self, id):
         self.sl_order_id = id
         self.position.sl_order_id = id
@@ -57,6 +60,19 @@ class PositionHandler:
     def set_sl_price(self, price):
         self.sl_price = price
         self.position.sl_price = price
+    
+    def get_sl_order_id(self):
+        return self.position.sl_order_id
+
+    def clear_tp_sl_orders(self):
+        self.tp_order_id = ''
+        self.tp_price = 0.0
+        self.position.tp_order_id = ''
+        self.position.tp_price = 0.0
+        self.sl_order_id = ''
+        self.sl_price = 0.0
+        self.position.sl_order_id = ''
+        self.position.sl_price = 0.0
 
     def open_position(self, position_dict: dict):
         try:

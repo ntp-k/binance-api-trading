@@ -173,7 +173,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             return {}
 
     def place_order(self, symbol: str, order_side: str, order_type: str, quantity: float,
-                    price: float = 0, reduce_only: bool = False, time_in_force: str = "GTC", close_position: bool = False) -> dict:
+                    price: float = 0, reduce_only: bool = False, time_in_force: str = "GTC", close_position: bool = False, stop_price: float = -1) -> dict:
         """
         Place a futures order on Binance USDT-Margined Futures.
 
@@ -210,7 +210,10 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
                 'price': price,
                 'timeInForce': time_in_force
             })
-
+        if stop_price != -1:
+            params.update({
+                'stopPrice': stop_price
+            })
 
         headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
         try:
