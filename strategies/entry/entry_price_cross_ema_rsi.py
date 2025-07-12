@@ -58,32 +58,34 @@ class EntryPriceCrossEMARSI(BaseEntryStrategy):
         if price_above:
             checklist_reasons.append('Looking for LONG')
             if long_cross:
-                checklist_reasons.append('ema long cross: ✅')
+                checklist_reasons.append(f'ema long cross {last[ema_fast]} > {last[ema_slow]}: ✅')
             else:
-                checklist_reasons.append('ema long cross: ❌')
+                checklist_reasons.append(f'ema long cross {last[ema_fast]} > {last[ema_slow]}: ❌')
             
             if rsi_bullish:
-                checklist_reasons.append('rsi bullish: ✅')
+                checklist_reasons.append(f'rsi bullish {rsi} > {self.rsi_long_min}: ✅')
             else:
-                checklist_reasons.append('rsi bullish: ❌')
+                checklist_reasons.append(f'rsi bullish {rsi} > {self.rsi_long_min}: ❌')
 
 
         elif price_below:
             checklist_reasons.append('Looking for SHORT')
-            if long_cross:
-                checklist_reasons.append('ema short cross: ✅')
+            if short_cross:
+                checklist_reasons.append(f'ema short cross {last[ema_fast]} < {last[ema_slow]}: ✅')
             else:
-                checklist_reasons.append('ema short cross: ❌')
+                checklist_reasons.append(f'ema short cross {last[ema_fast]} < {last[ema_slow]}: ❌')
             
             if rsi_bearish:
-                checklist_reasons.append('rsi bearish: ✅')
+                checklist_reasons.append(f'rsi bearish {rsi} < {self.rsi_short_max}: ✅')
             else:
-                checklist_reasons.append('rsi bearish: ❌')
+                checklist_reasons.append(f'rsi bearish {rsi} < {self.rsi_short_max}: ❌')
+        else:
+            checklist_reasons.append('price cross: ❌')
 
         # core logic
-        if long_cross and price_above and rsi_bullish:
+        if price_above and long_cross and rsi_bullish:
             new_position_side = PositionSide.LONG
-        elif short_cross and price_below and rsi_bearish:
+        elif price_below and short_cross and rsi_bearish:
             new_position_side = PositionSide.SHORT
         
         self.logger.debug(message=f"price: {last['close']}, ema9: {prev[ema_fast]}, ema21: {last[ema_slow]}, rsi: {last['rsi']}")
@@ -92,8 +94,10 @@ class EntryPriceCrossEMARSI(BaseEntryStrategy):
         return PositionSignal(position_side=new_position_side, reason=reason_message)
 
     def calculate_tp_sl(self, klines_df, position_side, entry_price):
+        self.logger.debug('Calculating TP / SL')
         klines_df = data_processor.calculate_atr(df=klines_df)
         atr = klines_df.iloc[-1]['atr']
+        atr = round(atr, self.decimal)
 
         tp_price = 0
         sl_price = 0
@@ -107,6 +111,10 @@ class EntryPriceCrossEMARSI(BaseEntryStrategy):
         else:
             raise(f'Erorr calculating TP/SL when PositionSide is {position_side}')
         
-        return round(tp_price, self.decimal4), round(sl_price, self.decimal4)
+        tp_price = round(tp_price, self.decimal)
+        sl_price = round(sl_price, self.decimal)
+        self.logger.debug(f'ATR: {atr},  TP Price: {tp_price}, SL Price: {sl_price}')
+        
+        return tp_price, sl_price
 
 # EOF
