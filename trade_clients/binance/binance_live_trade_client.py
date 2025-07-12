@@ -5,8 +5,6 @@ import pandas as pd
 from abstracts.base_live_trade_client import BaseLiveTradeClient
 from models.enum.position_side import PositionSide
 import trade_clients.binance.binance_auth as binance_auth
-from models.enum.order_type import OrderType
-from models.enum.order_side import OrderSide
 
 SET_LEVERAGE_URL = 'https://fapi.binance.com/fapi/v1/leverage'
 GET_POSITION_URL = 'https://fapi.binance.com/fapi/v2/positionRisk'
@@ -19,7 +17,7 @@ GET_TRADE = 'https://fapi.binance.com/fapi/v1/userTrades'
 class BinanceLiveTradeClient(BaseLiveTradeClient):
     def __init__(self) -> None:
         super().__init__()
-        self.set_wait_time(wait_time_sec=30)
+        self.set_wait_time(wait_time_sec=20)
         self.set_running(running=True)
     
     def init(self):
@@ -214,6 +212,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             params.update({
                 'stopPrice': stop_price
             })
+            del params['reduceOnly']
 
         headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
         try:

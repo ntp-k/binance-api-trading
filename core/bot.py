@@ -1,19 +1,14 @@
-from ast import While
 from abstracts.base_entry_strategy import BaseEntryStrategy
 from abstracts.base_exit_strategy import BaseExitStrategy
 from abstracts.base_trade_client import BaseTradeClient
 from commons.custom_logger import CustomLogger
 from core.position_handler import PositionHandler
-from models import position
 from models.bot_config import BotConfig
-from models.enum import order_side
-from models.enum import position_side
 from models.enum.order_side import OrderSide
 from models.enum.order_type import OrderType
 from models.enum.position_side import PositionSide
 from models.enum.run_mode import RunMode
 from models.enum.trade_client import TradeClient
-from models.position import Position
 from models.position_signal import PositionSignal
 from time import sleep
 from trade_clients.get_trade_client import get_trade_client
@@ -106,9 +101,9 @@ class Bot:
                     message="Trade client position and Bot in memory position is not sync; resetting state")
 
     def _place_tp_order(self, position_side, tp_price):
+        self.logger.info(message='Placing new take profit order')
         order_side = OrderSide.SELL.value if position_side == PositionSide.LONG else OrderSide.BUY.value
 
-        self.logger.debug(message='Placing take profit order')
         tp_order = self.trade_client.place_order(
             symbol=self.bot_config.symbol,
             order_side=order_side,
@@ -124,16 +119,15 @@ class Bot:
         return tp_order
 
     def _place_sl_order(self, position_side, sl_price):
+        self.logger.info(message='Placing new stop loss order')
         order_side = OrderSide.SELL.value if position_side == PositionSide.LONG else OrderSide.BUY.value
 
-        self.logger.debug(message='Placing stop loss order')
         sl_order = self.trade_client.place_order(
             symbol=self.bot_config.symbol,
             order_side=order_side,
             order_type=OrderType.STOP_MARKET.value,
             stop_price=sl_price,
             quantity=self.bot_config.quantity,
-            reduce_only=True,
             close_position=True
         )
         self.logger.info(message=f"SL order placed at {sl_price}")
@@ -143,7 +137,7 @@ class Bot:
         return sl_order
 
     def _place_market_order(self, order_side, reduce_only):
-        self.logger.debug(message='Placing merket order')
+        self.logger.info(message='Placing new market order')
         _order = self.trade_client.place_order(
             symbol=self.bot_config.symbol,
             order_side=order_side,
@@ -291,14 +285,14 @@ class Bot:
         if tp_filled or sl_filled:
             reason = "TP hit: ✅" if tp_filled else "SL hit: ✅"
 
-            traded_order = ''
+            filled_order_id = ''
             # Cancel the other order
             try:
                 if tp_filled:
-                    traded_order = tp_order_id
+                    filled_order_id = tp_order_id
                     self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=sl_order_id)
                 elif sl_filled:
-                    traded_order = sl_order_id
+                    filled_order_id = sl_order_id
                     self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=tp_order_id)
 
             except Exception as e:
@@ -306,7 +300,7 @@ class Bot:
             self.logger.info(message=f"{reason}. Opposing order canceled.")
 
             self.logger.debug('')
-            trade = self.trade_client.fetch_trade(symbol=self.bot_config.symbol, order_id=traded_order)
+            trade = self.trade_client.fetch_trade(symbol=self.bot_config.symbol, order_id=filled_order_id)
 
             close_fee = float(trade.get('commission', '0'))
             close_price =float(trade.get('price'))
@@ -353,15 +347,15 @@ class Bot:
                 self.logger.debug(
                     message=f'{self.bot_config.symbol} Entry signal triggered')
 
-                _new_positino_dict = self._place_order_to_open_position(
+                _new_position_dict = self._place_order_to_open_position(
                     position_side=entry_signal.position_side)
 
-                _new_positino_dict['run_id'] = self.bot_config.run_id
-                _new_positino_dict['open_candle'] = str(
+                _new_position_dict['run_id'] = self.bot_config.run_id
+                _new_position_dict['open_candle'] = str(
                     object=klines_df.iloc[-1]["open_time"])
-                _new_positino_dict['open_reason'] = entry_signal.reason
+                _new_position_dict['open_reason'] = entry_signal.reason
                 self.position_handler.open_position(
-                    position_dict=_new_positino_dict)
+                    position_dict=_new_position_dict)
 
                 if self.bot_config.exit_strategy == ExitStrategy.TP_SL:
                     self._place_position_tp_sl(klines_df=klines_df)
@@ -369,7 +363,7 @@ class Bot:
         # CASE 2: active position with TP/SL enabled
         elif self.bot_config.exit_strategy == ExitStrategy.TP_SL:
             self.logger.debug(message='Checking TP/SL orders')
-            if self._monitor_tp_sl_fill():
+            if self._monitor_tp_sl_fill(active_position_dict):
                 return
 
         # CASE 3: active position,  loogking for exit signal
