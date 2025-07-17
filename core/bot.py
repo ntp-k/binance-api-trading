@@ -86,9 +86,12 @@ class Bot:
     def _sync_position_state(self, active_position_dict, candle_open_time):
         # if the client has NO position but our bot has one in memory, maybe reload it
         if not active_position_dict and self.position_handler.is_open():
-            self.logger.warning(
-                message="Bot has position in memory but trade client has none; resetting state.")
-            self.position_handler.clear_position()
+            if self.bot_config.exit_strategy != ExitStrategy.TP_SL:
+                self.logger.warning(
+                    message="Bot has position in memory but trade client has none; resetting state.")
+                self.position_handler.clear_position()
+            else:
+                self.logger.debug('Suspect TP/SL were hitted')
         elif active_position_dict and not self.position_handler.is_open():
             active_position_dict['run_id'] = self.bot_config.run_id
             active_position_dict['open_candle'] = candle_open_time
@@ -264,7 +267,7 @@ class Bot:
             position_side=position_side,
             entry_price=entry_price
         )
-        self.logger.debug('Setting TP and SL')
+        self.logger.debug(message='Setting TP and SL')
         _tp_order = self._place_tp_order(position_side=position_side, tp_price=tp_price)
         _sl_order = self._place_sl_order(position_side=position_side, sl_price=sl_price)
 
@@ -273,7 +276,7 @@ class Bot:
         sl_order_id = self.position_handler.get_sl_order_id()
 
         if not tp_order_id or not sl_order_id:
-            self.logger.debug("No TP/SL order IDs stored — skipping monitoring.")
+            self.logger.debug(message="No TP/SL order IDs stored — skipping monitoring.")
             return False
 
         tp_status = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=tp_order_id).get('status')
@@ -281,6 +284,9 @@ class Bot:
 
         tp_filled = tp_status == 'FILLED'
         sl_filled = sl_status == 'FILLED'
+
+        self.logger.debug(message=f'TP filled: {tp_filled}')
+        self.logger.debug(message=f'SL filled: {sl_filled}')
 
         if tp_filled or sl_filled:
             reason = "TP hit: ✅" if tp_filled else "SL hit: ✅"
@@ -297,24 +303,27 @@ class Bot:
 
             except Exception as e:
                 self.logger.warning(message=f"Could not cancel the opposing order: {e}")
+
             self.logger.info(message=f"{reason}. Opposing order canceled.")
+            trades = self.trade_client.fetch_trade(symbol=self.bot_config.symbol, order_id=filled_order_id)
 
-            self.logger.debug('')
-            trade = self.trade_client.fetch_trade(symbol=self.bot_config.symbol, order_id=filled_order_id)
-
-            close_fee = float(trade.get('commission', '0'))
-            close_price =float(trade.get('price'))
+            close_fee = float(trades[0].get('commission', '0'))
+            close_price = float(trades[0].get('price', 0))
+            pnl = float(trades[0].get('realizedPnl', 0))
             close_reason = reason
 
-            pnl = position_dict['pnl']
-            position_dict['close_fee'] = close_fee
-            position_dict['close_reason'] = close_reason
-            position_dict['mark_price'] = close_price
+            new_position_dict = {
+                'close_fee': close_fee,
+                'close_reason': close_reason,
+                'mark_price': close_price,
+                'pnl': pnl
+            }
             
+            # con here
             self.logger.info(
-            message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {position_dict['position_side'].value:<5} | {position_dict['entry_price']:.2f} -> {close_price:.2f} | {'+' if pnl >= 0 else ''}{pnl:.2f}")
+            message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {trades[0]['side']:<5} | {self.position_handler.entry_price:.2f} -> {close_price:.2f} | {'+' if pnl >= 0 else ''}{pnl:.2f}")
 
-            self.position_handler.close_position(position_dict=position_dict)
+            self.position_handler.close_position(position_dict=new_position_dict)
             self.position_handler.clear_tp_sl_orders()
 
             return True
@@ -337,7 +346,7 @@ class Bot:
             self.logger.critical_e(message='Failed to fetch or sync position', e=e)
 
         # CASE 1: no active trade position
-        if not active_position_dict:
+        if not active_position_dict and self.position_handler.tp_order_id == '':
             entry_signal: PositionSignal = self.entry_strategy.should_open(
                 klines_df=klines_df, position_handler=self.position_handler)
             self.logger.debug(entry_signal.position_side)
