@@ -10,7 +10,7 @@ venv
 
 # config
 config/*
-!config/bots_config_example.json
+!config/bots_config.json.example
 
 # logs
 *.log
@@ -18,8 +18,10 @@ logs
 
 # private files
 _private_*
-position_records/
-position_states/
+position_records/*
+!position_records/runid_11_record_20250719_020409.json.example
+position_states/*
+!position_states/runid_11_state.json.example
 
 # backup
 _v1/
