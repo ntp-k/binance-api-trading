@@ -271,22 +271,19 @@ class Bot:
         _tp_order = self._place_tp_order(position_side=position_side, tp_price=tp_price)
         _sl_order = self._place_sl_order(position_side=position_side, sl_price=sl_price)
 
-    def _monitor_tp_sl_fill(self, position_dict: dict):
+    def _monitor_tp_sl_fill(self):
+        # no active position, either TP or SL orders is filled
         tp_order_id = self.position_handler.get_tp_order_id()
         sl_order_id = self.position_handler.get_sl_order_id()
-
         if not tp_order_id or not sl_order_id:
             self.logger.debug(message="No TP/SL order IDs stored — skipping monitoring.")
-            return False
+            return
 
         tp_status = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=tp_order_id).get('status')
         sl_status = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=sl_order_id).get('status')
-
         tp_filled = tp_status == 'FILLED'
         sl_filled = sl_status == 'FILLED'
-
-        self.logger.debug(message=f'TP filled: {tp_filled}')
-        self.logger.debug(message=f'SL filled: {sl_filled}')
+        self.logger.debug(message=f'TP filled: {tp_filled}  /  SL filled: {sl_filled}')
 
         if tp_filled or sl_filled:
             reason = "TP hit: ✅" if tp_filled else "SL hit: ✅"
@@ -328,7 +325,7 @@ class Bot:
 
             return True
 
-        return False  # neither filled
+        return False
 
     def execute(self):
         klines_df = self.trade_client.fetch_klines(
@@ -345,12 +342,12 @@ class Bot:
         except Exception as e:
             self.logger.critical_e(message='Failed to fetch or sync position', e=e)
 
-        # CASE 1: no active trade position
+        # CASE 1: no active position on binance and no TP/SL orders in memory
         if not active_position_dict and self.position_handler.tp_order_id == '':
             entry_signal: PositionSignal = self.entry_strategy.should_open(
                 klines_df=klines_df, position_handler=self.position_handler)
-            self.logger.debug(entry_signal.position_side)
-            self.logger.info(entry_signal.reason)
+            self.logger.debug(message=entry_signal.position_side)
+            self.logger.info(message=entry_signal.reason)
 
             if entry_signal.position_side != PositionSide.ZERO:
                 self.logger.debug(
@@ -369,11 +366,16 @@ class Bot:
                 if self.bot_config.exit_strategy == ExitStrategy.TP_SL:
                     self._place_position_tp_sl(klines_df=klines_df)
 
-        # CASE 2: active position with TP/SL enabled
+        # CASE 2: active position on biannce with TP/SL enabled -> monitor TP/SL orders
+                # no active position on binance, but TP/SL orders in memory -> clear TP/SL order and record position
         elif self.bot_config.exit_strategy == ExitStrategy.TP_SL:
-            self.logger.debug(message='Checking TP/SL orders')
-            if self._monitor_tp_sl_fill(active_position_dict):
-                return
+            if active_position_dict:
+                pnl = active_position_dict.get('pnl', 0.0)
+                self.logger.debug(message=f"Updating position pnl {'+' if pnl >= 0 else ''}{pnl:.2f}")
+                self.position_handler.update_pnl(pnl=pnl)
+            else:
+                self.logger.debug(message='Checking TP/SL orders')
+                self._monitor_tp_sl_fill()
 
         # CASE 3: active position,  loogking for exit signal
         else:
@@ -396,7 +398,7 @@ class Bot:
                 self.position_handler.close_position(
                     position_dict=closed_position_dict)
 
-        if self.position_handler.position is not None:
+        if active_position_dict and self.position_handler.position is not None:
             self.position_handler.dump_position_state()
 
     def run(self):

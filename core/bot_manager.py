@@ -26,12 +26,13 @@ class BotManager:
         self.logger.debug(message="Initializing bot(s)...")
     
         self.bots_config: list[BotConfig] = self._load_bots_config()
-
+        count = 0
         for bot_config in self.bots_config:
             try:
                 if not bot_config.is_enabled:
                     self.logger.debug(message=f'Bot: {bot_config.bot_name} is disabled')
                     continue
+                count += 1
                 self.logger.debug(message=bot_config)
                 self.logger.debug(message=f'Loading 🤖  [{bot_config.bot_name}] ...')
                 bot: Bot = Bot(bot_config=bot_config)
@@ -40,7 +41,7 @@ class BotManager:
             except Exception as e:
                 self.logger.error_e(message=f"Failed to create bot runner:", e=e)
 
-        self.logger.info(message=f"Loaded  {len(self.bots_config)}  🤖")
+        self.logger.info(message=f"Loaded  {count}  🤖")
 
     def execute(self):
         self.logger.debug(message="Initializing bot(s)...")

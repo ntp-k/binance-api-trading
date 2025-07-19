@@ -24,10 +24,6 @@ class Position:
     close_fee: Optional[float] = 0.0
     max_pnl: Optional[float] = 0.0
     min_pnl: Optional[float] = 0.0
-    tp_order_id: Optional[str] = ''
-    tp_price: Optional[float] = 0.0
-    sl_order_id: Optional[str] = ''
-    sl_price: Optional[float] = 0.0
     created_at: Optional[datetime] = get_datetime_now_string_gmt_plus_7()
     
     def to_dict(self):
@@ -46,11 +42,7 @@ class Position:
             "close_reason": self.close_reason,
             "close_fee": self.close_fee,
             "max_pnl": self.max_pnl,
-            "min_pnl": self.min_pnl,
-            "tp_order_id": self.tp_order_id,
-            "tp_price": self.tp_price,
-            "sl_order_id": self.sl_order_id,
-            "sl_price": self.sl_price
+            "min_pnl": self.min_pnl
         }
 
     @classmethod
@@ -70,11 +62,7 @@ class Position:
             close_reason=data.get("close_reason", ""),
             close_fee=data.get("close_fee", 0.0),
             max_pnl=data.get("max_pnl", 0),
-            min_pnl=data.get("min_pnl", 0.0),
-            tp_order_id=data.get("tp_order_id", ""),
-            tp_price=data.get("tp_price", 0.0),
-            sl_order_id=data.get("sl_order_id", ""),
-            sl_price=data.get("sl_price", 0.0)
+            min_pnl=data.get("min_pnl", 0.0)
         )
 
 

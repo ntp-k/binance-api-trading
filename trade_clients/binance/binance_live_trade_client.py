@@ -66,7 +66,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
 
                     pnl = float(pos['unRealizedProfit'])
                     position_side = PositionSide.LONG if float(pos['positionAmt']) >= 0 else PositionSide.SHORT
-                    self.logger.debug(message=f"Position found: {pos['symbol']} | {position_side.value} | {'+' if pnl >= 0 else ''}{pnl:.2f}")
+                    self.logger.info(message=f"Position found: {pos['symbol']} | {position_side.value} | {'+' if pnl >= 0 else ''}{pnl:.2f}")
 
                     return {
                         'symbol': pos['symbol'],
