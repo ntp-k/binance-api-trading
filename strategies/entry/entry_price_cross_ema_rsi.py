@@ -10,6 +10,33 @@ class EntryPriceCrossEMARSI(BaseEntryStrategy):
     - EMA9 crosses EMA21 in direction of trend
     - Price above both EMAs (for LONG), below both (for SHORT)
     - RSI confirms momentum
+
+    15m-1h TF
+
+    Entry Rules:
+
+    Long Entry (Buy):
+    - EMA-9 crosses above EMA-21 (EMA bullish crossover).
+    - Price closes above both EMAs.
+    - RSI crosses above 55, confirming bullish momentum.
+
+    Short Entry (Sell):
+    - EMA-9 crosses below EMA-21 (EMA bearish crossover).
+    - Price closes below both EMAs.
+    - RSI crosses below 45, confirming bearish momentum.
+
+    Exit Rules:
+    Profit-Taking:
+    - Take profit at 2.0x ATR from entry price.
+    Stop-Loss:
+    - Set stop-loss at 1.0x ATR from entry price.
+
+    Example:
+    - Entry Long:
+    - Price: $100
+    - ATR (14-period): $1
+    - Stop-loss: $99 (1 ATR below)
+    - Take-profit: $102 (2 ATR above)
     """
     def __init__(self, dynamic_config):
         super().__init__()
