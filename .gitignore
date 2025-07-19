@@ -8,6 +8,15 @@ __pycache__/
 .venv
 venv
 
+# backup
+_v1/
+_v2/
+_v3/
+
+# private files
+_private_*
+strategies/strategy_idea.md
+
 # config
 config/*
 !config/bots_config.json.example
@@ -16,14 +25,8 @@ config/*
 *.log
 logs
 
-# private files
-_private_*
+# running files
 position_records/*
 !position_records/runid_11_record_20250719_020409.json.example
 position_states/*
 !position_states/runid_11_state.json.example
-
-# backup
-_v1/
-_v2/
-_v3/
