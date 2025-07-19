@@ -1,5 +1,6 @@
 import os
 import json
+from datetime import datetime, timezone, timedelta
 from time import sleep
 import gspread
 from google.oauth2.service_account import Credentials
@@ -37,6 +38,7 @@ class GoogleSheetService:
         close_fee = float(position_data.get("close_fee", "0"))
         position_fee = open_fee + close_fee
         realized_pnl = pnl - position_fee
+        _date = datetime.strptime(position_data.get("close_time", ""), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone(offset=timedelta(hours=7))).astimezone(timezone.utc).strftime(format="%Y-%m-%d")
         row = [
             position_data.get("position_side", ""),
             position_data.get("open_reason", ""),
@@ -51,7 +53,8 @@ class GoogleSheetService:
             realized_pnl,
             position_fee,
             open_fee,
-            close_fee
+            close_fee,
+            _date, # date utc
         ]
         worksheet.append_row(row, value_input_option="RAW")
 
@@ -63,6 +66,9 @@ def sync_all_positions_to_sheet():
     sleep(0.5) # wait for file to finish writting
 
     for file in files:
+        if not file.endswith('.json'):
+            continue
+
         file_path = os.path.join(POSITION_RECORDS_DIR, file)
         with open(file_path, "r") as f:
             data = json.load(f)
