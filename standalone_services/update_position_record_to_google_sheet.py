@@ -82,7 +82,10 @@ def sync_all_positions_to_sheet():
 
 if __name__ == "__main__":
     while True:
-        sync_all_positions_to_sheet()
+        try:
+            sync_all_positions_to_sheet()
+        except Exception as e:
+            print(f"Error syncing positions to Google Sheet: {e}")
         sleep(30)
 
 # EOF
