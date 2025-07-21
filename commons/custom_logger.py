@@ -29,6 +29,15 @@ class ConsoleCustomFormatter(logging.Formatter):
         formatter = logging.Formatter(f"{color}{self.FORMAT_STRING}{self.RESET}")
         return formatter.format(record)
 
+class FileCustomFormatter(logging.Formatter):
+    FORMAT_STRING = "%(asctime)s   %(levelname)s  \t[%(name)s]   %(message)s"
+
+    def __init__(self):
+        super().__init__(self.FORMAT_STRING)
+
+    def format(self, record):
+        return super().format(record)
+
 class CustomLogger:
     def __init__(self, name='', level=os.getenv(key='LOG_LEVELS', default='INFO'), log_filename: str = '') -> None:
         self.logger_name = name if name != '' else 'default'
@@ -41,7 +50,7 @@ class CustomLogger:
         
         if log_filename == '':
             _dt = datetime.now(timezone.utc) + timedelta(hours=7)
-            _dt_str = _dt.strftime(format='%Y%m%d_%H%M%S')
+            _dt_str = _dt.strftime(format='%Y%m%d_%H%M')
             self.log_filename = os.path.join(log_dir, f'{_dt_str}.log')
         else:
             self.log_filename = os.path.join(log_dir, log_filename)
@@ -52,10 +61,16 @@ class CustomLogger:
         # remove duplicate handlers if multiple init
         if not self.logger.handlers:
             # JSON file handler, always debug
-            json_handler = logging.FileHandler(filename=self.log_filename)
-            json_handler.setLevel(level=logging.DEBUG)
-            json_handler.setFormatter(fmt=JsonCustomFormatter())
-            self.logger.addHandler(hdlr=json_handler)
+            # json_handler = logging.FileHandler(filename=self.log_filename)
+            # json_handler.setLevel(level=logging.DEBUG)
+            # json_handler.setFormatter(fmt=JsonCustomFormatter())
+            # self.logger.addHandler(hdlr=json_handler)
+    
+            # file handler, always debug
+            file_handler = logging.FileHandler(filename=self.log_filename)
+            file_handler.setLevel(level=logging.DEBUG)
+            file_handler.setFormatter(fmt=FileCustomFormatter())
+            self.logger.addHandler(hdlr=file_handler)
 
             # console handler, uses env level
             console_handler = logging.StreamHandler()
