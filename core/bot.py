@@ -35,11 +35,17 @@ class Bot:
         self.trade_client = self._init_trade_client(
             run_mode=bot_config.run_mode, trade_client=bot_config.trade_client)
         self._set_leverage()
-
-        self.entry_strategy = self._init_entry_strategy(
-            entry_strategy=self.bot_config.entry_strategy, dynamic_config=self.bot_config.dynamic_config)
-        self.exit_strategy = self._init_exit_strategy(
-            exit_strategy=self.bot_config.exit_strategy, dynamic_config=self.bot_config.dynamic_config)
+        
+        self.logger.debug(message=f'Initializing strategies')
+        self.entry_strategy, self.exit_strategy = get_strategy.init_strategies(
+            entry_strategy=self.bot_config.entry_strategy,
+            exit_strategy=self.bot_config.exit_strategy,
+            dynamic_config=self.bot_config.dynamic_config
+        )
+        self.logger.debug(
+                message=f'Entry Strategy { self.entry_strategy.__class__.__name__}')
+        self.logger.debug(
+                message=f'Exit Strategy { self.exit_strategy.__class__.__name__}')
 
     def _init_trade_client(self, run_mode: RunMode, trade_client: TradeClient):
         try:
@@ -53,30 +59,6 @@ class Bot:
         except Exception as e:
             self.logger.error_e(
                 message='Error while initializing trade client', e=e)
-
-    def _init_entry_strategy(self, entry_strategy, dynamic_config):
-        try:
-            self.logger.debug(message=f'Initializing entry strategy')
-            _entry_strategy = get_strategy.get_entry_strategy(
-                entry_strategy=entry_strategy, dynamic_config=dynamic_config)
-            self.logger.debug(
-                message=f'Entry Strategy {_entry_strategy.__class__.__name__}')
-            return _entry_strategy
-        except Exception as e:
-            self.logger.error_e(
-                message='Error while initializing entry strategy', e=e)
-
-    def _init_exit_strategy(self, exit_strategy, dynamic_config):
-        try:
-            self.logger.debug(message=f'Initializing exit strategy')
-            _exit_strategy = get_strategy.get_exit_strategy(
-                exit_strategy=exit_strategy, dynamic_config=dynamic_config)
-            self.logger.debug(
-                message=f'Exit Strategy {_exit_strategy.__class__.__name__}')
-            return _exit_strategy
-        except Exception as e:
-            self.logger.error_e(
-                message='Error while initializing exit strategy', e=e)
 
     def _set_leverage(self):
         self.trade_client.set_leverage(

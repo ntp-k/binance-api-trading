@@ -26,4 +26,17 @@ def get_exit_strategy(exit_strategy, dynamic_config):
         from strategies.exit.exit_tp_sl import ExitTPSL
         return ExitTPSL(dynamic_config=dynamic_config)
 
+def init_strategies(entry_strategy, exit_strategy, dynamic_config):
+    try:
+        entry = get_entry_strategy(entry_strategy=entry_strategy, dynamic_config=dynamic_config)
+        exit = get_exit_strategy(exit_strategy=exit_strategy, dynamic_config=dynamic_config)
+    except Exception as e:
+        raise ValueError(f"Failed to initialize strategies: {e}")
+ 
+    if entry is None or exit is None:
+        raise ValueError("Invalid entry or exit strategy provided.")
+
+    return entry, exit
+
+
 # EOF
