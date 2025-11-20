@@ -316,6 +316,7 @@ class Bot:
             timeframe_limit=self.bot_config.timeframe_limit
         )
 
+        # get active position from binance and sync with bot memory
         try:
             active_position_dict: dict = self.trade_client.fetch_position(
                 symbol=self.bot_config.symbol)
@@ -328,9 +329,10 @@ class Bot:
         if not active_position_dict and self.position_handler.tp_order_id == '':
             entry_signal: PositionSignal = self.entry_strategy.should_open(
                 klines_df=klines_df, position_handler=self.position_handler)
-            self.logger.debug(message=entry_signal.position_side)
-            self.logger.info(message=entry_signal.reason)
+            self.logger.info(message=entry_signal.position_side)
+            self.logger.debug(message=entry_signal.reason)
 
+            # open new position
             if entry_signal.position_side != PositionSide.ZERO:
                 self.logger.debug(
                     message=f'{self.bot_config.symbol} Entry signal triggered')
