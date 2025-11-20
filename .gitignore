@@ -18,8 +18,8 @@ _private_*
 strategies/strategy_idea.md
 
 # config
-config/*
-!config/bots_config.json.example
+# config/*
+# !config/bots_config.json.example
 
 # logs
 *.log
