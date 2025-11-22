@@ -65,25 +65,34 @@ class Bot:
             symbol=self.bot_config.symbol, leverage=self.bot_config.leverage)
         self.logger.debug(f'Leverage is setted to {self.bot_config.leverage}')
 
-    def _sync_position_state(self, active_position_dict, candle_open_time):
+    def _sync_position_state(self, remote_position_dict, candle_open_time):
         # if the client has NO position but our bot has one in memory, maybe reload it
-        if not active_position_dict and self.position_handler.is_open():
+
+        # CASE 1: no position on remote but has position in mem -> out of sync or TP/SL hit
+        #   1.1: not TP/SL mode, should have same position on remote and local -> sync local with remote
+        #   1.2: TP/SL mode, maybe TP/SL were hitted -> proceed to CASE 2 of main process -> monitor TP/SL
+        if not remote_position_dict and self.position_handler.is_open():
             if self.bot_config.exit_strategy != ExitStrategy.TP_SL:
                 self.logger.warning(
                     message="Bot has position in memory but trade client has none; resetting state.")
                 self.position_handler.clear_position()
             else:
                 self.logger.debug('Suspect TP/SL were hitted')
-        elif active_position_dict and not self.position_handler.is_open():
-            active_position_dict['run_id'] = self.bot_config.run_id
-            active_position_dict['open_candle'] = candle_open_time
+
+        # CASE 2: have position on remote but no position in local -> sync local with remote
+        elif remote_position_dict and not self.position_handler.is_open():
+            remote_position_dict['run_id'] = self.bot_config.run_id
+            remote_position_dict['open_candle'] = candle_open_time
             self.position_handler.open_position(
-                position_dict=active_position_dict)
-        elif active_position_dict:
-            if (active_position_dict['position_side'] != self.position_handler.position.position_side) or \
-                    (active_position_dict['entry_price'] != self.position_handler.position.entry_price):
+                position_dict=remote_position_dict)
+        # CASE 3: have position on remote and local -> verify position integrity
+        elif remote_position_dict:
+            if (remote_position_dict['position_side'] != self.position_handler.position.position_side) or \
+                    (remote_position_dict['entry_price'] != self.position_handler.position.entry_price):
                 self.logger.warning(
                     message="Trade client position and Bot in memory position is not sync; resetting state")
+        
+        return remote_position_dict
 
     def _place_tp_order(self, position_side, tp_price):
         self.logger.info(message='Placing new take profit order')
@@ -318,14 +327,16 @@ class Bot:
 
         # get active position from binance and sync with bot memory
         try:
-            active_position_dict: dict = self.trade_client.fetch_position(
+            remote_position_dict: dict = self.trade_client.fetch_position(
                 symbol=self.bot_config.symbol)
-            self._sync_position_state(active_position_dict=active_position_dict, candle_open_time=str(
-                klines_df.iloc[-1]["open_time"]))
+            active_position_dict = self._sync_position_state(
+                                            remote_position_dict=remote_position_dict,
+                                            candle_open_time=str(klines_df.iloc[-1]["open_time"])
+                                        )
         except Exception as e:
             self.logger.critical_e(message='Failed to fetch or sync position', e=e)
 
-        # CASE 1: no active position on binance and no TP/SL orders in memory
+        # CASE 1: no active position and no TP/SL orders in memory -> looking for entry signal
         if not active_position_dict and self.position_handler.tp_order_id == '':
             entry_signal: PositionSignal = self.entry_strategy.should_open(
                 klines_df=klines_df, position_handler=self.position_handler)
@@ -350,8 +361,9 @@ class Bot:
                 if self.bot_config.exit_strategy == ExitStrategy.TP_SL:
                     self._place_position_tp_sl(klines_df=klines_df)
 
-        # CASE 2: active position on biannce with TP/SL enabled -> monitor TP/SL orders
-                # no active position on binance, but TP/SL orders in memory -> clear TP/SL order and record position
+        # CASE 2: monitoring TL/SL
+        #   2.1 active position -> monitor TP/SL orders
+        #   2.2 no active position on binance, but TP/SL orders in memory -> clear TP/SL order and record position
         elif self.bot_config.exit_strategy == ExitStrategy.TP_SL:
             if active_position_dict:
                 pnl = active_position_dict.get('pnl', 0.0)
@@ -361,7 +373,7 @@ class Bot:
                 self.logger.debug(message='Checking TP/SL orders')
                 self._monitor_tp_sl_fill()
 
-        # CASE 3: active position,  loogking for exit signal
+        # CASE 3: active position, loogking for exit signal
         else:
             self.position_handler.update_pnl(pnl=active_position_dict['pnl'])
             exit_signal: PositionSignal = self.exit_strategy.should_close(
