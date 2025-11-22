@@ -64,7 +64,14 @@ class BaseTradeClient(ABC):
         pass
 
     @abstractmethod
-    def fetch_trade(self, symbol: str = '', order_id: str = ''):
+    def fetch_trades(self, symbol: str = '', order_id: str = ''):
+        """
+        Subclass must implement.
+        """
+        pass
+
+    @abstractmethod
+    def fetch_order_trade(self, symbol: str = '', order_id: str = ''):
         """
         Subclass must implement.
         """

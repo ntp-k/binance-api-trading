@@ -228,7 +228,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             self.logger.error(message=f"Network error placing order: {e}")
             return {"error": str(object=e)}
 
-    def fetch_trade(self, symbol: str = '', order_id: str = ''):
+    def fetch_trades(self, symbol: str = '', order_id: str = ''):
         params = {
             'timestamp': int(time.time() * 1000)
         }
@@ -247,6 +247,42 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         except Exception as e:
             self.logger.error_e(message=f"error getting order", e=e)
             return {}
+    
+    def fetch_order_trade(self, symbol: str = '', order_id: str = ''):
+        trades = self.fetch_trades(symbol=symbol, order_id=order_id)
+
+        if not trades:
+            return {
+            "price": 0.0,
+            "fee": 0.0,
+            "pnl": 0.0,
+            "side": "ZERO"
+        }
+
+        total_quote = 0.0
+        total_qty = 0.0
+        total_fee = 0.0
+        total_pnl = 0.0
+
+        for t in trades:
+            qty = float(t["qty"])
+            quoteQty = float(t["quoteQty"])
+            fee = float(t["commission"])
+            pnl = float(t["realizedPnl"])
+
+            total_qty += qty
+            total_quote += quoteQty
+            total_fee += fee
+            total_pnl += pnl
+
+        avg_price = total_quote / total_qty if total_qty > 0 else 0.0
+
+        return {
+            "price": avg_price,
+            "fee": total_fee,
+            "pnl": total_pnl,
+            "side": trades[0]["side"]
+        }
 
 if __name__ == "__main__":
     pass
