@@ -1,0 +1,34 @@
+[
+    {
+        "symbol": "ADAUSDC",
+        "id": 30795876,
+        "orderId": 850652773,
+        "side": "BUY",
+        "price": "0.471500",
+        "qty": "22.1",
+        "realizedPnl": "-0.19890000",
+        "quoteQty": "10.4201500",
+        "commission": "0.00286554",
+        "commissionAsset": "USDC",
+        "time": 1763479223762,
+        "positionSide": "BOTH",
+        "buyer": true,
+        "maker": false
+    },
+    {
+        "symbol": "ADAUSDC",
+        "id": 30795877,
+        "orderId": 850652773,
+        "side": "BUY",
+        "price": "0.471500",
+        "qty": "32.9",
+        "realizedPnl": "-0.29610000",
+        "quoteQty": "15.5123500",
+        "commission": "0.00426589",
+        "commissionAsset": "USDC",
+        "time": 1763479223762,
+        "positionSide": "BOTH",
+        "buyer": true,
+        "maker": false
+    }
+]

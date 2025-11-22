@@ -1,0 +1,20 @@
+{
+    "symbol": "XRPUSDC",
+    "positionAmt": "-20.0",
+    "entryPrice": "1.9076",
+    "breakEvenPrice": "1.9076",
+    "markPrice": "1.89974177",
+    "unRealizedProfit": "0.15716460",
+    "liquidationPrice": "2.08787543",
+    "leverage": "10",
+    "maxNotionalValue": "5000000",
+    "marginType": "isolated",
+    "isolatedMargin": "3.97146068",
+    "isAutoAddMargin": "false",
+    "positionSide": "BOTH",
+    "notional": "-37.99483540",
+    "isolatedWallet": "3.81429608",
+    "updateTime": 1763798400169,
+    "isolated": true,
+    "adlQuantile": 2
+}
