@@ -33,10 +33,10 @@ class ExitCandleClose(BaseExitStrategy):
         different_candle = position.open_candle != prev_candle_open_time
         if different_candle:
             new_position_side = PositionSide.ZERO # close position
-            checklist_reasons.append(f"diff cdl ({position.open_candle[5:-9]}/{prev_candle_open_time[5:-9]}): ✅")
+            checklist_reasons.append(f"diff cdl (pos {position.open_candle[5:-9]} / cr{prev_candle_open_time[5:-9]}): ✅")
         else:
             # same candle, do not close
-            checklist_reasons.append(f"diff cdl ({position.open_candle[5:-9]}/{prev_candle_open_time[5:-9]}): ❌")
+            checklist_reasons.append(f"diff cdl (pos {position.open_candle[5:-9]} / cr{prev_candle_open_time[5:-9]}): ❌")
 
         reason_message = " | ".join(checklist_reasons)
         return PositionSignal(position_side = new_position_side, reason = reason_message) 

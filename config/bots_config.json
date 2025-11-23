@@ -406,7 +406,7 @@
         "quantity": 40,
         "timeframe": "1m",
         "timeframe_limit": 10,
-        "order_type": "LIMIT",
+        "order_type": "MARKET",
         "dynamic_config": {
             "decimal": 5,
             "candle_for_indicator": 10
