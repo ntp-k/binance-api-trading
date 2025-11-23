@@ -39,9 +39,9 @@ class ExitCandleClose(BaseExitStrategy):
         is_new_candle = (position.open_candle != cur_open_time)
 
         if is_new_candle:
-            checklist.append(f"New Candle - pos {position.open_candle} / cur {cur_open_time}: ✅")
+            checklist.append(f"New Candle - pos {position.open_candle[5:-9]} / cur {cur_open_time[5:-9]}: ✅")
         else:
-            checklist.append(f"New Candle - pos {position.open_candle} / cur {cur_open_time}: ❌")
+            checklist.append(f"New Candle - pos {position.open_candle[5:-9]} / cur {cur_open_time[5:-9]}: ❌")
 
         # core logic
         if long_sl_hit or short_sl_hit or is_new_candle:
