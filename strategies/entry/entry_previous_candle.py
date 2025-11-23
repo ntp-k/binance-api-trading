@@ -28,15 +28,28 @@ class EntryPreviousCandle(BaseEntryStrategy):
 
         prev_candle_positive = prev_candle['close'] > prev_candle['open']
         prev_candle_negative = prev_candle['close'] < prev_candle['open']
+        
+        sl_price = prev_candle['open']
+        current_price = klines_df.iloc[-1]['current_price']
 
         if prev_candle_positive:
-            new_position_side = PositionSide.LONG
-            checklist_reasons.append("Previous candle positive -> LONG ✅")
+            if sl_price < current_price:
+                checklist_reasons.append(f"Previous candle positive -> LONG: ✅, sl price {sl_price} < current price {current_price}: ✅")
+            else:
+                checklist_reasons.append(f"Previous candle positive -> LONG: ✅, sl price {sl_price} < current price {current_price}: ❌")
         elif prev_candle_negative:
-            new_position_side = PositionSide.SHORT
-            checklist_reasons.append("Previous candle negative -> SHORT ✅")
+            if sl_price > current_price:
+                checklist_reasons.append(f"Previous candle negative -> SHORT: ✅, sl price {sl_price} > current price {current_price}: ✅")
+            else:
+                checklist_reasons.append(f"Previous candle negative -> SHORT: ✅, sl price {sl_price} > current price {current_price}: ❌")
         else:
             checklist_reasons.append("No previous candle direction -> ZERO ❌")
+
+        # core logic
+        if prev_candle_positive and sl_price < current_price:
+            new_position_side = PositionSide.LONG
+        elif prev_candle_negative and sl_price > current_price:
+            new_position_side = PositionSide.SHORT
 
         reason_message = " | ".join(checklist_reasons)
         return PositionSignal(position_side=new_position_side, reason=reason_message)

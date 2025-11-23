@@ -402,16 +402,14 @@
         "tp_enabled": false,
         "sl_enabled": true,
         "symbol": "DOGEUSDC",
-        "leverage": 10,
-        "quantity": 20,
-        "timeframe": "1h",
-        "timeframe_limit": 1500,
+        "leverage": 5,
+        "quantity": 40,
+        "timeframe": "1m",
+        "timeframe_limit": 10,
         "order_type": "LIMIT",
         "dynamic_config": {
-            "macd_decimal": 4,
-            "candle_for_indicator": 500,
-            "take_profit_atr": 3.0,
-            "stop_loss_atr": 1.8
+            "decimal": 5,
+            "candle_for_indicator": 10
         },
         "created_at": "2025-11-23T23:00:00"
     }
