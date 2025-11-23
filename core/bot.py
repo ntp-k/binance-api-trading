@@ -240,12 +240,15 @@ class Bot:
 
         self.logger.info(message=f'Order Trade: {_order_trade}')
 
-        close_price = position_dict['mark_price']
-        pnl = position_dict['pnl']
-        position_dict['close_fee'] = _order_trade['fee']
+        closed_position_dict = {
+            'close_price': _order_trade['price'],
+            'close_fee': _order_trade['fee'],
+            'pnl': _order_trade['pnl']
+        }
+
         self.logger.info(
-            message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {position_dict['position_side'].value:<5} | {position_dict['entry_price']:.2f} -> {close_price:.2f} | {'+' if pnl >= 0 else ''}{pnl:.2f}")
-        return position_dict
+            message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {position_dict['position_side'].value:<5} | {position_dict['entry_price']:.2f} -> {_order_trade['price']:.2f} | {'+' if _order_trade['pnl'] >= 0 else ''}{_order_trade['pnl']:.2f}")
+        return closed_position_dict
 
     def _place_position_tp_sl(self, klines_df):
         position = self.position_handler.position
@@ -299,18 +302,17 @@ class Bot:
             pnl = order_trade["pnl"]
             close_reason = reason
 
-            new_position_dict = {
+            closed_position_dict = {
                 'close_fee': close_fee,
                 'close_reason': close_reason,
-                'mark_price': close_price,
+                'close_price': close_price,
                 'pnl': pnl
             }
             
-            # con here
             self.logger.info(
             message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {order_trade['side']:<5} | {self.position_handler.entry_price:.2f} -> {close_price:.2f} | {'+' if pnl >= 0 else ''}{pnl:.2f}")
 
-            self.position_handler.close_position(position_dict=new_position_dict)
+            self.position_handler.close_position(position_dict=closed_position_dict)
             self.position_handler.clear_tp_sl_orders()
 
             return True
@@ -363,17 +365,18 @@ class Bot:
         # CASE 2: monitoring TL/SL
         #   2.1 active position -> monitor TP/SL orders
         #   2.2 no active position on binance, but TP/SL orders in memory -> clear TP/SL order and record position
-        elif self.bot_config.exit_strategy == ExitStrategy.TP_SL:
+        if self.position_handler.tp_order_id != '' or self.position_handler.sl_order_id != '':
             if active_position_dict:
                 pnl = active_position_dict.get('pnl', 0.0)
                 self.logger.debug(message=f"Updating position pnl {'+' if pnl >= 0 else ''}{pnl:.2f}")
                 self.position_handler.update_pnl(pnl=pnl)
             else:
                 self.logger.debug(message='Checking TP/SL orders')
-                self._monitor_tp_sl_fill()
+                if self._monitor_tp_sl_fill():
+                    active_position_dict = None  # position closed
 
         # CASE 3: active position, loogking for exit signal
-        else:
+        if active_position_dict:
             self.position_handler.update_pnl(pnl=active_position_dict['pnl'])
             exit_signal: PositionSignal = self.exit_strategy.should_close(
                 klines_df=klines_df, position_handler=self.position_handler)

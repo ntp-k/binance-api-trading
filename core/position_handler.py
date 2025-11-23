@@ -3,7 +3,6 @@ import os
 
 from commons.custom_logger import CustomLogger
 from models.bot_config import BotConfig
-from models.enum.position_side import PositionSide
 from models.position import Position
 from commons.common import get_datetime_now_string_gmt_plus_7
 
@@ -81,7 +80,7 @@ class PositionHandler:
     def close_position(self, position_dict: dict):
         self.position.close_reason = position_dict['close_reason']
         self.position.close_fee = position_dict['close_fee']
-        self.position.close_price = position_dict['mark_price']
+        self.position.close_price = position_dict['close_price']
         self.position.close_time = get_datetime_now_string_gmt_plus_7(
             format='%Y-%m-%d %H:%M:%S')
         self.position.pnl = position_dict['pnl']
