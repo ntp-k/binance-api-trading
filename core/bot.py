@@ -106,8 +106,8 @@ class Bot:
             quantity=self.bot_config.quantity,
             reduce_only=True
         )
-        self.logger.info(message=f"TP order placed at {tp_price}")
         _order_id = tp_order.get('orderId')
+        self.logger.info(message=f"TP order placed at {tp_price}, order id: {_order_id}")
         self.position_handler.set_tp_order_id(id=_order_id)
         self.position_handler.set_tp_price(price=tp_price)
         return tp_order
@@ -124,8 +124,8 @@ class Bot:
             quantity=self.bot_config.quantity,
             close_position=True
         )
-        self.logger.info(message=f"SL order placed at {sl_price}")
         _order_id = sl_order.get('orderId')
+        self.logger.info(message=f"SL order placed at {sl_price}, order id: {_order_id}")
         self.position_handler.set_sl_order_id(id=_order_id)
         self.position_handler.set_sl_price(price=sl_price)
         return sl_order
@@ -269,68 +269,80 @@ class Bot:
 
     def _cancel_tp_order(self):
         order_id = self.position_handler.get_tp_order_id()
-        if order_id != '':
+        if order_id:
             self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=order_id)
 
     def _cancel_sl_order(self):
         order_id = self.position_handler.get_sl_order_id()
-        if order_id != '':
+        if order_id:
             self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=order_id)
 
     def _monitor_tp_sl_fill(self):
-        # no active position, either TP or SL orders is filled
-        tp_order_id = self.position_handler.get_tp_order_id()
-        sl_order_id = self.position_handler.get_sl_order_id()
-        if not tp_order_id or not sl_order_id:
-            self.logger.debug(message="No TP/SL order IDs stored — skipping monitoring.")
-            return
+        """
+        Monitor TP/SL orders and close position if any is filled.
+        Scenarios:
+        1. Both TP and SL enabled: only one can hit; cancel the other.
+        2. Only one order enabled: works normally.
+        """
+        filled_order_id = None
+        close_reason = None
 
-        tp_status = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=tp_order_id).get('status')
-        sl_status = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=sl_order_id).get('status')
-        tp_filled = tp_status == 'FILLED'
-        sl_filled = sl_status == 'FILLED'
-        self.logger.debug(message=f'TP filled: {tp_filled}  /  SL filled: {sl_filled}')
-
-        if tp_filled or sl_filled:
-            reason = "TP hit: ✅" if tp_filled else "SL hit: ✅"
-
-            filled_order_id = ''
-            # Cancel the other order
-            try:
-                if tp_filled:
-                    filled_order_id = tp_order_id
-                    self._cancel_sl_order()
-                elif sl_filled:
+        # Check SL first
+        if self.bot_config.sl_enabled:
+            sl_order_id = self.position_handler.get_sl_order_id()
+            if sl_order_id:
+                sl_status = self.trade_client.fetch_order(
+                    symbol=self.bot_config.symbol, order_id=sl_order_id).get('status')
+                if sl_status == 'FILLED':
+                    self.logger.info("SL hit ✅")
                     filled_order_id = sl_order_id
-                    self._cancel_tp_order()
+                    close_reason = 'SL Hit'
+                    if self.bot_config.tp_enabled:
+                        self._cancel_tp_order()
+                        self.logger.info("Cancelling TP due to SL hit")
+            else:
+                self.logger.debug("No SL order in memory")
 
-            except Exception as e:
-                self.logger.warning(message=f"Could not cancel the opposing order: {e}")
+        # Check TP only if no order has already been filled
+        if self.bot_config.tp_enabled and not filled_order_id:
+            tp_order_id = self.position_handler.get_tp_order_id()
+            if tp_order_id:
+                tp_status = self.trade_client.fetch_order(
+                    symbol=self.bot_config.symbol, order_id=tp_order_id).get('status')
+                if tp_status == 'FILLED':
+                    self.logger.info("TP hit ✅")
+                    filled_order_id = tp_order_id
+                    close_reason = 'TP Hit'
+                    if self.bot_config.sl_enabled:
+                        self._cancel_sl_order()
+                        self.logger.info("Cancelling SL due to TP hit")
+            else:
+                self.logger.debug("No TP order in memory")
 
-            self.logger.info(message=f"{reason}. Opposing order canceled.")
-            order_trade = self.trade_client.fetch_order_trade(symbol=self.bot_config.symbol, order_id=filled_order_id)
-
-            close_fee = order_trade["fee"]
-            close_price = order_trade["price"]
-            pnl = order_trade["pnl"]
-            close_reason = reason
+        # Process filled order
+        if filled_order_id:
+            order_trade = self.trade_client.fetch_order_trade(
+                symbol=self.bot_config.symbol, order_id=filled_order_id)
 
             closed_position_dict = {
-                'close_fee': close_fee,
+                'close_fee': order_trade['fee'],
                 'close_reason': close_reason,
-                'close_price': close_price,
-                'pnl': pnl
+                'close_price': order_trade['price'],
+                'pnl': order_trade['pnl']
             }
-            
-            self.logger.info(
-            message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {order_trade['side']:<5} | {self.position_handler.entry_price:.2f} -> {close_price:.2f} | {'+' if pnl >= 0 else ''}{pnl:.2f}")
 
             self.position_handler.close_position(position_dict=closed_position_dict)
             self.position_handler.clear_tp_sl_orders()
 
+            self.logger.info(
+            message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {order_trade['side']:<5} | {self.position_handler.entry_price:.2f} -> {order_trade['price']:.2f} | {'+' if order_trade['pnl'] >= 0 else ''}{order_trade['pnl']:.2f}")
+            
             return True
 
         return False
+
+
+
 
     def execute(self):
         klines_df = self.trade_client.fetch_klines(
@@ -371,6 +383,7 @@ class Bot:
                 _new_position_dict['open_reason'] = entry_signal.reason
                 self.position_handler.open_position(
                     position_dict=_new_position_dict)
+                active_position_dict = _new_position_dict
 
                 if self.bot_config.tp_enabled or self.bot_config.sl_enabled:
                     self._place_position_tp_sl(klines_df=klines_df)
