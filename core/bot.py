@@ -206,14 +206,14 @@ class Bot:
         _order_side = OrderSide.BUY.value if position_side == PositionSide.LONG else OrderSide.SELL.value
         _order_trade = None
 
-        self.logger.info(message='Placing order to open position')
+        self.logger.debug(message='Placing order to open position')
 
         if self.bot_config.order_type == OrderType.MARKET:
             _order_trade = self._place_market_order(order_side=_order_side, reduce_only=False)
         else:  # LIMIT
             _order_trade = self._place_limit_order(order_side=_order_side, reduce_only=False)
 
-        self.logger.info(message=f'Order Trade: {_order_trade}')
+        self.logger.debug(message=f'Order Trade: {_order_trade}')
 
         new_position_dict: dict = self.trade_client.fetch_position(
             symbol=self.bot_config.symbol)
@@ -231,14 +231,14 @@ class Bot:
         _order_side = OrderSide.BUY.value if position_dict['position_side'] == PositionSide.SHORT else OrderSide.SELL.value
         _order_trade = None
 
-        self.logger.info(message='Placing order to close position')
+        self.logger.debug(message='Placing order to close position')
     
         if self.bot_config.order_type == OrderType.MARKET:
             _order_trade = self._place_market_order(order_side=_order_side, reduce_only=True)
         else:
             _order_trade = self._place_limit_order(order_side=_order_side, reduce_only=True)
 
-        self.logger.info(message=f'Order Trade: {_order_trade}')
+        self.logger.debug(message=f'Order Trade: {_order_trade}')
 
         closed_position_dict = {
             'close_price': _order_trade['price'],
@@ -341,12 +341,12 @@ class Bot:
         if not active_position_dict and self.position_handler.tp_order_id == '':
             entry_signal: PositionSignal = self.entry_strategy.should_open(
                 klines_df=klines_df, position_handler=self.position_handler)
-            self.logger.info(message=entry_signal.position_side)
+            self.logger.debug(message=entry_signal.position_side)
             self.logger.debug(message=entry_signal.reason)
 
             # open new position
             if entry_signal.position_side != PositionSide.ZERO:
-                self.logger.debug(
+                self.logger.info(
                     message=f'{self.bot_config.symbol} Entry signal triggered')
 
                 _new_position_dict = self._place_order_to_open_position(
@@ -381,12 +381,12 @@ class Bot:
             exit_signal: PositionSignal = self.exit_strategy.should_close(
                 klines_df=klines_df, position_handler=self.position_handler)
             # self.logger.debug(exit_signal.position_side)
-            self.logger.info(message=exit_signal.reason)
+            self.logger.debug(message=exit_signal.reason)
 
             if exit_signal.position_side == PositionSide.ZERO:
-                self.logger.debug(
+                self.logger.info(
                     message=f'{self.bot_config.symbol} Exit signal triggered')
-                self.logger.debug(
+                self.logger.info(
                     message=f'Active position: {active_position_dict}')
 
                 closed_position_dict = self._place_order_to_close_position(
