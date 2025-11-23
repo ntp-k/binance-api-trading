@@ -349,9 +349,6 @@ class Bot:
 
         return False
 
-
-
-
     def execute(self):
         klines_df = self.trade_client.fetch_klines(
             symbol=self.bot_config.symbol,
@@ -370,8 +367,12 @@ class Bot:
         except Exception as e:
             self.logger.critical_e(message='Failed to fetch or sync position', e=e)
 
+        have_position = bool(active_position_dict)
+        have_tp = bool(self.position_handler.tp_order_id)
+        have_sl = bool(self.position_handler.sl_order_id)
+
         # CASE 1: no active position and no TP/SL orders in memory -> looking for entry signal
-        if (not active_position_dict) and (self.position_handler.tp_order_id != '' or self.position_handler.sl_order_id != ''):
+        if not have_position and not have_tp and not have_sl:
             try:
                 entry_signal: PositionSignal = self.entry_strategy.should_open(
                     klines_df=klines_df, position_handler=self.position_handler)
@@ -405,8 +406,8 @@ class Bot:
 
         # CASE 2: monitoring TL/SL
         #   if no active position on binance, but TP/SL orders in memory -> clear TP/SL order and record position
-        if self.position_handler.tp_order_id != '' or self.position_handler.sl_order_id != '':
-            if not active_position_dict:
+        if have_tp or have_sl:
+            if not have_position:
                 try:
                     self.logger.debug(message='Checking TP/SL orders')
                     if self._monitor_tp_sl_fill(close_candle_open_time=str(klines_df.iloc[-1]["open_time"])):
@@ -416,7 +417,7 @@ class Bot:
                         message='Error while checking TP/SL orders', e=e)
 
         # CASE 3: active position, loogking for exit signal
-        if active_position_dict:
+        if have_position:
             pnl = active_position_dict.get('pnl', 0.0)
             self.logger.debug(message=f"Updating position pnl {'+' if pnl >= 0 else ''}{pnl:.2f}")
             self.position_handler.update_pnl(pnl=pnl)
@@ -452,7 +453,7 @@ class Bot:
                         message='Error while placing order to close position', e=e)
 
         try:
-            if active_position_dict and self.position_handler.position is not None:
+            if have_position and self.position_handler.position is not None:
                 self.position_handler.dump_position_state()
         except Exception as e:
             self.logger.error_e(
