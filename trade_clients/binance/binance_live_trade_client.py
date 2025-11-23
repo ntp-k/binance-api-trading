@@ -223,11 +223,11 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             return response.json()
         except requests.exceptions.HTTPError as e:
             self.logger.error_e(message=f"Error placing order", e=e)
-            self.logger.debug(message=f"Response: {response.text}") # type: ignore
-            return {"error": str(object=e), "response": response.text} # type: ignore
+            self.logger.error(message=f"Response: {response.text}") # type: ignore
+            return False
         except requests.exceptions.RequestException as e:
             self.logger.error_e(message=f"Network error placing order", e=e)
-            return {"error": str(object=e)}
+            return False
 
     def fetch_trades(self, symbol: str = '', order_id: str = ''):
         params = {

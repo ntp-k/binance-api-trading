@@ -72,7 +72,7 @@ class Bot:
         #   1.1: not TP/SL mode, should have same position on remote and local -> sync local with remote
         #   1.2: TP/SL mode, maybe TP/SL were hitted -> proceed to CASE 2 of main process -> monitor TP/SL
         if not remote_position_dict and self.position_handler.is_open():
-            if self.bot_config.exit_strategy != ExitStrategy.TP_SL:
+            if not (self.bot_config.tp_enabled or self.bot_config.sl_enabled):
                 self.logger.warning(
                     message="Bot has position in memory but trade client has none; resetting state.")
                 self.position_handler.clear_position()
@@ -106,7 +106,7 @@ class Bot:
             quantity=self.bot_config.quantity,
             reduce_only=True
         )
-        _order_id = tp_order.get('orderId')
+        _order_id = tp_order['orderId']
         self.logger.info(message=f"TP order placed at {tp_price}, order id: {_order_id}")
         self.position_handler.set_tp_order_id(id=_order_id)
         self.position_handler.set_tp_price(price=tp_price)
@@ -124,7 +124,7 @@ class Bot:
             quantity=self.bot_config.quantity,
             close_position=True
         )
-        _order_id = sl_order.get('orderId')
+        _order_id = sl_order['orderId']
         self.logger.info(message=f"SL order placed at {sl_price}, order id: {_order_id}")
         self.position_handler.set_sl_order_id(id=_order_id)
         self.position_handler.set_sl_price(price=sl_price)
@@ -284,8 +284,8 @@ class Bot:
         1. Both TP and SL enabled: only one can hit; cancel the other.
         2. Only one order enabled: works normally.
         """
-        filled_order_id = None
-        close_reason = None
+        filled_order_id = ''
+        close_reason = ''
 
         # Check SL first
         if self.bot_config.sl_enabled:
@@ -321,23 +321,30 @@ class Bot:
 
         # Process filled order
         if filled_order_id:
-            order_trade = self.trade_client.fetch_order_trade(
-                symbol=self.bot_config.symbol, order_id=filled_order_id)
+            try:
+                self.logger.debug(f'Getting trade history for filled order_id: {filled_order_id}')
+                order_trade = self.trade_client.fetch_order_trade(
+                    symbol=self.bot_config.symbol, order_id=filled_order_id)
 
-            closed_position_dict = {
-                'close_fee': order_trade['fee'],
-                'close_reason': close_reason,
-                'close_price': order_trade['price'],
-                'pnl': order_trade['pnl'],
-                'close_candle_open_time': close_candle_open_time
-            }
+                closed_position_dict = {
+                    'close_fee': order_trade['fee'],
+                    'close_reason': close_reason,
+                    'close_price': order_trade['price'],
+                    'pnl': order_trade['pnl'],
+                    'close_candle_open_time': close_candle_open_time
+                }
 
-            self.position_handler.close_position(position_dict=closed_position_dict)
-            self.position_handler.clear_tp_sl_orders()
+                self.position_handler.close_position(position_dict=closed_position_dict)
+                self.position_handler.clear_tp_sl_orders()
 
-            self.logger.info(
-            message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {order_trade['side']:<5} | {self.position_handler.entry_price:.2f} -> {order_trade['price']:.2f} | {'+' if order_trade['pnl'] >= 0 else ''}{order_trade['pnl']:.2f}")
+                self.logger.info(
+                message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {order_trade['side']:<5} | {self.position_handler.entry_price:.2f} -> {order_trade['price']:.2f} | {'+' if order_trade['pnl'] >= 0 else ''}{order_trade['pnl']:.2f}")
             
+            except Exception as e:  
+                self.logger.error_e(
+                    message='Error while processing filled TP/SL order', e=e)
+                return False
+
             return True
 
         return False
@@ -364,11 +371,14 @@ class Bot:
             self.logger.critical_e(message='Failed to fetch or sync position', e=e)
 
         # CASE 1: no active position and no TP/SL orders in memory -> looking for entry signal
-        if not active_position_dict and self.position_handler.tp_order_id == '':
-            entry_signal: PositionSignal = self.entry_strategy.should_open(
-                klines_df=klines_df, position_handler=self.position_handler)
-            self.logger.debug(message=entry_signal.position_side)
-            self.logger.debug(message=entry_signal.reason)
+        if not active_position_dict and (self.position_handler.tp_order_id == '' or self.position_handler.sl_order_id == ''):
+            try:
+                entry_signal: PositionSignal = self.entry_strategy.should_open(
+                    klines_df=klines_df, position_handler=self.position_handler)
+                self.logger.debug(message=entry_signal.position_side)
+                self.logger.debug(message=entry_signal.reason)
+            except Exception as e:
+                self.logger.error_e(message='Error while checking entry signal', e=e)
 
             # open new position
             if entry_signal.position_side != PositionSide.ZERO:
@@ -386,16 +396,24 @@ class Bot:
                     position_dict=_new_position_dict)
                 active_position_dict = _new_position_dict
 
-                if self.bot_config.tp_enabled or self.bot_config.sl_enabled:
-                    self._place_position_tp_sl(klines_df=klines_df)
+                try:
+                    if self.bot_config.tp_enabled or self.bot_config.sl_enabled:
+                        self._place_position_tp_sl(klines_df=klines_df)
+                except Exception as e:
+                    self.logger.error_e(
+                        message='Error while placing TP/SL orders', e=e)
 
         # CASE 2: monitoring TL/SL
         #   if no active position on binance, but TP/SL orders in memory -> clear TP/SL order and record position
         if self.position_handler.tp_order_id != '' or self.position_handler.sl_order_id != '':
             if not active_position_dict:
-                self.logger.debug(message='Checking TP/SL orders')
-                if self._monitor_tp_sl_fill(close_candle_open_time=str(klines_df.iloc[-1]["open_time"])):
-                    active_position_dict = None  # position closed
+                try:
+                    self.logger.debug(message='Checking TP/SL orders')
+                    if self._monitor_tp_sl_fill(close_candle_open_time=str(klines_df.iloc[-1]["open_time"])):
+                        active_position_dict = None  # position closed
+                except Exception as e:
+                    self.logger.error_e(
+                        message='Error while checking TP/SL orders', e=e)
 
         # CASE 3: active position, loogking for exit signal
         if active_position_dict:
@@ -403,31 +421,42 @@ class Bot:
             self.logger.debug(message=f"Updating position pnl {'+' if pnl >= 0 else ''}{pnl:.2f}")
             self.position_handler.update_pnl(pnl=pnl)
 
-            exit_signal: PositionSignal = self.exit_strategy.should_close(
-                klines_df=klines_df, position_handler=self.position_handler)
-            # self.logger.debug(exit_signal.position_side)
-            self.logger.debug(message=exit_signal.reason)
+            try:
+                exit_signal: PositionSignal = self.exit_strategy.should_close(
+                    klines_df=klines_df, position_handler=self.position_handler)
+                # self.logger.debug(exit_signal.position_side)
+                self.logger.debug(message=exit_signal.reason)
+            except Exception as e:
+                self.logger.error_e(message='Error while checking exit signal', e=e)
 
             if exit_signal.position_side == PositionSide.ZERO:
-                self.logger.info(
-                    message=f'{self.bot_config.symbol} Exit signal triggered')
-                self.logger.info(
-                    message=f'Active position: {active_position_dict}')
+                try:
+                    self.logger.info(
+                        message=f'{self.bot_config.symbol} Exit signal triggered')
+                    self.logger.info(
+                        message=f'Active position: {active_position_dict}')
 
-                closed_position_dict = self._place_order_to_close_position(
-                    position_dict=active_position_dict)
-                if self.bot_config.tp_enabled:
-                    self._cancel_tp_order()
-                if self.bot_config.sl_enabled:
-                    self._cancel_sl_order()
+                    closed_position_dict = self._place_order_to_close_position(
+                        position_dict=active_position_dict)
+                    if self.bot_config.tp_enabled:
+                        self._cancel_tp_order()
+                    if self.bot_config.sl_enabled:
+                        self._cancel_sl_order()
 
-                closed_position_dict['close_reason'] = exit_signal.reason
-                closed_position_dict['close_candle_open_time'] = str(klines_df.iloc[-1]["open_time"])
-                self.position_handler.close_position(
-                    position_dict=closed_position_dict)
+                    closed_position_dict['close_reason'] = exit_signal.reason
+                    closed_position_dict['close_candle_open_time'] = str(klines_df.iloc[-1]["open_time"])
+                    self.position_handler.close_position(
+                        position_dict=closed_position_dict)
+                except Exception as e:
+                    self.logger.error_e(
+                        message='Error while placing order to close position', e=e)
 
-        if active_position_dict and self.position_handler.position is not None:
-            self.position_handler.dump_position_state()
+        try:
+            if active_position_dict and self.position_handler.position is not None:
+                self.position_handler.dump_position_state()
+        except Exception as e:
+            self.logger.error_e(
+                message='Error while dumping position state', e=e)
 
     def run(self):
         while self.trade_client.running:
