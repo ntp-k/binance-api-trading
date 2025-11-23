@@ -371,7 +371,7 @@ class Bot:
             self.logger.critical_e(message='Failed to fetch or sync position', e=e)
 
         # CASE 1: no active position and no TP/SL orders in memory -> looking for entry signal
-        if not active_position_dict and (self.position_handler.tp_order_id == '' or self.position_handler.sl_order_id == ''):
+        if (not active_position_dict) and (self.position_handler.tp_order_id != '' or self.position_handler.sl_order_id != ''):
             try:
                 entry_signal: PositionSignal = self.entry_strategy.should_open(
                     klines_df=klines_df, position_handler=self.position_handler)
