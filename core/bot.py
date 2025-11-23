@@ -180,7 +180,7 @@ class Bot:
             else:
                 self.logger.debug(message="Price unchanged. Skipping re-order.")
 
-            sleep(10)  # wait for order to filled
+            sleep(5)  # wait for order to filled
 
             _check_order = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=_order_id)
             self.logger.debug(message=f"Order status: {_check_order}")
