@@ -260,9 +260,22 @@ class Bot:
             position_side=position_side,
             entry_price=entry_price
         )
-        self.logger.debug(message='Setting TP and SL')
-        _tp_order = self._place_tp_order(position_side=position_side, tp_price=tp_price)
-        _sl_order = self._place_sl_order(position_side=position_side, sl_price=sl_price)
+        if self.bot_config.tp_enabled:
+            self.logger.info(message=f'Setting TP at {tp_price}')
+            _tp_order = self._place_tp_order(position_side=position_side, tp_price=tp_price)
+        if self.bot_config.sl_enabled:
+            self.logger.info(message=f'Setting SL at {sl_price}')
+            _sl_order = self._place_sl_order(position_side=position_side, sl_price=sl_price)
+
+    def _cancel_tp_order(self):
+        order_id = self.position_handler.get_tp_order_id()
+        if order_id != '':
+            self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=order_id)
+
+    def _cancel_sl_order(self):
+        order_id = self.position_handler.get_sl_order_id()
+        if order_id != '':
+            self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=order_id)
 
     def _monitor_tp_sl_fill(self):
         # no active position, either TP or SL orders is filled
@@ -286,10 +299,10 @@ class Bot:
             try:
                 if tp_filled:
                     filled_order_id = tp_order_id
-                    self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=sl_order_id)
+                    self._cancel_sl_order()
                 elif sl_filled:
                     filled_order_id = sl_order_id
-                    self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=tp_order_id)
+                    self._cancel_tp_order()
 
             except Exception as e:
                 self.logger.warning(message=f"Could not cancel the opposing order: {e}")
@@ -359,25 +372,23 @@ class Bot:
                 self.position_handler.open_position(
                     position_dict=_new_position_dict)
 
-                if self.bot_config.exit_strategy == ExitStrategy.TP_SL:
+                if self.bot_config.tp_enabled or self.bot_config.sl_enabled:
                     self._place_position_tp_sl(klines_df=klines_df)
 
         # CASE 2: monitoring TL/SL
-        #   2.1 active position -> monitor TP/SL orders
-        #   2.2 no active position on binance, but TP/SL orders in memory -> clear TP/SL order and record position
+        #   if no active position on binance, but TP/SL orders in memory -> clear TP/SL order and record position
         if self.position_handler.tp_order_id != '' or self.position_handler.sl_order_id != '':
-            if active_position_dict:
-                pnl = active_position_dict.get('pnl', 0.0)
-                self.logger.debug(message=f"Updating position pnl {'+' if pnl >= 0 else ''}{pnl:.2f}")
-                self.position_handler.update_pnl(pnl=pnl)
-            else:
+            if not active_position_dict:
                 self.logger.debug(message='Checking TP/SL orders')
                 if self._monitor_tp_sl_fill():
                     active_position_dict = None  # position closed
 
         # CASE 3: active position, loogking for exit signal
         if active_position_dict:
-            self.position_handler.update_pnl(pnl=active_position_dict['pnl'])
+            pnl = active_position_dict.get('pnl', 0.0)
+            self.logger.debug(message=f"Updating position pnl {'+' if pnl >= 0 else ''}{pnl:.2f}")
+            self.position_handler.update_pnl(pnl=pnl)
+
             exit_signal: PositionSignal = self.exit_strategy.should_close(
                 klines_df=klines_df, position_handler=self.position_handler)
             # self.logger.debug(exit_signal.position_side)
@@ -391,6 +402,10 @@ class Bot:
 
                 closed_position_dict = self._place_order_to_close_position(
                     position_dict=active_position_dict)
+                if self.bot_config.tp_enabled:
+                    self._cancel_tp_order()
+                if self.bot_config.sl_enabled:
+                    self._cancel_sl_order()
 
                 closed_position_dict['close_reason'] = exit_signal.reason
                 self.position_handler.close_position(

@@ -14,6 +14,9 @@ def get_entry_strategy(entry_strategy, dynamic_config):
     elif entry_strategy == EntryStrategy.PRICE_CROSS_EMA_RSI:
         from strategies.entry.entry_price_cross_ema_rsi import EntryPriceCrossEMARSI
         return EntryPriceCrossEMARSI(dynamic_config=dynamic_config)
+    elif entry_strategy == EntryStrategy.PREVIOUS_CANDLE:
+        from strategies.entry.entry_previous_candle import EntryPreviousCandle
+        return EntryPreviousCandle(dynamic_config=dynamic_config)
 
 def get_exit_strategy(exit_strategy, dynamic_config):
     if exit_strategy == ExitStrategy.MACD_STATE:
@@ -25,6 +28,9 @@ def get_exit_strategy(exit_strategy, dynamic_config):
     elif exit_strategy == ExitStrategy.TP_SL:
         from strategies.exit.exit_tp_sl import ExitTPSL
         return ExitTPSL(dynamic_config=dynamic_config)
+    elif exit_strategy == ExitStrategy.CANDLE_CLOSE:
+        from strategies.exit.exit_candle_close import ExitCandleClose
+        return ExitCandleClose(dynamic_config=dynamic_config)
 
 def init_strategies(entry_strategy, exit_strategy, dynamic_config):
     try:

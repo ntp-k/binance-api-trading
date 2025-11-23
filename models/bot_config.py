@@ -18,6 +18,8 @@ class BotConfig:
     trade_client: TradeClient
     entry_strategy: EntryStrategy
     exit_strategy: ExitStrategy
+    tp_enabled: bool
+    sl_enabled: bool
     symbol: str
     leverage: int
     quantity: float
