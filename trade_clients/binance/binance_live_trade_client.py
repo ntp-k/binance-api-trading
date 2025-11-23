@@ -42,7 +42,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             self.logger.debug(message=f"Leverage set successfully: {response.json()}")
             return response.json()
         except requests.exceptions.RequestException as e:
-            self.logger.error(message=f"Failed to set leverage: {e}")
+            self.logger.error_e(message=f"Failed to set leverage", e=e)
             return {"error": str(object=e)}
 
     def fetch_position(self, symbol):
@@ -120,6 +120,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
                 'taker_buy_base_volume', 'taker_buy_quote_volume', 'ignore'
             ])
             df['open_time'] = pd.to_datetime(arg=df['open_time'], unit='ms').dt.tz_localize(tz='UTC').dt.tz_convert(tz='Asia/Bangkok') # type: ignore
+            df['close_time'] = pd.to_datetime(arg=df['close_time'], unit='ms').dt.tz_localize(tz='UTC').dt.tz_convert(tz='Asia/Bangkok') # type: ignore
             df['high'] = df['high'].astype(dtype=float)
             df['low'] = df['low'].astype(dtype=float)
             df['close'] = df['close'].astype(dtype=float)
@@ -221,11 +222,11 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             self.logger.debug(message=f"Order placed: {response.json()}")
             return response.json()
         except requests.exceptions.HTTPError as e:
-            self.logger.error(message=f"HTTP error placing order: {e}")
+            self.logger.error_e(message=f"Error placing order", e=e)
             self.logger.debug(message=f"Response: {response.text}") # type: ignore
             return {"error": str(object=e), "response": response.text} # type: ignore
         except requests.exceptions.RequestException as e:
-            self.logger.error(message=f"Network error placing order: {e}")
+            self.logger.error_e(message=f"Network error placing order", e=e)
             return {"error": str(object=e)}
 
     def fetch_trades(self, symbol: str = '', order_id: str = ''):

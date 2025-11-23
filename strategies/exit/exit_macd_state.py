@@ -1,7 +1,7 @@
 from abstracts.base_exit_strategy import BaseExitStrategy
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
-from models.position import Position
+from core.position_handler import PositionHandler
 import strategies.data_processor as data_processor
 
 class ExitMacdState(BaseExitStrategy):
@@ -27,7 +27,7 @@ class ExitMacdState(BaseExitStrategy):
         klines_df = data_processor.calculate_macd(df=klines_df, decimal=self.macd_decimal)
         return klines_df
 
-    def should_close(self, klines_df, position_handler) -> PositionSignal:
+    def should_close(self, klines_df, position_handler: PositionHandler) -> PositionSignal:
         '''
         return
             - position.position_side if no need to close

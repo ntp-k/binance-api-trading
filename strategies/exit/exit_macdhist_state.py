@@ -1,7 +1,6 @@
 from abstracts.base_exit_strategy import BaseExitStrategy
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
-from models.position import Position
 import strategies.data_processor as data_processor
 
 class ExitMacdHistState(BaseExitStrategy):
