@@ -1,6 +1,7 @@
 from abstracts.base_entry_strategy import BaseEntryStrategy
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
+from core.position_handler import PositionHandler
 
 class EntryPreviousCandle(BaseEntryStrategy):
     """
@@ -19,12 +20,13 @@ class EntryPreviousCandle(BaseEntryStrategy):
     def _process_data(self, klines_df):
         return klines_df
 
-    def should_open(self, klines_df, position_handler) -> PositionSignal:
+    def should_open(self, klines_df, position_handler: PositionHandler) -> PositionSignal:
         symbol = position_handler.bot_config.symbol
         new_position_side = PositionSide.ZERO
         checklist_reasons = [f"{symbol} Entry Signal"]
 
         prev_candle = klines_df.iloc[-2]
+        last_position_close_candle = position_handler.last_position_close_candle_open_time
 
         prev_candle_positive = prev_candle['close'] > prev_candle['open']
         prev_candle_negative = prev_candle['close'] < prev_candle['open']
@@ -32,25 +34,30 @@ class EntryPreviousCandle(BaseEntryStrategy):
         
         sl_price = prev_candle['open']
         current_price = klines_df.iloc[-1]['current_price']
+        current_open_time = klines_df.iloc[-1]['open_time']
 
-        if prev_candle_positive:
-            if sl_price < current_price:
-                checklist_reasons.append(f"Previous candle positive -> LONG: ✅, sl price {sl_price} < current price {current_price}: ✅")
+        if last_position_close_candle != current_open_time:
+            if prev_candle_positive:
+                if sl_price < current_price:
+                    checklist_reasons.append(f"Previous candle positive -> LONG: ✅, sl price {sl_price} < current price {current_price}: ✅")
+                else:
+                    checklist_reasons.append(f"Previous candle positive -> LONG: ✅, sl price {sl_price} < current price {current_price}: ❌")
+            elif prev_candle_negative:
+                if sl_price > current_price:
+                    checklist_reasons.append(f"Previous candle negative -> SHORT: ✅, sl price {sl_price} > current price {current_price}: ✅")
+                else:
+                    checklist_reasons.append(f"Previous candle negative -> SHORT: ✅, sl price {sl_price} > current price {current_price}: ❌")
             else:
-                checklist_reasons.append(f"Previous candle positive -> LONG: ✅, sl price {sl_price} < current price {current_price}: ❌")
-        elif prev_candle_negative:
-            if sl_price > current_price:
-                checklist_reasons.append(f"Previous candle negative -> SHORT: ✅, sl price {sl_price} > current price {current_price}: ✅")
-            else:
-                checklist_reasons.append(f"Previous candle negative -> SHORT: ✅, sl price {sl_price} > current price {current_price}: ❌")
+                checklist_reasons.append("No previous candle direction -> ZERO: ❌")
         else:
-            checklist_reasons.append("No previous candle direction -> ZERO ❌")
+            checklist_reasons.append(f"Last position close time == current candle open time ({last_position_close_candle[5:-9]} / {current_open_time[5:-9]}) -> ZERO: ❌")
 
         # core logic
-        if prev_candle_positive and sl_price < current_price:
-            new_position_side = PositionSide.LONG
-        elif prev_candle_negative and sl_price > current_price:
-            new_position_side = PositionSide.SHORT
+        if last_position_close_candle != current_open_time:
+            if prev_candle_positive and sl_price < current_price:
+                new_position_side = PositionSide.LONG
+            elif prev_candle_negative and sl_price > current_price:
+                new_position_side = PositionSide.SHORT
 
         reason_message = " | ".join(checklist_reasons)
         return PositionSignal(position_side=new_position_side, reason=reason_message)

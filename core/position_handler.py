@@ -20,6 +20,7 @@ class PositionHandler:
     tp_price: float
     sl_order_id: str
     sl_price: float
+    last_position_close_candle_open_time: str
 
     def __init__(self, bot_config: BotConfig):
         self.logger = CustomLogger(
@@ -31,6 +32,7 @@ class PositionHandler:
         self.tp_price = 0.0
         self.sl_order_id = ''
         self.sl_price = 0.0
+        self.last_position_close_candle_open_time = ''
 
         if not os.path.exists(POSITION_RECORDS_DIR):
             os.mkdir(POSITION_RECORDS_DIR)
@@ -67,7 +69,6 @@ class PositionHandler:
         self.tp_price = 0.0
         self.sl_order_id = ''
         self.sl_price = 0.0
-        self.sl_price = 0.0
 
     def open_position(self, position_dict: dict):
         try:
@@ -84,6 +85,7 @@ class PositionHandler:
         self.position.close_time = get_datetime_now_string_gmt_plus_7(
             format='%Y-%m-%d %H:%M:%S')
         self.position.pnl = position_dict['pnl']
+        self.last_position_close_candle_open_time = position_dict['close_candle_open_time']
 
         self._dump_position_record()
         self.position = None

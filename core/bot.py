@@ -277,7 +277,7 @@ class Bot:
         if order_id:
             self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=order_id)
 
-    def _monitor_tp_sl_fill(self):
+    def _monitor_tp_sl_fill(self, close_candle_open_time=''):
         """
         Monitor TP/SL orders and close position if any is filled.
         Scenarios:
@@ -328,7 +328,8 @@ class Bot:
                 'close_fee': order_trade['fee'],
                 'close_reason': close_reason,
                 'close_price': order_trade['price'],
-                'pnl': order_trade['pnl']
+                'pnl': order_trade['pnl'],
+                'close_candle_open_time': close_candle_open_time
             }
 
             self.position_handler.close_position(position_dict=closed_position_dict)
@@ -393,7 +394,7 @@ class Bot:
         if self.position_handler.tp_order_id != '' or self.position_handler.sl_order_id != '':
             if not active_position_dict:
                 self.logger.debug(message='Checking TP/SL orders')
-                if self._monitor_tp_sl_fill():
+                if self._monitor_tp_sl_fill(close_candle_open_time=str(klines_df.iloc[-1]["open_time"])):
                     active_position_dict = None  # position closed
 
         # CASE 3: active position, loogking for exit signal
@@ -421,6 +422,7 @@ class Bot:
                     self._cancel_sl_order()
 
                 closed_position_dict['close_reason'] = exit_signal.reason
+                closed_position_dict['close_candle_open_time'] = klines_df.iloc[-1]["open_time"]
                 self.position_handler.close_position(
                     position_dict=closed_position_dict)
 
