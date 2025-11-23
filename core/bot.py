@@ -422,7 +422,7 @@ class Bot:
                     self._cancel_sl_order()
 
                 closed_position_dict['close_reason'] = exit_signal.reason
-                closed_position_dict['close_candle_open_time'] = klines_df.iloc[-1]["open_time"]
+                closed_position_dict['close_candle_open_time'] = str(klines_df.iloc[-1]["open_time"])
                 self.position_handler.close_position(
                     position_dict=closed_position_dict)
 

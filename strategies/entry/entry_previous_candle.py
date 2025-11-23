@@ -30,11 +30,10 @@ class EntryPreviousCandle(BaseEntryStrategy):
 
         prev_candle_positive = prev_candle['close'] > prev_candle['open']
         prev_candle_negative = prev_candle['close'] < prev_candle['open']
-        print('position prev open_time', prev_candle['open_time'])
         
         sl_price = prev_candle['open']
         current_price = klines_df.iloc[-1]['current_price']
-        current_open_time = klines_df.iloc[-1]['open_time']
+        current_open_time = str(klines_df.iloc[-1]['open_time'])
 
         if last_position_close_candle != current_open_time:
             if prev_candle_positive:
@@ -51,7 +50,7 @@ class EntryPreviousCandle(BaseEntryStrategy):
                 checklist_reasons.append("No previous candle direction -> ZERO: ❌")
         else:
             checklist_reasons.append(f"Last position close time == current candle open time ({last_position_close_candle[5:-9]} / {current_open_time[5:-9]}) -> ZERO: ❌")
-
+    
         # core logic
         if last_position_close_candle != current_open_time:
             if prev_candle_positive and sl_price < current_price:
@@ -68,7 +67,6 @@ class EntryPreviousCandle(BaseEntryStrategy):
         """
         prev_candle = klines_df.iloc[-2]
         sl_price = round(prev_candle['open'], self.decimal)
-        print('sl open_time', prev_candle['open_time'])
 
         self.logger.debug(f"SL = previous candle open: {sl_price}")
         return -1.0, sl_price
