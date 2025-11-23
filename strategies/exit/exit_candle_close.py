@@ -9,6 +9,9 @@ class ExitCandleClose(BaseExitStrategy):
         super().__init__()
         self.dynamic_config = dynamic_config
 
+    def _process_data(self, klines_df):
+        return klines_df
+
     def should_close(self, klines_df, position_handler: PositionHandler) -> PositionSignal:
 
         position = position_handler.get_position()
