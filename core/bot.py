@@ -106,7 +106,7 @@ class Bot:
             quantity=self.bot_config.quantity,
             reduce_only=True
         )
-        _order_id = tp_order['orderId']
+        _order_id = tp_order.get('orderId')
         self.logger.info(message=f"TP order placed at {tp_price}, order id: {_order_id}")
         self.position_handler.set_tp_order_id(id=_order_id)
         self.position_handler.set_tp_price(price=tp_price)
@@ -124,7 +124,7 @@ class Bot:
             quantity=self.bot_config.quantity,
             close_position=True
         )
-        _order_id = sl_order['orderId']
+        _order_id = sl_order.get('orderId')
         self.logger.info(message=f"SL order placed at {sl_price}, order id: {_order_id}")
         self.position_handler.set_sl_order_id(id=_order_id)
         self.position_handler.set_sl_price(price=sl_price)
