@@ -443,6 +443,7 @@ class Bot:
                         self._cancel_tp_order()
                     if self.bot_config.sl_enabled:
                         self._cancel_sl_order()
+                    self.position_handler.clear_tp_sl_orders()
 
                     closed_position_dict['close_reason'] = exit_signal.reason
                     closed_position_dict['close_candle_open_time'] = str(klines_df.iloc[-1]["open_time"])
