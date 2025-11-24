@@ -95,8 +95,9 @@ class Bot:
         return remote_position_dict
 
     def _place_tp_order(self, position_side, tp_price):
-        self.logger.info(message='Placing new take profit order')
+        self.logger.debug(message='Placing new take profit order')
         order_side = OrderSide.SELL.value if position_side == PositionSide.LONG else OrderSide.BUY.value
+        self.position_handler.set_tp_price(price=tp_price)
 
         tp_order = self.trade_client.place_order(
             symbol=self.bot_config.symbol,
@@ -109,12 +110,12 @@ class Bot:
         _order_id = tp_order.get('orderId')
         self.logger.info(message=f"TP order placed at {tp_price}, order id: {_order_id}")
         self.position_handler.set_tp_order_id(id=_order_id)
-        self.position_handler.set_tp_price(price=tp_price)
         return tp_order
 
     def _place_sl_order(self, position_side, sl_price):
-        self.logger.info(message='Placing new stop loss order')
+        self.logger.debug(message='Placing new stop loss order')
         order_side = OrderSide.SELL.value if position_side == PositionSide.LONG else OrderSide.BUY.value
+        self.position_handler.set_sl_price(price=sl_price)
 
         sl_order = self.trade_client.place_order(
             symbol=self.bot_config.symbol,
@@ -127,7 +128,6 @@ class Bot:
         _order_id = sl_order.get('orderId')
         self.logger.info(message=f"SL order placed at {sl_price}, order id: {_order_id}")
         self.position_handler.set_sl_order_id(id=_order_id)
-        self.position_handler.set_sl_price(price=sl_price)
         return sl_order
 
     def _place_market_order(self, order_side, reduce_only):
