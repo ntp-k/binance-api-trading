@@ -131,7 +131,7 @@ class Bot:
         return sl_order
 
     def _place_market_order(self, order_side, reduce_only):
-        self.logger.info(message='Placing new market order')
+        self.logger.debug(message='Placing new market order')
         _order = self.trade_client.place_order(
             symbol=self.bot_config.symbol,
             order_side=order_side,
@@ -247,7 +247,7 @@ class Bot:
         }
 
         self.logger.info(
-            message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {position_dict['position_side'].value:<5} | {position_dict['entry_price']:.2f} -> {_order_trade['price']:.2f} | {'+' if _order_trade['pnl'] >= 0 else ''}{_order_trade['pnl']:.2f}")
+            message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {position_dict['position_side'].value:<5} | {position_dict['entry_price']:.4f} -> {_order_trade['price']:.4f} | {'+' if _order_trade['pnl'] >= 0 else ''}{_order_trade['pnl']:.4f}")
         return closed_position_dict
 
     def _place_position_tp_sl(self, klines_df):
@@ -338,7 +338,7 @@ class Bot:
                 self.position_handler.clear_tp_sl_orders()
 
                 self.logger.info(
-                message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {order_trade['side']:<5} | {self.position_handler.entry_price:.2f} -> {order_trade['price']:.2f} | {'+' if order_trade['pnl'] >= 0 else ''}{order_trade['pnl']:.2f}")
+                message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {order_trade['side']:<5} | {self.position_handler.entry_price:.4f} -> {order_trade['price']:.4f} | {'+' if order_trade['pnl'] >= 0 else ''}{order_trade['pnl']:.4f}")
             
             except Exception as e:  
                 self.logger.error_e(
