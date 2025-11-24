@@ -453,7 +453,7 @@
         "sl_enabled": true,
         "symbol": "DOGEUSDC",
         "leverage": 5,
-        "quantity": 110,
+        "quantity": 120,
         "timeframe": "15m",
         "timeframe_limit": 10,
         "order_type": "MARKET",
