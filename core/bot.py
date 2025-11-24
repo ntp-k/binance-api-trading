@@ -148,9 +148,9 @@ class Bot:
             _order_filled = _order_status.get('status') == 'FILLED'
 
             if not _order_filled:
-                self.logger.info(message="Order still pending. Waiting...")
+                self.logger.info(message="Market Order still pending. Waiting...")
             else:
-                self.logger.info(message="Order filled")
+                self.logger.info(message="Market Order filled")
                 break
             sleep(1)  # wait before checking again
 
@@ -185,16 +185,16 @@ class Bot:
             _check_order = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=_order_id)
             self.logger.debug(message=f"Order status: {_check_order}")
             _order_filled = _check_order.get('status') == 'FILLED'
-            self.logger.debug(message=f"Order filled: {_order_filled}")
+            self.logger.debug(message=f"Limit Order filled: {_order_filled}")
 
             if not _order_filled and _last_price != price_now:
                 self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=_order_id)
                 self.logger.info(message="Order canceled due to price change")
                 sleep(1) # wait for binance to cancle order
             elif not _order_filled:
-                self.logger.info(message="Order still pending. Waiting...")
+                self.logger.info(message="Limit Order still pending. Waiting...")
             else: # order filled
-                self.logger.info(message="Order filled")
+                self.logger.info(message="Limit Order filled")
                 break
             
             _last_price = price_now
