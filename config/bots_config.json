@@ -94,5 +94,28 @@
             "candle_for_indicator": 10
         },
         "created_at": "2025-11-25T14:00:00"
+    },
+    {
+        "is_enabled": true,
+        "bot_id": 20,
+        "run_id": 20,
+        "bot_name": "bot 20",
+        "run_mode": "live",
+        "trade_client": "binance",
+        "entry_strategy": "previous_candle",
+        "exit_strategy": "candle_close",
+        "tp_enabled": false,
+        "sl_enabled": true,
+        "symbol": "XRPUSDC",
+        "leverage": 5,
+        "quantity": 9,
+        "timeframe": "1h",
+        "timeframe_limit": 10,
+        "order_type": "MARKET",
+        "dynamic_config": {
+            "decimal": 4,
+            "candle_for_indicator": 10
+        },
+        "created_at": "2025-11-26T23:00:00"
     }
 ]
