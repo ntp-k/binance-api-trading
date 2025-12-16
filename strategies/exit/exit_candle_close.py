@@ -28,6 +28,11 @@ class ExitCandleClose(BaseExitStrategy):
         # ----- SL HIT CHECK -----
         long_sl_hit  = (position_side == PositionSide.LONG  and cur_price <= sl_price)
         short_sl_hit = (position_side == PositionSide.SHORT and cur_price >= sl_price)
+        if sl_price == 0.0:
+            long_sl_hit = False
+            short_sl_hit = False
+            sl_price = 'N/A'
+
 
         if position_side == PositionSide.LONG:
             checklist.append(f"LONG | price {cur_price} <= SL {sl_price}: {'✅' if long_sl_hit else '❌'}")
