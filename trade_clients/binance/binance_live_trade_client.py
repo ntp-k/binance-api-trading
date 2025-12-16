@@ -5,6 +5,7 @@ import pandas as pd
 from abstracts.base_live_trade_client import BaseLiveTradeClient
 from models.enum.position_side import PositionSide
 import trade_clients.binance.binance_auth as binance_auth
+from models.enum.order_type import OrderType
 
 SET_LEVERAGE_URL = 'https://fapi.binance.com/fapi/v1/leverage'
 GET_POSITION_URL = 'https://fapi.binance.com/fapi/v2/positionRisk'
@@ -196,13 +197,17 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             'symbol': symbol.upper(),
             'side': order_side.upper(),
             'type': order_type.upper(),
-            'quantity': quantity,
             'reduceOnly': reduce_only,
             'closePosition': 'true' if close_position else 'false',
             'timestamp': int(time.time() * 1000)
         }
 
-        if order_type.upper() == 'LIMIT':
+        if order_type != OrderType.STOP_MARKET.value:
+            params.update({
+                'quantity': quantity
+            })
+
+        if order_type == OrderType.LIMIT.value:
             if not price:
                 raise ValueError("Price must be specified for LIMIT orders.")
             params.update({

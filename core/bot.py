@@ -122,7 +122,7 @@ class Bot:
             order_side=order_side,
             order_type=OrderType.STOP_MARKET.value,
             stop_price=sl_price,
-            # quantity=self.bot_config.quantity,
+            quantity=self.bot_config.quantity,
             close_position=True
         )
         _order_id = sl_order.get('orderId')
