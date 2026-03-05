@@ -99,15 +99,14 @@ class Bot:
         order_side = OrderSide.SELL.value if position_side == PositionSide.LONG else OrderSide.BUY.value
         self.position_handler.set_tp_price(price=tp_price)
 
-        tp_order = self.trade_client.place_order(
+        tp_order = self.trade_client.place_algorithmic_order(
             symbol=self.bot_config.symbol,
             order_side=order_side,
-            order_type=OrderType.LIMIT.value,
-            price=tp_price,
-            quantity=self.bot_config.quantity,
-            reduce_only=True
+            order_type=OrderType.TAKE_PROFIT_MARKET.value,
+            trigger_price=tp_price,
+            quantity=self.bot_config.quantity
         )
-        _order_id = tp_order.get('orderId')
+        _order_id = tp_order.get('algoId')
         self.logger.info(message=f"TP order placed at {tp_price}, order id: {_order_id}")
         self.position_handler.set_tp_order_id(id=_order_id)
         return tp_order
@@ -117,15 +116,14 @@ class Bot:
         order_side = OrderSide.SELL.value if position_side == PositionSide.LONG else OrderSide.BUY.value
         self.position_handler.set_sl_price(price=sl_price)
 
-        sl_order = self.trade_client.place_order(
+        sl_order = self.trade_client.place_algorithmic_order(
             symbol=self.bot_config.symbol,
             order_side=order_side,
             order_type=OrderType.STOP_MARKET.value,
-            stop_price=sl_price,
-            quantity=self.bot_config.quantity,
-            close_position=True
+            trigger_price=sl_price,
+            quantity=self.bot_config.quantity
         )
-        _order_id = sl_order.get('orderId')
+        _order_id = sl_order.get('algoId')
         self.logger.info(message=f"SL order placed at {sl_price}, order id: {_order_id}")
         self.position_handler.set_sl_order_id(id=_order_id)
         return sl_order
@@ -144,8 +142,8 @@ class Bot:
         _order_id = _order.get('orderId')
         _order_filled = False
         while not _order_filled:
-            _order_status = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=_order_id)
-            _order_filled = _order_status.get('status') == 'FILLED'
+            _check_order = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=_order_id)
+            _order_filled = _check_order.get('status') == 'FILLED'
 
             if not _order_filled:
                 self.logger.info(message="Market Order still pending. Waiting...")
@@ -183,7 +181,6 @@ class Bot:
             sleep(5)  # wait for order to filled
 
             _check_order = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=_order_id)
-            self.logger.debug(message=f"Order status: {_check_order}")
             _order_filled = _check_order.get('status') == 'FILLED'
             self.logger.debug(message=f"Limit Order filled: {_order_filled}")
 
@@ -270,12 +267,12 @@ class Bot:
     def _cancel_tp_order(self):
         order_id = self.position_handler.get_tp_order_id()
         if order_id:
-            self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=order_id)
+            self.trade_client.cancel_algorithmic_order(order_id=order_id)
 
     def _cancel_sl_order(self):
         order_id = self.position_handler.get_sl_order_id()
         if order_id:
-            self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=order_id)
+            self.trade_client.cancel_algorithmic_order(order_id=order_id)
 
     def _monitor_tp_sl_fill(self, close_candle_open_time=''):
         """
@@ -291,11 +288,11 @@ class Bot:
         if self.bot_config.sl_enabled:
             sl_order_id = self.position_handler.get_sl_order_id()
             if sl_order_id:
-                sl_status = self.trade_client.fetch_order(
-                    symbol=self.bot_config.symbol, order_id=sl_order_id).get('status')
-                if sl_status == 'FILLED':
+                _check_sl_order = self.trade_client.fetch_algorithmic_order(order_id=sl_order_id)
+                sl_status = _check_sl_order.get('algoStatus')
+                if sl_status == 'FINISHED':
                     self.logger.info("SL hit ✅")
-                    filled_order_id = sl_order_id
+                    filled_order_id = _check_sl_order.get('actualOrderId')
                     close_reason = 'SL Hit'
                     if self.bot_config.tp_enabled:
                         self._cancel_tp_order()
@@ -307,11 +304,11 @@ class Bot:
         if self.bot_config.tp_enabled and not filled_order_id:
             tp_order_id = self.position_handler.get_tp_order_id()
             if tp_order_id:
-                tp_status = self.trade_client.fetch_order(
-                    symbol=self.bot_config.symbol, order_id=tp_order_id).get('status')
-                if tp_status == 'FILLED':
+                _check_tp_order = self.trade_client.fetch_algorithmic_order(order_id=tp_order_id)
+                tp_status = _check_tp_order.get('algoStatus')
+                if tp_status == 'FINISHED':
                     self.logger.info("TP hit ✅")
-                    filled_order_id = tp_order_id
+                    filled_order_id = _check_tp_order.get('actualOrderId')
                     close_reason = 'TP Hit'
                     if self.bot_config.sl_enabled:
                         self._cancel_sl_order()
@@ -439,10 +436,12 @@ class Bot:
 
                     closed_position_dict = self._place_order_to_close_position(
                         position_dict=active_position_dict)
-                    if self.bot_config.tp_enabled:
-                        self._cancel_tp_order()
-                    if self.bot_config.sl_enabled:
-                        self._cancel_sl_order()
+
+                    # tp /sl order should be cancelled if exit signal triggered
+                    # if self.bot_config.tp_enabled:
+                    #     self._cancel_tp_order()
+                    # if self.bot_config.sl_enabled:
+                    #     self._cancel_sl_order()
                     self.position_handler.clear_tp_sl_orders()
 
                     closed_position_dict['close_reason'] = exit_signal.reason

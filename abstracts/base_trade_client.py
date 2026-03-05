@@ -64,6 +64,27 @@ class BaseTradeClient(ABC):
         pass
 
     @abstractmethod
+    def fetch_algorithmic_order(self, order_id: str) -> dict:
+        """
+        Subclass must implement.
+        """
+        pass
+
+    @abstractmethod
+    def place_algorithmic_order(self, symbol: str, order_side: str, order_type: str, quantity: float, trigger_price: float) -> dict:
+        """
+        Subclass must implement.
+        """
+        pass
+
+    @abstractmethod
+    def cancel_algorithmic_order(self, order_id: str):
+        """
+        Subclass must implement.
+        """
+        pass
+
+    @abstractmethod
     def fetch_trades(self, symbol: str = '', order_id: str = ''):
         """
         Subclass must implement.

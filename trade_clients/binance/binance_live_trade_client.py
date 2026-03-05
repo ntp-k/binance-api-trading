@@ -10,6 +10,7 @@ from models.enum.order_type import OrderType
 SET_LEVERAGE_URL = 'https://fapi.binance.com/fapi/v1/leverage'
 GET_POSITION_URL = 'https://fapi.binance.com/fapi/v2/positionRisk'
 SET_ORDER_URL = 'https://fapi.binance.com/fapi/v1/order'
+SET_ALGO_ORDER_URL = 'https://fapi.binance.com/fapi/v1/algoOrder'
 GET_KLINES_URL = 'https://fapi.binance.com/fapi/v1/klines'
 GET_TICKER_PRICE_URL = 'https://fapi.binance.com/fapi/v1/ticker/price'
 GET_ORDER = 'https://fapi.binance.com/fapi/v1/order'
@@ -152,6 +153,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         try:
             response = requests.get(url=GET_ORDER, headers= headers, params=signed_params)
             response.raise_for_status()
+            self.logger.debug(message=f"Order fetched: {response.json()}")
             return response.json()
         except Exception as e:
             self.logger.error_e(message=f"error getting order", e=e)
@@ -198,14 +200,9 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             'side': order_side.upper(),
             'type': order_type.upper(),
             'reduceOnly': reduce_only,
-            'closePosition': 'true' if close_position else 'false',
+            'quantity': quantity,
             'timestamp': int(time.time() * 1000)
         }
-
-        if order_type != OrderType.STOP_MARKET.value:
-            params.update({
-                'quantity': quantity
-            })
 
         if order_type == OrderType.LIMIT.value:
             if not price:
@@ -214,11 +211,6 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
                 'price': price,
                 'timeInForce': time_in_force
             })
-        if stop_price != -1:
-            params.update({
-                'stopPrice': stop_price
-            })
-            del params['reduceOnly']
 
         headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
         try:
@@ -232,6 +224,76 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             return False
         except requests.exceptions.RequestException as e:
             self.logger.error_e(message=f"Network error placing order", e=e)
+            return False
+
+    def fetch_algorithmic_order(self, order_id: str) -> dict:
+        # Base parameters
+        params = {
+            'algoId': order_id,
+            'timestamp': int(time.time() * 1000)
+        }
+
+        headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
+        try:
+            response = requests.get(url=SET_ALGO_ORDER_URL, headers=headers, params=signed_params)
+            response.raise_for_status()
+            self.logger.debug(message=f"Order fetched: {response.json()}")
+            return response.json()
+        except requests.exceptions.HTTPError as e:
+            self.logger.error_e(message=f"Error getting algo order", e=e)
+            self.logger.error(message=f"Response: {response.text}") # type: ignore
+            return False
+        except requests.exceptions.RequestException as e:
+            self.logger.error_e(message=f"Network error getting algo order", e=e)
+            return False
+
+    def cancel_algorithmic_order(self, order_id: str):
+        params = {
+            'algoId': order_id,
+            'timestamp': int(time.time() * 1000)
+        }
+        headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
+        try:
+            response = requests.delete(url=SET_ALGO_ORDER_URL, headers= headers, params=signed_params)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            self.logger.error_e(message=f"error canceling algo order", e=e)
+            return {}
+
+    def place_algorithmic_order(self, symbol: str, order_side: str, order_type: str, quantity: float, trigger_price: float) -> dict:
+        # Base parameters
+        params = {
+            'algoType': 'CONDITIONAL',
+            'symbol': symbol.upper(),
+            'side': order_side.upper(),
+            'type': order_type.upper(),
+            'timestamp': int(time.time() * 1000)
+        }
+
+        if order_type == OrderType.STOP_MARKET.value or order_type == OrderType.TAKE_PROFIT_MARKET.value:
+            params.update({
+                'triggerPrice': trigger_price,
+                'closePosition': 'true'
+            })
+        else: 
+            params.update({
+                'quantity': quantity,
+                'reduceOnly': 'true',
+            })
+
+        headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
+        try:
+            response = requests.post(url=SET_ALGO_ORDER_URL, headers=headers, params=signed_params)
+            response.raise_for_status()
+            self.logger.debug(message=f"Order placed: {response.json()}")
+            return response.json()
+        except requests.exceptions.HTTPError as e:
+            self.logger.error_e(message=f"Error placing algo order", e=e)
+            self.logger.error(message=f"Response: {response.text}") # type: ignore
+            return False
+        except requests.exceptions.RequestException as e:
+            self.logger.error_e(message=f"Network error placing algo order", e=e)
             return False
 
     def fetch_trades(self, symbol: str = '', order_id: str = ''):
@@ -256,6 +318,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
     
     def fetch_order_trade(self, symbol: str = '', order_id: str = ''):
         trades = self.fetch_trades(symbol=symbol, order_id=order_id)
+        self.logger.debug(message=f"{symbol} trades: {trades}")
 
         if not trades:
             return {
