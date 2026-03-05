@@ -367,9 +367,9 @@ class Bot:
         except Exception as e:
             self.logger.critical_e(message='Failed to fetch or sync position', e=e)
 
-        have_position = bool(active_position_dict)
-        have_tp = bool(self.position_handler.tp_order_id)
-        have_sl = bool(self.position_handler.sl_order_id)
+        have_position: bool = bool(active_position_dict)
+        have_tp: bool = bool(self.position_handler.tp_order_id)
+        have_sl: bool = bool(self.position_handler.sl_order_id)
 
         # CASE 1: no active position and no TP/SL orders in memory -> looking for entry signal
         if not have_position and not have_tp and not have_sl:

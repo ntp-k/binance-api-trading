@@ -2,6 +2,7 @@ from models.enum.position_side import PositionSide
 from abstracts.base_entry_strategy import BaseEntryStrategy
 import strategies.data_processor as data_processor
 from models.position_signal import PositionSignal
+from core.position_handler import PositionHandler
 
 class EntryMacdHistEMAV1(BaseEntryStrategy):
     """
@@ -10,19 +11,19 @@ class EntryMacdHistEMAV1(BaseEntryStrategy):
     """
 
     dynamic_config: dict
-    ema_period: float
+    ema_period: int
 
     def __init__(self, dynamic_config):
         super().__init__()
         self.dynamic_config = dynamic_config
-        self.ema_period = dynamic_config.get('ema_peroid', 200)
+        self.ema_period = int(dynamic_config.get('ema_peroid', 200))
 
     def _process_data(self, klines_df):
         klines_df = data_processor.calculate_macd(df=klines_df, decimal=self.dynamic_config.get('macd_decimal', 2))
         klines_df = data_processor.calculate_ema(df=klines_df, ema=self.ema_period)
         return klines_df
 
-    def should_open(self, klines_df, position_handler) -> PositionSignal:
+    def should_open(self, klines_df, position_handler: PositionHandler) -> PositionSignal:
         klines_df = self._process_data(klines_df=klines_df)
         position_signal = PositionSignal(
             position_side=PositionSide.ZERO,

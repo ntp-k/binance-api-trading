@@ -2,6 +2,7 @@ from abstracts.base_entry_strategy import BaseEntryStrategy
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
 import strategies.data_processor as data_processor
+from core.position_handler import PositionHandler
 import pandas as pd
 
 class EntryPriceCrossEMARSI(BaseEntryStrategy):
@@ -58,7 +59,7 @@ class EntryPriceCrossEMARSI(BaseEntryStrategy):
         klines_df = data_processor.calculate_rsi(df=klines_df, period=self.rsi_period, decimal=2)
         return klines_df
 
-    def should_open(self, klines_df, position_handler) -> PositionSignal:
+    def should_open(self, klines_df, position_handler: PositionHandler) -> PositionSignal:
         symbol = position_handler.bot_config.symbol
         new_position_side = PositionSide.ZERO
         checklist_reasons = [f"{symbol} Entry Signal"]

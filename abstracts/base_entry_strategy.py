@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 
 from commons.custom_logger import CustomLogger
-from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
+from core.position_handler import PositionHandler
 
 class BaseEntryStrategy(ABC):
     def __init__(self) -> None:
@@ -17,7 +17,7 @@ class BaseEntryStrategy(ABC):
         pass
 
     @abstractmethod
-    def should_open(self, klines_df) -> PositionSignal:
+    def should_open(self, klines_df, position_handler: PositionHandler) -> PositionSignal:
         """
         Subclass must implement.
         """

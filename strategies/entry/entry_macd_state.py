@@ -2,6 +2,7 @@ from models.enum.position_side import PositionSide
 from abstracts.base_entry_strategy import BaseEntryStrategy
 import strategies.data_processor as data_processor
 from models.position_signal import PositionSignal
+from core.position_handler import PositionHandler
 
 class EntryMacdState(BaseEntryStrategy):
     """
@@ -20,7 +21,7 @@ class EntryMacdState(BaseEntryStrategy):
         klines_df = data_processor.calculate_macd(df=klines_df, decimal=self.dynamic_config.get('macd_decimal', 2))
         return klines_df
 
-    def should_open(self, klines_df, position_handler) -> PositionSignal:
+    def should_open(self, klines_df, position_handler: PositionHandler) -> PositionSignal:
         symbol = position_handler.bot_config.symbol
         new_position_side = PositionSide.ZERO # don't open position
         checklist_reasons  = [f'{symbol} Entry Signal']
