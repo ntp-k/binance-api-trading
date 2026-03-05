@@ -23,6 +23,13 @@ class BaseEntryStrategy(ABC):
         """
         pass
 
+    @abstractmethod
+    def calculate_tp_sl(self, klines_df, position_side, entry_price):
+        """
+        Subclass must implement.
+        """
+        pass
+
 
 # EOF
 
