@@ -6,9 +6,7 @@ from commons.constants import (
     POSITION_RECORDS_DIR,
     POSITION_RECORD_FILENAME_TEMPLATE,
     POSITION_STATES_DIR,
-    POSITION_STATES_FILENAME_TEMPLATE,
-    DATETIME_FORMAT_GMT7,
-    DATETIME_FORMAT_FILE
+    POSITION_STATES_FILENAME_TEMPLATE
 )
 from commons.custom_logger import CustomLogger
 from models.bot_config import BotConfig

@@ -1,5 +1,5 @@
 from threading import Thread
-from typing import List
+from typing import List, Optional
 
 from commons.constants import BOT_CONFIG_PATH
 from commons.custom_logger import CustomLogger
@@ -13,28 +13,52 @@ class BotManager:
     Manages multiple trading bot instances with thread-based execution.
     
     Handles bot initialization and thread management.
+    Supports running all bots or specific bots by ID.
     """
     
-    def __init__(self):
+    def __init__(self, bot_ids: Optional[List[str]] = None, config_dir: str = "config"):
+        """
+        Initialize BotManager.
+        
+        Args:
+            bot_ids: Optional list of bot IDs to run (e.g., ['25', 'aa'])
+                    If None, runs all enabled bots
+            config_dir: Directory containing bot config files
+        """
         self.logger = CustomLogger(name=self.__class__.__name__)
+        self.bot_ids = bot_ids
+        self.config_dir = config_dir
         self.bots: List[Bot] = []
         self.threads: List[Thread] = []
 
     def _load_bots_config(self) -> List[BotConfig]:
         """
-        Load bot configurations from file.
+        Load bot configurations based on initialization parameters.
         
         Returns:
             List of BotConfig instances
             
         Raises:
-            FileNotFoundError: If config file doesn't exist
+            FileNotFoundError: If config files don't exist
             ValueError: If config is invalid
         """
         try:
-            return bot_config_loader.load_config(file_path=BOT_CONFIG_PATH)
-        except FileNotFoundError:
-            self.logger.error(message=f"Config file not found: {BOT_CONFIG_PATH}")
+            if self.bot_ids:
+                # Load specific bots by ID
+                self.logger.info(message=f"Loading specific bots: {', '.join(self.bot_ids)}")
+                return bot_config_loader.load_bot_configs_by_ids(
+                    bot_ids=self.bot_ids,
+                    config_dir=self.config_dir
+                )
+            else:
+                # Load all enabled bots
+                self.logger.info(message="Loading all enabled bots from directory")
+                return bot_config_loader.load_all_bot_configs(
+                    config_dir=self.config_dir,
+                    enabled_only=True
+                )
+        except FileNotFoundError as e:
+            self.logger.error(message=f"Config file(s) not found: {e}")
             raise
         except Exception as e:
             self.logger.error_e(message="Failed to load bot configurations", e=e)
@@ -55,8 +79,13 @@ class BotManager:
         
         for bot_config in self.bots_config:
             try:
-                if not bot_config.is_enabled:
-                    self.logger.debug(message=f'Bot: {bot_config.bot_name} is disabled')
+                # When loading specific bots, respect their enabled status
+                # When loading all bots, only enabled ones are loaded
+                if self.bot_ids and not bot_config.is_enabled:
+                    self.logger.warning(
+                        message=f'Bot: {bot_config.bot_name} is disabled but was explicitly requested'
+                    )
+                    # Still skip disabled bots even if explicitly requested
                     continue
                 
                 # Validate configuration

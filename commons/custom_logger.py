@@ -4,7 +4,7 @@ import logging
 import os
 from pythonjsonlogger import jsonlogger
 
-from commons.constants import LOGS_DIR, DEFAULT_LOG_LEVEL, DATETIME_FORMAT_LOG
+from commons.constants import LOGS_DIR, DEFAULT_LOG_LEVEL, DATETIME_FORMAT_FILE
 
 load_dotenv()
 
@@ -104,7 +104,7 @@ class CustomLogger:
         date_key = today.strftime('%Y%m%d')
         
         if date_key not in cls._log_file_cache:
-            dt_str = today.strftime(format=DATETIME_FORMAT_LOG)
+            dt_str = today.strftime(format=DATETIME_FORMAT_FILE)
             cls._log_file_cache[date_key] = os.path.join(log_dir, f'{dt_str}.log')
         
         return cls._log_file_cache[date_key]
