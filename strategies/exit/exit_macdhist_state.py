@@ -13,14 +13,14 @@ class ExitMacdHistState(BaseExitStrategy):
         * ignores exit if price change is within a threshold
     """
     dynamic_config: dict
-    macd_decimal: float
+    macd_decimal: int
     close_price_diff_threshold: float
 
     def __init__(self, dynamic_config):
         super().__init__()
         self.dynamic_config = dynamic_config
-        self.macd_decimal = dynamic_config.get('macd_decimal', 2)
-        self.close_price_diff_threshold = dynamic_config.get('close_price_diff_thsd', 0)
+        self.macd_decimal = int(dynamic_config.get('macd_decimal', 2))
+        self.close_price_diff_threshold = float(dynamic_config.get('close_price_diff_thsd', 0.0))
 
     def _process_data(self, klines_df):
         klines_df = data_processor.calculate_macd(df=klines_df, decimal=self.macd_decimal)

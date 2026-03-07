@@ -1,13 +1,33 @@
-from commons.common import get_datetime_now_string_gmt_plus_7
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Optional, Union
 from models.enum.position_side import PositionSide
-from datetime import datetime
 from commons.common import get_datetime_now_string_gmt_plus_7
+
 
 @dataclass
 class Position:
+    """
+    Represents a trading position with entry/exit details and PnL tracking.
+    
+    Attributes:
+        position_id: Unique identifier for the position
+        run_id: Bot run identifier
+        symbol: Trading pair symbol
+        position_side: LONG or SHORT
+        entry_price: Price at which position was opened
+        open_candle: Candle timestamp when position opened
+        open_reason: Strategy reason for opening
+        open_time: Timestamp when position opened
+        open_fee: Fee paid to open position
+        close_time: Timestamp when position closed
+        close_price: Price at which position was closed
+        pnl: Profit/loss in quote currency
+        close_reason: Reason for closing position
+        close_fee: Fee paid to close position
+        max_pnl: Maximum PnL reached during position lifetime
+        min_pnl: Minimum PnL reached during position lifetime
+        created_at: Position creation timestamp
+    """
     position_id: Optional[int] = None
     run_id: int = 0
     symbol: str = ''
@@ -15,22 +35,23 @@ class Position:
     entry_price: float = 0.0
     open_candle: str = ''
     open_reason: str = ''
-    open_time: datetime = get_datetime_now_string_gmt_plus_7()
-    open_fee: Optional[float] = 0.0
-    close_time: Optional[datetime] = None
-    close_price: Optional[float] = 0.0
-    pnl: Optional[float] = 0.0
-    close_reason: Optional[str] = ''
-    close_fee: Optional[float] = 0.0
-    max_pnl: Optional[float] = 0.0
-    min_pnl: Optional[float] = 0.0
-    created_at: Optional[datetime] = get_datetime_now_string_gmt_plus_7()
+    open_time: str = field(default_factory=lambda: get_datetime_now_string_gmt_plus_7())
+    open_fee: float = 0.0
+    close_time: Optional[str] = None
+    close_price: float = 0.0
+    pnl: float = 0.0
+    close_reason: str = ''
+    close_fee: float = 0.0
+    max_pnl: float = 0.0
+    min_pnl: float = 0.0
+    created_at: str = field(default_factory=lambda: get_datetime_now_string_gmt_plus_7())
     
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """Convert position to dictionary for serialization."""
         return {
             "run_id": self.run_id,
             "symbol": self.symbol,
-            "position_side": self.position_side.name,  # <-- note this
+            "position_side": self.position_side.name,
             "entry_price": self.entry_price,
             "open_candle": self.open_candle,
             "open_reason": self.open_reason,
@@ -46,22 +67,36 @@ class Position:
         }
 
     @classmethod
-    def from_dict(cls, data: dict):
+    def from_dict(cls, data: dict) -> 'Position':
+        """
+        Create Position instance from dictionary.
+        
+        Args:
+            data: Dictionary containing position data
+            
+        Returns:
+            Position instance
+        """
+        # Parse position_side
+        position_side = data["position_side"]
+        if isinstance(position_side, str):
+            position_side = PositionSide[position_side]
+        
         return cls(
-            run_id=data["run_id"],
-            symbol=data["symbol"],
-            position_side=PositionSide[data["position_side"]] if type(data["position_side"]) == type('a') else data["position_side"],
-            entry_price=data["entry_price"],
-            open_candle=data["open_candle"],
+            run_id=data.get("run_id", 0),
+            symbol=data.get("symbol", ""),
+            position_side=position_side,
+            entry_price=data.get("entry_price", 0.0),
+            open_candle=data.get("open_candle", ""),
             open_reason=data.get("open_reason", ""),
             open_time=data.get("open_time", get_datetime_now_string_gmt_plus_7(format='%Y-%m-%d %H:%M:%S')),
             open_fee=data.get("open_fee", 0.0),
-            close_time=data.get("close_time", 0.0),
+            close_time=data.get("close_time"),
             close_price=data.get("close_price", 0.0),
             pnl=data.get('pnl', 0.0),
             close_reason=data.get("close_reason", ""),
             close_fee=data.get("close_fee", 0.0),
-            max_pnl=data.get("max_pnl", 0),
+            max_pnl=data.get("max_pnl", 0.0),
             min_pnl=data.get("min_pnl", 0.0)
         )
 

@@ -15,7 +15,7 @@ class EntryMacdState(BaseEntryStrategy):
     def __init__(self, dynamic_config):
         super().__init__()
         self.dynamic_config = dynamic_config
-        self.ema_period = dynamic_config.get('ema_peroid', 200)
+        self.ema_period = dynamic_config.get('ema_period', 200)
 
     def _process_data(self, klines_df):
         klines_df = data_processor.calculate_macd(df=klines_df, decimal=self.dynamic_config.get('macd_decimal', 2))
