@@ -142,7 +142,7 @@
         "created_at": "2025-12-04T22:55:00"
     },
     {
-        "is_enabled": true,
+        "is_enabled": false,
         "bot_id": 22,
         "run_id": 22,
         "bot_name": "bot 22",
@@ -163,5 +163,105 @@
             "candle_for_indicator": 10
         },
         "created_at": "2025-12-17T00:40:00"
+    },
+    {
+        "is_enabled": false,
+        "bot_id": 23,
+        "run_id": 23,
+        "bot_name": "bot 23",
+        "run_mode": "live",
+        "trade_client": "binance",
+        "entry_strategy": "previous_candle",
+        "exit_strategy": "candle_close",
+        "tp_enabled": false,
+        "sl_enabled": true,
+        "symbol": "SOLUSDC",
+        "leverage": 5,
+        "quantity": 0.2,
+        "timeframe": "1h",
+        "timeframe_limit": 10,
+        "order_type": "LIMIT",
+        "dynamic_config": {
+            "decimal": 2,
+            "candle_for_indicator": 10
+        },
+        "created_at": "2026-03-06T04:05:00"
+    },
+    {
+        "is_enabled": true,
+        "bot_id": 24,
+        "run_id": 24,
+        "bot_name": "bot 24",
+        "run_mode": "live",
+        "trade_client": "binance",
+        "entry_strategy": "price_cross_ema_rsi",
+        "exit_strategy": "tp_sl",
+        "tp_enabled": true,
+        "sl_enabled": true,
+        "symbol": "ADAUSDC",
+        "leverage": 10,
+        "quantity": 55,
+        "timeframe": "30m",
+        "timeframe_limit": 1200,
+        "order_type": "LIMIT",
+        "dynamic_config": {
+            "macd_decimal": 4,
+            "candle_for_indicator": 500,
+            "take_profit_atr": 3.0,
+            "stop_loss_atr": 1.8
+        },
+        "created_at": "2026-03-06T04:05:00"
+    },
+    {
+        "is_enabled": false,
+        "bot_id": 25,
+        "run_id": 25,
+        "bot_name": "bot 25",
+        "run_mode": "live",
+        "trade_client": "binance",
+        "entry_strategy": "price_cross_ema_rsi",
+        "exit_strategy": "tp_sl",
+        "tp_enabled": true,
+        "sl_enabled": true,
+        "symbol": "XRPUSDC",
+        "leverage": 10,
+        "quantity": 20,
+        "timeframe": "30m",
+        "timeframe_limit": 1500,
+        "order_type": "LIMIT",
+        "dynamic_config": {
+            "macd_decimal": 4,
+            "candle_for_indicator": 500,
+            "take_profit_atr": 3.0,
+            "stop_loss_atr": 1.8
+        },
+        "created_at": "2025-08-16T00:54:00"
+    },
+    {
+        "is_enabled": false,
+        "bot_id": 102,
+        "run_id": 102,
+        "bot_name": "Momentum Trend Filtered - SOLUSDT 1h",
+        "run_mode": "live",
+        "trade_client": "binance",
+        "entry_strategy": "momentum_trend_filtered",
+        "exit_strategy": "tp_sl",
+        "tp_enabled": true,
+        "sl_enabled": true,
+        "symbol": "SOLUSDT",
+        "leverage": 5,
+        "quantity": 0.5,
+        "timeframe": "1h",
+        "timeframe_limit": 500,
+        "order_type": "LIMIT",
+        "dynamic_config": {
+            "min_body_pct": 0.008,
+            "sl_buffer": 0.002,
+            "ema_period": 200,
+            "atr_period": 14,
+            "atr_ma_period": 20,
+            "atr_threshold_multiplier": 0.9
+        },
+        "created_at": "2026-03-07T13:30:00"
     }
 ]

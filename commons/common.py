@@ -1,26 +1,55 @@
+"""
+Common utility functions for datetime operations and formatting.
+"""
 from datetime import datetime, timezone, timedelta
+from typing import Optional, List, Dict, Any
+from commons.constants import DATETIME_FORMAT_GMT7
 
 
-def get_datetime_now_gmt_plus_7():
+def get_datetime_now_gmt_plus_7() -> datetime:
+    """
+    Get current datetime in GMT+7 timezone.
+    
+    Returns:
+        datetime: Current datetime adjusted to GMT+7
+    """
     return datetime.now(timezone.utc) + timedelta(hours=7)
 
-def get_datetime_now_string_gmt_plus_7(format=None):
+
+def get_datetime_now_string_gmt_plus_7(format: Optional[str] = None) -> str:
+    """
+    Get current datetime as string in GMT+7 timezone.
+    
+    Args:
+        format: Optional datetime format string. Defaults to DATETIME_FORMAT_GMT7
+    
+    Returns:
+        str: Formatted datetime string
+    """
     dt = datetime.now(timezone.utc) + timedelta(hours=7)
-    if format is None:
-        dt_str = dt.strftime('%Y-%m-%d %H:%M:%S')
-    else:
-        dt_str = dt.strftime(format)
-    return dt_str
+    format_str = format if format is not None else DATETIME_FORMAT_GMT7
+    return dt.strftime(format_str)
 
 def format_duration_minutes(minutes: int) -> str:
-    '''
-    examples:
-        print(format_duration_minutes(minutes=600)) -> 10h
-        print(format_duration_minutes(minutes=60030)) -> 41d 16h 30m
-    '''
-    days = minutes // (24 * 60)
-    hours = (minutes % (24 * 60)) // 60
-    mins = minutes % 60
+    """
+    Format duration in minutes to human-readable string.
+    
+    Args:
+        minutes: Duration in minutes
+    
+    Returns:
+        str: Formatted duration string (e.g., "10h", "41d 16h 30m")
+    
+    Examples:
+        format_duration_minutes(minutes=600) -> 10h
+        format_duration_minutes(minutes=60030) -> 41d 16h 30m
+    """
+    MINUTES_PER_DAY = 24 * 60
+    MINUTES_PER_HOUR = 60
+    
+    days = minutes // MINUTES_PER_DAY
+    hours = (minutes % MINUTES_PER_DAY) // MINUTES_PER_HOUR
+    mins = minutes % MINUTES_PER_HOUR
 
     parts = []
     if days > 0:
@@ -32,71 +61,90 @@ def format_duration_minutes(minutes: int) -> str:
 
     return " ".join(parts)
 
-def print_result_table(bots_run: list[dict]):
+def print_result_table(bots_run: List[Dict[str, Any]]) -> None:
+    """
+    Print formatted results table for bot performance.
+    
+    Args:
+        bots_run: List of dictionaries containing bot run statistics
+    """
     # Define header
-    header = f"| {'Bot':<40} {'Duration':<20} {'Position':<8} {'Win Rate':<10} {'Initial':<10} {'Final':<10} {'ROI':<11} {'Daily ROI':<11} {'Auunal ROI':<8} |"
-    print("\n" + "-" * len(header))
+    header = f"| {'Bot':<40} {'Duration':<20} {'Position':<8} {'Win Rate':<10} {'Initial':<10} {'Final':<10} {'ROI':<11} {'Daily ROI':<11} {'Annual ROI':<8} |"
+    separator = "-" * len(header)
+    
+    print(f"\n{separator}")
     print(header)
-    print("-" * len(header))
+    print(separator)
 
     # Print each row
     for r in bots_run:
         duration_str = format_duration_minutes(r['duration_minutes'])
+        win_rate_str = f"{r['win_rate']:.2f} %"
+        roi_str = f"{r['roi_percent']:.2f} %"
+        daily_roi_str = f"{r['daily_roi']:.2f} %"
+        annual_roi_str = f"{r['annual_roi']:.2f} %"
+        
         print(
             f"| {r['bot_fullname']:<40} "
-            f"{str(duration_str):<20} "
+            f"{duration_str:<20} "
             f"{r['total_positions']:<8} "
-            f"{r['win_rate']:.2f} %{' ' * (11 - len(f'{r['win_rate']:.2f} %'))}"
+            f"{win_rate_str:<11} "
             f"${r['initial_balance']:<9.2f} "
             f"${r['final_balance']:<9.2f} "
-            f"{r['roi_percent']:.2f} %{' ' * (12 - len(f'{r['roi_percent']:.2f} %'))}"
-            f"{r['daily_roi']:.2f} %{' ' * (12 - len(f'{r['daily_roi']:.2f} %'))}"
-            f"{r['annual_roi']:.2f} %{' ' * (10 - len(f'{r['annual_roi']:.2f} %'))} |"
-            # f"{r['roi']:<8.2f}% "
-            # f"{r['annualized_roi']:.2f}%"
+            f"{roi_str:<12} "
+            f"{daily_roi_str:<12} "
+            f"{annual_roi_str:<10} |"
         )
-    print("-" * len(header) + "\n")
+    print(f"{separator}\n")
 
 
-def calculate_roi_metrics(initial_balance: float, final_balance: float, duration: timedelta):
+def calculate_roi_metrics(
+    initial_balance: float,
+    final_balance: float,
+    duration: timedelta
+) -> tuple[Optional[float], Optional[float]]:
     """
-    Calculates the Daily ROI and Simpler Annual ROI.
+    Calculate Daily ROI and Annual ROI (non-compounding).
 
     Args:
-        initial_balance (float): The starting balance of your investment.
-        final_balance (float): The ending balance of your investment.
-        duration (timedelta): The duration of the investment.
+        initial_balance: Starting balance of investment
+        final_balance: Ending balance of investment
+        duration: Duration of the investment period
 
     Returns:
-        tuple: A tuple containing:
-            - daily_roi (float): The average daily ROI as a percentage.
-            - simpler_annual_roi (float): The simpler annual ROI as a percentage.
-            Returns (None, None) if duration is zero days to avoid division by zero.
+        tuple: (daily_roi, annual_roi) as percentages, or (None, None) if invalid
+
+    Raises:
+        ValueError: If initial_balance is not positive
+
+    Note:
+        - Daily ROI assumes linear progression
+        - Annual ROI is extrapolated from daily ROI (non-compounding)
+        - Returns (None, None) for zero or negative duration
     """
+    SECONDS_PER_DAY = 24 * 60 * 60
+    DAYS_PER_YEAR = 365
+    
     if initial_balance <= 0:
         raise ValueError("Initial balance must be greater than zero.")
+    
     if duration.total_seconds() <= 0:
         print("Warning: Duration is zero or negative. Cannot calculate daily or annual ROI.")
         return None, None
 
-    # 1. Calculate Total ROI over the duration
+    # Calculate total ROI over the duration
     total_roi = (final_balance - initial_balance) / initial_balance
 
-    # 2. Calculate the number of days in the duration
-    # We use total_seconds() to get the most precise duration in seconds,
-    # then convert it to days.
-    total_days = duration.total_seconds() / (24 * 60 * 60)
+    # Calculate the number of days in the duration
+    total_days = duration.total_seconds() / SECONDS_PER_DAY
 
-    # 3. Calculate Daily ROI
-    # We assume a linear progression for daily ROI over the short period.
+    # Calculate Daily ROI (assumes linear progression)
     daily_roi = total_roi / total_days
 
-    # 4. Calculate Simpler Annual ROI (non-compounding)
-    # This assumes the daily ROI is consistently applied for 365 days,
-    # without compounding the profits back into the principal.
-    simpler_annual_roi = daily_roi * 365
+    # Calculate Annual ROI (non-compounding)
+    annual_roi = daily_roi * DAYS_PER_YEAR
 
-    return daily_roi * 100, simpler_annual_roi * 100
+    return daily_roi * 100, annual_roi * 100
 
 
 if __name__ == "__main__":
