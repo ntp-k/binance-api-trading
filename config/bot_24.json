@@ -8,7 +8,7 @@
     "entry_strategy": "previous_candle",
     "exit_strategy": "candle_close",
     "tp_enabled": false,
-    "sl_enabled": false,
+    "sl_enabled": true,
     "symbol": "DOGEUSDC",
     "leverage": 5,
     "quantity": 250,
