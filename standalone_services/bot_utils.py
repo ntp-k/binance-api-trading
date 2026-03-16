@@ -208,7 +208,7 @@ def main():
                 print(f"Usage: show <all | enabled | disabled>")
                 return
 
-            if len(sys.argv) == 2:
+            if sys.argv[2] == "all":
                 show_bots()
 
             elif sys.argv[2] == "enabled":
@@ -218,7 +218,7 @@ def main():
                 show_bots("disabled")
 
             else:
-                show_bots()
+                print(f"Usage: show <all | enabled | disabled>")
 
             return
 
