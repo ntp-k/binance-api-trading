@@ -1,7 +1,7 @@
 import json
-import os
 from pathlib import Path
 import re
+import sys
 
 CONFIG_DIR = Path("./config")
 
@@ -155,7 +155,85 @@ def config_menu():
         config_bot(file, data)
 
 
+def set_bot_config(bot_number, field, value):
+    file = CONFIG_DIR / f"bot_{bot_number}.json"
+
+    if not file.exists():
+        print(f"Bot config not found: {file}")
+        return
+
+    with open(file) as f:
+        data = json.load(f)
+
+    if field not in data:
+        print(f"Field '{field}' not found")
+        return
+
+    old_value = data[field]
+    new_value = value
+
+    try:
+        if isinstance(old_value, bool):
+            new_value = value.lower() in ["true", "1", "yes"]
+
+        elif isinstance(old_value, int):
+            new_value = int(value)
+
+        elif isinstance(old_value, float):
+            new_value = float(value)
+
+        else:
+            new_value = str(value)
+
+    except ValueError:
+        print("Invalid value type")
+        return
+
+    data[field] = new_value
+
+    with open(file, "w") as f:
+        json.dump(data, f, indent=4)
+
+    print(f"Updated bot_{bot_number}: {field} {old_value} -> {new_value}")
+
+
 def main():
+    if len(sys.argv) > 1:
+
+        command = sys.argv[1]
+
+        if command == "show":
+
+            if len(sys.argv) != 3:
+                print(f"Usage: show <all | enabled | disabled>")
+                return
+
+            if len(sys.argv) == 2:
+                show_bots()
+
+            elif sys.argv[2] == "enabled":
+                show_bots("enabled")
+
+            elif sys.argv[2] == "disabled":
+                show_bots("disabled")
+
+            else:
+                show_bots()
+
+            return
+
+        elif command == "config":
+
+            if len(sys.argv) != 5:
+                print("Usage: config <bot_number> <field> <value>")
+                return
+
+            bot_number = sys.argv[2]
+            field = sys.argv[3]
+            value = sys.argv[4]
+
+            set_bot_config(bot_number, field, value)
+            return
 
     while True:
 
