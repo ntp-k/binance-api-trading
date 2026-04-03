@@ -9,9 +9,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-SERVICE_ACCOUNT_FILE = os.getenv('GOOGLE_SHEET_SERVICE_ACCOUNT_FILE')
-SPREADSHEET_KEY = os.getenv('GOOGLE_SHEET_SPREADSHEET_KEY')  # Replace with your sheet name
-WORKSHEET_INDEX = int(os.getenv('GOOGLE_SHEET_WORKSHEET_INDEX'))    # Replace with your worksheet title
+SERVICE_ACCOUNT_FILE = os.getenv('GOOGLE_SHEET_SERVICE_ACCOUNT_FILE', '')
+SPREADSHEET_KEY = os.getenv('GOOGLE_SHEET_SPREADSHEET_KEY', '')  # Replace with your sheet name
+WORKSHEET_INDEX = int(os.getenv('GOOGLE_SHEET_WORKSHEET_INDEX', '0'))    # Replace with your worksheet title
 POSITION_RECORDS_DIR = "position_records"
 
 # 🌐 Google Sheet Setup
@@ -41,25 +41,25 @@ class GoogleSheetService:
         realized_pnl = pnl - position_fee
         _date = datetime.strptime(position_data.get("close_time", ""), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone(offset=timedelta(hours=7))).astimezone(timezone.utc).strftime(format="%Y-%m-%d")
         row = [
-            '',
-            '',
+            None,
+            None,
             _date, # date utc,
-            pnl,
             realized_pnl,
-            position_data.get("max_pnl", ""),
-            position_data.get("min_pnl", ""),
+            pnl,
             position_fee,
             open_fee,
             close_fee,
+            position_data.get("max_pnl", ""),
+            position_data.get("min_pnl", ""),
             position_data.get("position_side", ""),
             position_data.get("entry_price", ""),
             position_data.get("close_price", ""),
-            position_data.get("open_reason", ""),
-            position_data.get("close_reason", ""),
             position_data.get("open_time", ""),
-            position_data.get("close_time", "")
+            position_data.get("close_time", ""),
+            position_data.get("open_reason", ""),
+            position_data.get("close_reason", "")
         ]
-        worksheet.append_row(row, value_input_option="RAW")
+        worksheet.append_row(row)
 
     def append_position_record(self, worksheet_name: str, position_data: dict):
         """
@@ -91,7 +91,7 @@ class GoogleSheetService:
             close_fee,
             _date # date utc
         ]
-        worksheet.append_row(row, value_input_option="RAW")
+        worksheet.append_row(row)
 
 def sync_all_positions_to_sheet():
     sheet_service = GoogleSheetService()
