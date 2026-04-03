@@ -6,6 +6,7 @@ Commit Type | Emoji
 ----------  | -----
 Initial Commit | 🎉
 Version Tag | 🔖
+Launch | 🚀
 New Feature | ✨
 Work In Progress (WIP) | 🚧
 General update | ⚡
