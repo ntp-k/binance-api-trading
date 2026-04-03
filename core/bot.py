@@ -328,9 +328,9 @@ class Bot:
                     self.logger.info("SL hit ✅")
                     filled_order_id = _check_sl_order.get('actualOrderId')
                     close_reason = 'SL Hit'
-                    if self.bot_config.tp_enabled:
-                        self._cancel_tp_order()
-                        self.logger.info("Cancelling TP due to SL hit")
+                    # if self.bot_config.tp_enabled:
+                    #     self.logger.info("Cancelling TP due to SL hit")
+                    #     self._cancel_tp_order()
             else:
                 self.logger.debug("No SL order in memory")
 
@@ -344,9 +344,9 @@ class Bot:
                     self.logger.info("TP hit ✅")
                     filled_order_id = _check_tp_order.get('actualOrderId')
                     close_reason = 'TP Hit'
-                    if self.bot_config.sl_enabled:
-                        self._cancel_sl_order()
-                        self.logger.info("Cancelling SL due to TP hit")
+                    # if self.bot_config.sl_enabled:
+                    #     self.logger.info("Cancelling SL due to TP hit")
+                    #     self._cancel_sl_order()
             else:
                 self.logger.debug("No TP order in memory")
 
