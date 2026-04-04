@@ -84,7 +84,7 @@ class Bot:
     def _set_leverage(self):
         self.trade_client.set_leverage(
             symbol=self.bot_config.symbol, leverage=self.bot_config.leverage)
-        self.logger.debug(f'Leverage is setted to {self.bot_config.leverage}')
+        self.logger.debug(f'Leverage is set to {self.bot_config.leverage}')
 
     def _sync_position_state(
         self,
