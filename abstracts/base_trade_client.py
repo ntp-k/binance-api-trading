@@ -232,6 +232,59 @@ class BaseTradeClient(ABC):
         """
         pass
 
+    @abstractmethod
+    def fetch_order_book(self, symbol: str, limit: int = 5) -> Dict[str, Any]:
+        """
+        Fetch order book depth for a symbol.
+        
+        Args:
+            symbol: Trading pair symbol
+            limit: Number of price levels to fetch
+        
+        Returns:
+            Dictionary with 'bids' and 'asks' arrays
+        """
+        pass
+
+    @abstractmethod
+    def fetch_exchange_info(self, symbol: str) -> Dict[str, Any]:
+        """
+        Fetch exchange trading rules for a symbol.
+        
+        Args:
+            symbol: Trading pair symbol
+        
+        Returns:
+            Dictionary with trading rules (tickSize, stepSize, etc.)
+        """
+        pass
+
+    @abstractmethod
+    def has_exchange_info_cached(self, symbol: str) -> bool:
+        """
+        Check if exchange info is cached for a symbol.
+        
+        Args:
+            symbol: Trading pair symbol
+        
+        Returns:
+            True if cached, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    def get_cached_exchange_info(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """
+        Get cached exchange info without making API call.
+        
+        Args:
+            symbol: Trading pair symbol
+        
+        Returns:
+            Cached exchange info or None if not cached
+        """
+        pass
+
     def set_wait_time(self, wait_time_sec: int) -> None:
         """
         Set wait time between bot iterations.

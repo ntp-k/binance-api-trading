@@ -43,6 +43,10 @@ class Bot:
             run_mode=bot_config.run_mode, trade_client=bot_config.trade_client)
         self._set_leverage()
         
+        # Pre-fetch and cache exchange info for the symbol
+        self.logger.debug(message=f'Fetching exchange info for {bot_config.symbol}')
+        self.trade_client.fetch_exchange_info(bot_config.symbol)
+        
         self.logger.debug(message=f'Initializing strategies')
         self.entry_strategy, self.exit_strategy = get_strategy.init_strategies(
             entry_strategy=self.bot_config.entry_strategy,
@@ -85,6 +89,70 @@ class Bot:
         self.trade_client.set_leverage(
             symbol=self.bot_config.symbol, leverage=self.bot_config.leverage)
         self.logger.debug(f'Leverage is set to {self.bot_config.leverage}')
+
+    def _round_to_tick_size(self, price: float, tick_size: float, order_side: str) -> float:
+        """
+        Round price to valid tick size with proper precision.
+        
+        Args:
+            price: Price to round
+            tick_size: Minimum price increment
+            order_side: 'BUY' or 'SELL'
+        
+        Returns:
+            Rounded price
+        """
+        price_decimal = Decimal(str(price))
+        tick_decimal = Decimal(str(tick_size))
+        
+        if order_side == OrderSide.BUY.value:
+            # Round DOWN for BUY to ensure price < best_bid (maker)
+            return float((price_decimal // tick_decimal) * tick_decimal)
+        else:
+            # Round UP for SELL to ensure price > best_ask (maker)
+            return float((price_decimal / tick_decimal).to_integral_value(rounding=ROUND_UP) * tick_decimal)
+
+    def _calculate_maker_price(self, order_side: str, tick_size: float, offset_ticks: int = 1) -> float:
+        """
+        Calculate a maker-only price from order book.
+        
+        Args:
+            order_side: 'BUY' or 'SELL'
+            tick_size: Minimum price increment
+            offset_ticks: Number of ticks away from best bid/ask
+        
+        Returns:
+            Calculated maker price
+        """
+        # Fetch order book
+        order_book = self.trade_client.fetch_order_book(self.bot_config.symbol, limit=5)
+        if not order_book.get('bids') or not order_book.get('asks'):
+            self.logger.error("Failed to fetch order book")
+            raise ValueError("Failed to fetch order book")
+        
+        best_bid = Decimal(str(order_book['bids'][0][0]))
+        best_ask = Decimal(str(order_book['asks'][0][0]))
+        tick = Decimal(str(tick_size))
+        offset = Decimal(str(offset_ticks)) * tick
+        
+        self.logger.debug(f"Order book: Best Bid={best_bid}, Best Ask={best_ask}")
+        
+        if order_side == OrderSide.BUY.value:
+            # For BUY: price must be < best_bid to be maker
+            maker_price = best_bid - offset
+        else:
+            # For SELL: price must be > best_ask to be maker
+            maker_price = best_ask + offset
+        
+        # Round to tick size
+        rounded_price = self._round_to_tick_size(
+            price=float(maker_price),
+            tick_size=tick_size,
+            order_side=order_side
+        )
+        
+        self.logger.debug(f"Calculated maker price: {rounded_price} (offset={offset_ticks} ticks)")
+        return rounded_price
 
     def _sync_position_state(
         self,
@@ -235,7 +303,105 @@ class Bot:
     
         self.logger.debug(message=f'Getting trade history order_id: {_order_id}')
         return self.trade_client.fetch_order_trade(symbol=self.bot_config.symbol, order_id=_order_id)
+
+    def _place_maker_only_order(self, order_side: str, reduce_only: bool) -> Dict[str, Any]:
+        """
+        Place a maker-only limit order with automatic repricing.
+        
+        Uses order book data to calculate maker price and automatically
+        reprices if market moves. Ensures orders are always placed as maker
+        (adding liquidity) to get reduced fees.
+        
+        Expected behavior:
+        1. Get maker price from order book
+        2. Place order with maker price (GTX - post-only)
+        3. If placement fails (-5022), re-calculate and retry
+        4. If placement succeeds, wait before checking status
+        5. If order filled, return trade details
+        6. If not filled and price unchanged, keep monitoring
+        7. If not filled and price changed, cancel and place new order
+        
+        Args:
+            order_side: 'BUY' or 'SELL'
+            reduce_only: Whether order should only reduce position
+        
+        Returns:
+            Trade details dictionary
+        """
+        # Get exchange info from cache (pre-fetched in __init__)
+        exchange_info = self.trade_client.get_cached_exchange_info(self.bot_config.symbol)
+        if not exchange_info:
+            self.logger.error("Exchange info not cached. This should not happen.")
+            raise ValueError("Exchange info not available in cache")
+        
+        tick_size = exchange_info.get('tickSize', 0.01)
+        offset_ticks = 0  # Can be made configurable in bot_config if needed
+        
+        _order_filled = False
+        _order_id = ''
+        _ordered_maker_price = None
+        
+        while not _order_filled:
+            # Calculate current maker price from order book
+            try:
+                current_maker_price = self._calculate_maker_price(
+                    order_side=order_side,
+                    tick_size=tick_size,
+                    offset_ticks=offset_ticks
+                )
+            except ValueError as e:
+                self.logger.error_e(message="Failed to calculate maker price", e=e)
+                sleep(ORDER_STATUS_CHECK_INTERVAL)
+                continue
+            
+            # Place or replace order if price changed
+            if _ordered_maker_price != current_maker_price:
+                # Cancel existing order if price changed
+                if _order_id:
+                    self.logger.info(f"Maker price {_ordered_maker_price} → {current_maker_price}  |  Canceling order {_order_id}...")
+                    self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=_order_id)
+                    sleep(ORDER_STATUS_CHECK_INTERVAL)  # Wait for cancellation
                 
+                # Place new order at maker price
+                self.logger.info(f"Placing MAKER order at price: {current_maker_price}")
+                _order = self.trade_client.place_order(
+                    symbol=self.bot_config.symbol,
+                    order_side=order_side,
+                    order_type=OrderType.LIMIT.value,
+                    quantity=self.bot_config.quantity,
+                    price=current_maker_price,
+                    reduce_only=reduce_only,
+                    time_in_force='GTX'  # Post-only to ensure maker
+                )
+                
+                if not _order or not _order.get('orderId'):
+                    self.logger.warning("Maker order placement failed (likely -5022), will retry")
+                    _ordered_maker_price = None
+                    sleep(1)
+                    continue
+                
+                _order_id = _order.get('orderId', '')
+                _ordered_maker_price = current_maker_price
+                self.logger.info(f"Maker order placed: ID={_order_id}, Price={current_maker_price}")
+            else:
+                self.logger.debug("Maker price unchanged. Keep monitoring order.")
+            
+            # Wait before checking order status
+            sleep(LIMIT_ORDER_PRICE_CHECK_INTERVAL)
+            
+            # Check if order filled
+            _check_order = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=_order_id)
+            _order_filled = _check_order.get('status') == ORDER_STATUS_FILLED
+            
+            if _order_filled:
+                self.logger.info("Maker Order filled")
+                break
+            else:
+                self.logger.debug("Maker Order still pending")
+        
+        self.logger.debug(f'Getting trade history order_id: {_order_id}')
+        return self.trade_client.fetch_order_trade(symbol=self.bot_config.symbol, order_id=_order_id)
+
     def _place_order_to_open_position(self, position_side: PositionSide):
         _order_side = OrderSide.BUY.value if position_side == PositionSide.LONG else OrderSide.SELL.value
         _order_trade = None
@@ -244,6 +410,8 @@ class Bot:
 
         if self.bot_config.order_type == OrderType.MARKET:
             _order_trade = self._place_market_order(order_side=_order_side, reduce_only=False)
+        elif self.bot_config.order_type == OrderType.MAKER_ONLY:
+            _order_trade = self._place_maker_only_order(order_side=_order_side, reduce_only=False)
         else:  # LIMIT
             _order_trade = self._place_limit_order(order_side=_order_side, reduce_only=False)
 
@@ -269,7 +437,9 @@ class Bot:
     
         if self.bot_config.order_type == OrderType.MARKET:
             _order_trade = self._place_market_order(order_side=_order_side, reduce_only=True)
-        else:
+        elif self.bot_config.order_type == OrderType.MAKER_ONLY:
+            _order_trade = self._place_maker_only_order(order_side=_order_side, reduce_only=True)
+        else:  # LIMIT
             _order_trade = self._place_limit_order(order_side=_order_side, reduce_only=True)
 
         self.logger.debug(message=f'Order Trade: {_order_trade}')
@@ -300,6 +470,7 @@ class Bot:
         if self.bot_config.sl_enabled:
             self.logger.info(message=f'Setting SL at {sl_price}')
             _sl_order = self._place_sl_order(position_side=position_side, sl_price=sl_price)
+
 
     def _cancel_tp_order(self) -> None:
         order_id = self.position_handler.get_tp_order_id()

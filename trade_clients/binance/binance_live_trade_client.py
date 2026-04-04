@@ -18,6 +18,8 @@ GET_KLINES_URL = 'https://fapi.binance.com/fapi/v1/klines'
 GET_TICKER_PRICE_URL = 'https://fapi.binance.com/fapi/v1/ticker/price'
 GET_ORDER = 'https://fapi.binance.com/fapi/v1/order'
 GET_TRADE = 'https://fapi.binance.com/fapi/v1/userTrades'
+GET_ORDER_BOOK_URL = 'https://fapi.binance.com/fapi/v1/depth'
+GET_EXCHANGE_INFO_URL = 'https://fapi.binance.com/fapi/v1/exchangeInfo'
 
 class BinanceLiveTradeClient(BaseLiveTradeClient):
     def __init__(self) -> None:
@@ -27,6 +29,9 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         
         # Initialize session with connection pooling and retry strategy
         self.session = self._create_session()
+        
+        # Cache for exchange info to avoid repeated API calls
+        self._exchange_info_cache: Dict[str, Dict[str, Any]] = {}
     
     def _create_session(self) -> requests.Session:
         """Create requests session with connection pooling and retry strategy."""
@@ -427,6 +432,116 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             "pnl": total_pnl,
             "side": trades[0]["side"]
         }
+
+    def fetch_order_book(self, symbol: str, limit: int = 5) -> Dict[str, Any]:
+        """
+        Fetch order book depth for a symbol.
+        
+        Args:
+            symbol: Trading pair symbol
+            limit: Number of price levels to fetch (default: 5, max: 1000)
+        
+        Returns:
+            Dictionary with 'bids' and 'asks' arrays
+            Example: {'bids': [[price, qty], ...], 'asks': [[price, qty], ...]}
+        """
+        params = {
+            'symbol': symbol.upper(),
+            'limit': limit
+        }
+        
+        headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
+        try:
+            response = self.session.get(url=GET_ORDER_BOOK_URL, headers=headers, params=signed_params)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Convert string prices to floats for easier manipulation
+            bids = [[float(price), float(qty)] for price, qty in data.get('bids', [])]
+            asks = [[float(price), float(qty)] for price, qty in data.get('asks', [])]
+            
+            return {
+                'bids': bids,  # Sorted descending (highest bid first)
+                'asks': asks   # Sorted ascending (lowest ask first)
+            }
+        except Exception as e:
+            self.logger.error_e(message=f"Error fetching order book for {symbol}", e=e)
+            return {'bids': [], 'asks': []}
+
+    def has_exchange_info_cached(self, symbol: str) -> bool:
+        """
+        Check if exchange info is cached for a symbol.
+        
+        Args:
+            symbol: Trading pair symbol
+        
+        Returns:
+            True if cached, False otherwise
+        """
+        return symbol in self._exchange_info_cache
+    
+    def get_cached_exchange_info(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """
+        Get cached exchange info without making API call.
+        
+        Args:
+            symbol: Trading pair symbol
+        
+        Returns:
+            Cached exchange info or None if not cached
+        """
+        return self._exchange_info_cache.get(symbol)
+
+    def fetch_exchange_info(self, symbol: str) -> Dict[str, Any]:
+        """
+        Fetch exchange trading rules for a symbol (with caching).
+        
+        Args:
+            symbol: Trading pair symbol
+        
+        Returns:
+            Dictionary with trading rules including tickSize, stepSize, minQty, etc.
+        """
+        # Check cache first
+        if symbol in self._exchange_info_cache:
+            return self._exchange_info_cache[symbol]
+        
+        params = {'symbol': symbol.upper()}
+        headers, signed_params = binance_auth.sign_request(params=params, binance_credential=self.__creds)
+        
+        try:
+            response = self.session.get(url=GET_EXCHANGE_INFO_URL, headers=headers, params=signed_params)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Find the symbol in the response
+            for symbol_info in data.get('symbols', []):
+                if symbol_info['symbol'] == symbol.upper():
+                    # Extract relevant filters
+                    filters = {}
+                    for filter_item in symbol_info.get('filters', []):
+                        filter_type = filter_item.get('filterType')
+                        if filter_type == 'PRICE_FILTER':
+                            filters['tickSize'] = float(filter_item.get('tickSize', 0.01))
+                            filters['minPrice'] = float(filter_item.get('minPrice', 0))
+                            filters['maxPrice'] = float(filter_item.get('maxPrice', 0))
+                        elif filter_type == 'LOT_SIZE':
+                            filters['stepSize'] = float(filter_item.get('stepSize', 0.001))
+                            filters['minQty'] = float(filter_item.get('minQty', 0))
+                            filters['maxQty'] = float(filter_item.get('maxQty', 0))
+                    
+                    # Cache the result
+                    self._exchange_info_cache[symbol] = filters
+                    self.logger.debug(message=f"Cached exchange info for {symbol}: {filters}")
+                    return filters
+            
+            self.logger.warning(message=f"Symbol {symbol} not found in exchange info")
+            return {}
+            
+        except Exception as e:
+            self.logger.error_e(message=f"Error fetching exchange info for {symbol}", e=e)
+            return {}
+
 
 if __name__ == "__main__":
     pass
