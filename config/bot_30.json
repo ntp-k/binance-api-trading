@@ -14,10 +14,10 @@
     "quantity": 500,
     "timeframe": "1d",
     "timeframe_limit": 10,
-    "order_type": "MARKET",
+    "order_type": "MAKER_ONLY",
     "dynamic_config": {
         "decimal": 5,
         "candle_for_indicator": 10
     },
-    "created_at": "2026-04-04T03:50:00"
+    "created_at": "2026-04-05T04:09:00"
 }
