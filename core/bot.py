@@ -1,5 +1,6 @@
 from time import sleep
 from typing import Optional, Dict, Any, Tuple
+from decimal import Decimal, ROUND_UP
 
 from abstracts.base_entry_strategy import BaseEntryStrategy
 from abstracts.base_exit_strategy import BaseExitStrategy
@@ -192,43 +193,45 @@ class Bot:
     def _place_limit_order(self, order_side: str, reduce_only: bool) -> Dict[str, Any]:
         _order_filled = False
         _order_id = ''
-        _last_price = None
+        _ordered_price = None  # Track the price at which order was placed
+        
         while not _order_filled:
-            price_now = self.trade_client.fetch_price(symbol=self.bot_config.symbol)
+            current_price = self.trade_client.fetch_price(symbol=self.bot_config.symbol)
 
-            if _last_price != price_now:
-                self.logger.info(message=f"Placing new LIMIT order at price: {price_now}")
-
+            # Place order if no active order OR price changed from ordered price
+            if _ordered_price != current_price:
+                # Cancel existing order if price changed
+                if _order_id:
+                    self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=_order_id)
+                    self.logger.info(f"Price {_ordered_price} -> {current_price}  |  Canceling order {_order_id}...")
+                    sleep(ORDER_STATUS_CHECK_INTERVAL)  # wait for binance to cancel order
+                
+                # Place new order at current price
+                self.logger.info(message=f"Placing new LIMIT order at price: {current_price}")
                 _order = self.trade_client.place_order(
                     symbol=self.bot_config.symbol,
                     order_side=order_side,
                     order_type=OrderType.LIMIT.value,
                     quantity=self.bot_config.quantity,
-                    price=price_now,
+                    price=current_price,
                     reduce_only=reduce_only,
                 )
-                # self.logger.debug(message=f"New order: {_order}")
-                _order_id = _order.get('orderId')
+                _order_id = _order.get('orderId', '')
+                _ordered_price = current_price  # Remember the price we ordered at
             else:
-                self.logger.debug(message="Price unchanged. Skipping re-order.")
+                self.logger.debug(message="Price unchanged. Keep monitoring order.")
 
-            sleep(LIMIT_ORDER_PRICE_CHECK_INTERVAL)  # wait for order to be filled
+            sleep(LIMIT_ORDER_PRICE_CHECK_INTERVAL)  # wait before checking order status
 
+            # Check if order filled
             _check_order = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=_order_id)
             _order_filled = _check_order.get('status') == ORDER_STATUS_FILLED
-            self.logger.debug(message=f"Limit Order filled: {_order_filled}")
-
-            if not _order_filled and _last_price != price_now:
-                self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=_order_id)
-                self.logger.info(message="Order canceled due to price change")
-                sleep(ORDER_STATUS_CHECK_INTERVAL)  # wait for binance to cancel order
-            elif not _order_filled:
-                self.logger.info(message="Limit Order still pending. Waiting...")
-            else: # order filled
+            
+            if _order_filled:
                 self.logger.info(message="Limit Order filled")
                 break
-            
-            _last_price = price_now
+            else:
+                self.logger.info(message="Limit Order still pending. Waiting...")
     
         self.logger.debug(message=f'Getting trade history order_id: {_order_id}')
         return self.trade_client.fetch_order_trade(symbol=self.bot_config.symbol, order_id=_order_id)
