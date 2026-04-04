@@ -12,7 +12,7 @@ main.py → BotManager → Multiple Bot Instances (threaded)
                            └── Position Handler
 ```
 
-![](./architecture_overview.png)
+![](./img/architecture_overview.png)
 
 ### Core Components
 
