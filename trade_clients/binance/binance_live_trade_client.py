@@ -518,17 +518,19 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             for symbol_info in data.get('symbols', []):
                 if symbol_info['symbol'] == symbol.upper():
                     # Extract relevant filters
+                    # Store tickSize and stepSize as strings to preserve precision
+                    # (avoid float scientific notation like 1e-05)
                     filters = {}
                     for filter_item in symbol_info.get('filters', []):
                         filter_type = filter_item.get('filterType')
                         if filter_type == 'PRICE_FILTER':
-                            filters['tickSize'] = float(filter_item.get('tickSize', 0.01))
-                            filters['minPrice'] = float(filter_item.get('minPrice', 0))
-                            filters['maxPrice'] = float(filter_item.get('maxPrice', 0))
+                            filters['tickSize'] = filter_item.get('tickSize', '0.01')
+                            filters['minPrice'] = filter_item.get('minPrice', 0)
+                            filters['maxPrice'] = filter_item.get('maxPrice', 0)
                         elif filter_type == 'LOT_SIZE':
-                            filters['stepSize'] = float(filter_item.get('stepSize', 0.001))
-                            filters['minQty'] = float(filter_item.get('minQty', 0))
-                            filters['maxQty'] = float(filter_item.get('maxQty', 0))
+                            filters['stepSize'] = filter_item.get('stepSize', '0.001')
+                            filters['minQty'] = filter_item.get('minQty', 0)
+                            filters['maxQty'] = filter_item.get('maxQty', 0)
                     
                     # Cache the result
                     self._exchange_info_cache[symbol] = filters
