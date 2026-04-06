@@ -11,7 +11,7 @@
     "sl_enabled": true,
     "symbol": "ADAUSDC",
     "leverage": 15,
-    "quantity": 100,
+    "quantity": 200,
     "timeframe": "30m",
     "timeframe_limit": 1200,
     "order_type": "MAKER_ONLY",
