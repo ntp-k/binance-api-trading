@@ -30,3 +30,5 @@ position_records/*
 !position_records/runid_11_record_20250719_020409.json.example
 position_states/*
 !position_states/runid_11_state.json.example
+backtest/results/*
+!backtest/results/runid_32_backtest_20260406_210024.json.example
