@@ -144,29 +144,44 @@ class PositionHandler:
             self.logger.error_e(message="Error while opening position from dict", e=e)
             raise
 
-    def close_position(self, position_dict: dict) -> None:
+    def close_position(self, position_dict: dict) -> Optional[dict]:
         """
         Close the current position and save record.
         
         Args:
-            position_dict: Dictionary with close_fee, close_reason, close_price, pnl
+            position_dict: Dictionary with close_fee, close_reason, close_price, pnl,
+                          and optionally close_time (for backtest mode)
+        
+        Returns:
+            Dictionary with trade details for backtest tracking, or None
         """
         if not self.position:
             self.logger.warning("Attempted to close position but no position is open")
-            return
+            return None
         
         self.position.close_fee = position_dict.get('close_fee', 0.0)
         self.position.close_reason = position_dict.get('close_reason', '')
         self.position.close_price = position_dict.get('close_price', 0.0)
-        self.position.close_time = get_datetime_now_string_gmt_plus_7(
-            format='%Y-%m-%d %H:%M:%S'
-        )
+        
+        # Use close_time from dict if provided (backtest mode), otherwise use current time
+        if 'close_time' in position_dict:
+            self.position.close_time = position_dict['close_time']
+        else:
+            self.position.close_time = get_datetime_now_string_gmt_plus_7(
+                format='%Y-%m-%d %H:%M:%S'
+            )
+        
         self.position.pnl = position_dict.get('pnl', 0.0)
         self.last_position_open_candle = self.position.open_candle
+
+        # Create trade dict for backtest tracking
+        trade_dict = self.position.to_dict()
 
         self._dump_position_record()
         self.position = None
         self._remove_state_file()
+        
+        return trade_dict
 
     def update_pnl(self, pnl: float) -> None:
         """

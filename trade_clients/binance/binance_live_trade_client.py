@@ -219,11 +219,17 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             response = self.session.get(url=GET_KLINES_URL, headers=headers, params=signed_params)
             response.raise_for_status()
             data = response.json()
-            df = pd.DataFrame(data=data, columns=[
+
+            # Define column names for Binance klines data
+            klines_columns = [
                 'open_time', 'open', 'high', 'low', 'close', 'volume',
                 'close_time', 'quote_asset_volume', 'num_trades',
                 'taker_buy_base_volume', 'taker_buy_quote_volume', 'ignore'
-            ])
+            ]
+            
+            # Create DataFrame - pass data as first positional arg, columns as keyword arg
+            df = pd.DataFrame(data, columns=klines_columns)  # type: ignore[call-overload]
+
             df['open_time'] = pd.to_datetime(arg=df['open_time'], unit='ms').dt.tz_localize(tz='UTC').dt.tz_convert(tz='Asia/Bangkok') # type: ignore
             df['close_time'] = pd.to_datetime(arg=df['close_time'], unit='ms').dt.tz_localize(tz='UTC').dt.tz_convert(tz='Asia/Bangkok') # type: ignore
             df['high'] = df['high'].astype(dtype=float)

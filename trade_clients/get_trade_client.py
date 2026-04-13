@@ -11,6 +11,11 @@ TRADE_CLIENT_REGISTRY: Dict[Tuple[TradeClient, RunMode], Tuple[str, str, bool]] 
         'BinanceLiveTradeClient',
         True  # Needs init() call
     ),
+    (TradeClient.BINANCE, RunMode.BACKTEST): (
+        'trade_clients.binance.binance_backtest_trade_client',
+        'BinanceBacktestTradeClient',
+        True  # Needs init() call
+    ),
     (TradeClient.OFFLINE, RunMode.LIVE): (
         'trade_clients.offline.offline_live_client',
         'OfflineLiveTradeClient',

@@ -14,6 +14,7 @@ from commons.constants import (
 )
 from commons.custom_logger import CustomLogger
 from core.position_handler import PositionHandler
+from core.backtest_metrics import BacktestMetrics
 from models.bot_config import BotConfig
 from models.enum.order_side import OrderSide
 from models.enum.order_type import OrderType
@@ -57,6 +58,50 @@ class Bot:
                 message=f'Entry Strategy { self.entry_strategy.__class__.__name__}')
         self.logger.debug(
                 message=f'Exit Strategy { self.exit_strategy.__class__.__name__}')
+        
+        # Initialize backtest metrics and preload data for backtest mode
+        self.backtest_metrics: Optional[BacktestMetrics] = None
+        if self.bot_config.run_mode == RunMode.BACKTEST:
+            self.backtest_metrics = BacktestMetrics(
+                bot_name=bot_config.bot_name,
+                run_id=bot_config.run_id
+            )
+            self._preload_backtest_data()
+    
+    def _preload_backtest_data(self) -> None:
+        """Preload historical data for backtest mode."""
+        self.logger.info("Preloading historical data for backtest...")
+        
+        # Get candle_for_indicator from dynamic_config
+        candle_for_indicator = self.bot_config.dynamic_config.get('candle_for_indicator', 10)
+        
+        # Fetch enough data: we need at least candle_for_indicator candles before we can start trading
+        # Fetch 1500 candles (Binance max)
+        limit = 1500
+        
+        self.trade_client.preload_historical_data(  # type: ignore
+            symbol=self.bot_config.symbol,
+            timeframe=self.bot_config.timeframe,
+            limit=limit,
+            order_type=self.bot_config.order_type.value,
+            leverage=self.bot_config.leverage
+        )
+        
+        # Set initial candle index to start after we have enough history for indicators
+        self.trade_client.current_candle_index = candle_for_indicator - 1  # type: ignore
+        
+        # Set backtest period in metrics using first and last kline timestamps
+        if self.backtest_metrics and hasattr(self.trade_client, 'klines_cache'):
+            klines_cache = self.trade_client.klines_cache  # type: ignore
+            if klines_cache is not None and len(klines_cache) > 0:
+                # first_kline_time = str(klines_cache.iloc[candle_for_indicator - 1]['open_time'])
+                # last_kline_time = str(klines_cache.iloc[-1]['close_time'])
+                first_kline_time = str(klines_cache.iloc[candle_for_indicator - 1]['open_time']).split('+')[0]
+                last_kline_time = str(klines_cache.iloc[-1]['close_time']).split('+')[0].split('.')[0]
+                self.backtest_metrics.set_backtest_period(first_kline_time, last_kline_time)
+                self.logger.info(f"Backtest period: {first_kline_time} to {last_kline_time}")
+        
+        self.logger.info(f"Backtest will start from candle {candle_for_indicator} (index {candle_for_indicator - 1})")
 
     def _init_trade_client(self, run_mode: RunMode, trade_client: TradeClient) -> BaseTradeClient:
         """
@@ -240,7 +285,10 @@ class Bot:
             quantity=self.bot_config.quantity,
             reduce_only=reduce_only,
         )
-        sleep(ORDER_PLACEMENT_WAIT)  # wait for binance to process order
+        
+        # Skip waits in backtest mode
+        if self.bot_config.run_mode != RunMode.BACKTEST:
+            sleep(ORDER_PLACEMENT_WAIT)  # wait for binance to process order
 
         _order_id = _order.get('orderId')
         _order_filled = False
@@ -253,10 +301,13 @@ class Bot:
             else:
                 self.logger.info(message="Market Order filled")
                 break
-            sleep(ORDER_STATUS_CHECK_INTERVAL)  # wait before checking again
+            
+            # Skip waits in backtest mode
+            if self.bot_config.run_mode != RunMode.BACKTEST:
+                sleep(ORDER_STATUS_CHECK_INTERVAL)  # wait before checking again
 
         self.logger.debug(message=f'Getting trade history order_id: {_order_id}')
-        return self.trade_client.fetch_order_trade(symbol=self.bot_config.symbol, order_id=_order_id) 
+        return self.trade_client.fetch_order_trade(symbol=self.bot_config.symbol, order_id=_order_id)
 
     def _place_limit_order(self, order_side: str, reduce_only: bool) -> Dict[str, Any]:
         _order_filled = False
@@ -272,7 +323,10 @@ class Bot:
                 if _order_id:
                     self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=_order_id)
                     self.logger.info(f"Price {_ordered_price} -> {current_price}  |  Canceling order {_order_id}...")
-                    sleep(ORDER_STATUS_CHECK_INTERVAL)  # wait for binance to cancel order
+                    
+                    # Skip waits in backtest mode
+                    if self.bot_config.run_mode != RunMode.BACKTEST:
+                        sleep(ORDER_STATUS_CHECK_INTERVAL)  # wait for binance to cancel order
                 
                 # Place new order at current price
                 self.logger.info(message=f"Placing new LIMIT order at price: {current_price}")
@@ -289,7 +343,9 @@ class Bot:
             else:
                 self.logger.debug(message="Price unchanged. Keep monitoring order.")
 
-            sleep(LIMIT_ORDER_PRICE_CHECK_INTERVAL)  # wait before checking order status
+            # Skip waits in backtest mode
+            if self.bot_config.run_mode != RunMode.BACKTEST:
+                sleep(LIMIT_ORDER_PRICE_CHECK_INTERVAL)  # wait before checking order status
 
             # Check if order filled
             _check_order = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=_order_id)
@@ -351,7 +407,10 @@ class Bot:
                 )
             except ValueError as e:
                 self.logger.error_e(message="Failed to calculate maker price", e=e)
-                sleep(ORDER_STATUS_CHECK_INTERVAL)
+                
+                # Skip waits in backtest mode
+                if self.bot_config.run_mode != RunMode.BACKTEST:
+                    sleep(ORDER_STATUS_CHECK_INTERVAL)
                 continue
             
             # Place or replace order if price changed
@@ -360,7 +419,10 @@ class Bot:
                 if _order_id:
                     self.logger.info(f"Maker price {_ordered_maker_price} → {current_maker_price}  |  Canceling order {_order_id}...")
                     self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=_order_id)
-                    sleep(ORDER_STATUS_CHECK_INTERVAL)  # Wait for cancellation
+                    
+                    # Skip waits in backtest mode
+                    if self.bot_config.run_mode != RunMode.BACKTEST:
+                        sleep(ORDER_STATUS_CHECK_INTERVAL)  # Wait for cancellation
                 
                 # Place new order at maker price
                 self.logger.info(f"Placing MAKER order at price: {current_maker_price}")
@@ -377,7 +439,10 @@ class Bot:
                 if not _order or not _order.get('orderId'):
                     self.logger.warning("Maker order placement failed (likely -5022), will retry")
                     _ordered_maker_price = None
-                    sleep(1)
+                    
+                    # Skip waits in backtest mode
+                    if self.bot_config.run_mode != RunMode.BACKTEST:
+                        sleep(1)
                     continue
                 
                 _order_id = _order.get('orderId', '')
@@ -386,8 +451,9 @@ class Bot:
             else:
                 self.logger.debug("Maker price unchanged. Keep monitoring order.")
             
-            # Wait before checking order status
-            sleep(LIMIT_ORDER_PRICE_CHECK_INTERVAL)
+            # Wait before checking order status (skip in backtest mode)
+            if self.bot_config.run_mode != RunMode.BACKTEST:
+                sleep(LIMIT_ORDER_PRICE_CHECK_INTERVAL)
             
             # Check if order filled
             _check_order = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=_order_id)
@@ -538,9 +604,16 @@ class Bot:
                     'pnl': order_trade['pnl'],
                     'close_candle_open_time': close_candle_open_time
                 }
+                if self.bot_config.run_mode == RunMode.BACKTEST:
+                    # last_kline_time = str(klines_df.iloc[-1]['close_time']).split('+')[0].split('.')[0]
+                    closed_position_dict['close_time'] = close_candle_open_time
 
-                self.position_handler.close_position(position_dict=closed_position_dict)
+                trade_dict = self.position_handler.close_position(position_dict=closed_position_dict)
                 self.position_handler.clear_tp_sl_orders()
+                
+                # Track trade for backtest
+                if self.backtest_metrics and trade_dict:
+                    self.backtest_metrics.add_trade(trade_dict)
 
                 self.logger.info(
                 message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {order_trade['side']:<5} | {self.position_handler.entry_price:.4f} -> {order_trade['price']:.4f} | {'+' if order_trade['pnl'] >= 0 else ''}{order_trade['pnl']:.4f}")
@@ -608,6 +681,10 @@ class Bot:
             new_position_dict['open_candle'] = current_candle_open_time
             new_position_dict['open_reason'] = entry_signal.reason
             
+            # For backtest mode, explicitly set open_time to candle open time
+            if self.bot_config.run_mode == RunMode.BACKTEST:
+                new_position_dict['open_time'] = current_candle_open_time
+            
             self.position_handler.open_position(position_dict=new_position_dict)
             
             # Place TP/SL if enabled
@@ -665,7 +742,17 @@ class Bot:
             closed_position_dict['close_reason'] = exit_signal.reason
             closed_position_dict['close_candle_open_time'] = current_candle_open_time
             
-            self.position_handler.close_position(position_dict=closed_position_dict)
+            # For backtest mode, explicitly set close_time to candle open time
+            if self.bot_config.run_mode == RunMode.BACKTEST:
+                # last_kline_time = str(klines_df.iloc[-1]['close_time']).split('+')[0].split('.')[0]
+                closed_position_dict['close_time'] = current_candle_open_time
+            
+            trade_dict = self.position_handler.close_position(position_dict=closed_position_dict)
+
+            # Track trade for backtest
+            if self.backtest_metrics and trade_dict:
+                self.backtest_metrics.add_trade(trade_dict)
+            
             return True
         except Exception as e:
             self.logger.error_e(message='Error while closing position', e=e)
@@ -726,7 +813,8 @@ class Bot:
             self._save_position_state()
 
     def run(self) -> None:
-        """Main bot execution loop."""
+        """Main bot execution loop - handles both live and backtest modes."""
+
         while self.trade_client.running:
             try:
                 self.execute()
@@ -740,6 +828,26 @@ class Bot:
                 self.logger.error_e(message='Unexpected error executing bot', e=e)
                 sleep(10)  # Brief pause before continuing
 
-            self.trade_client.wait()
+            # For backtest mode, advance to next candle
+            if self.bot_config.run_mode == RunMode.BACKTEST:
+                if not self.trade_client.advance_candle():  # type: ignore
+                    self.logger.info("Backtest completed - reached end of data")
+                    break
+            else:
+                # For live mode, wait between iterations
+                self.trade_client.wait()
+        
+        # For backtest mode, print and save results
+        if self.bot_config.run_mode == RunMode.BACKTEST and self.backtest_metrics:
+            self.logger.info("BACKTEST COMPLETED - Generating results...")
+            
+            # Print summary to console using visualization methods
+            bot_config_dict = self.bot_config.to_dict()
+            self.backtest_metrics.print_summary(bot_config=bot_config_dict)
+            
+            # Save results to file
+            results_file = self.backtest_metrics.save_results(bot_config_dict)
+
+            self.logger.info(f"Results saved to: {results_file}")
 
 # EOF
