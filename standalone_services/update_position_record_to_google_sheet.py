@@ -46,18 +46,18 @@ class GoogleSheetService:
             _date, # date utc,
             realized_pnl,
             pnl,
+            position_data.get("max_pnl", ""),
+            position_data.get("min_pnl", ""),
             position_fee,
             open_fee,
             close_fee,
-            position_data.get("max_pnl", ""),
-            position_data.get("min_pnl", ""),
+            position_data.get("close_reason", ""),
             position_data.get("position_side", ""),
             position_data.get("entry_price", ""),
             position_data.get("close_price", ""),
             position_data.get("open_time", ""),
             position_data.get("close_time", ""),
-            position_data.get("open_reason", ""),
-            position_data.get("close_reason", "")
+            position_data.get("open_reason", "")
         ]
         worksheet.append_row(row)
 
