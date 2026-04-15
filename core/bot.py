@@ -520,7 +520,14 @@ class Bot:
             message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {position_dict['position_side'].value:<5} | {position_dict['entry_price']:.4f} -> {_order_trade['price']:.4f} | {'+' if _order_trade['pnl'] >= 0 else ''}{_order_trade['pnl']:.4f}")
         return closed_position_dict
 
-    def _place_position_tp_sl(self, klines_df) -> None:
+    def _calculate_and_set_tp_sl(self, klines_df) -> Tuple[float, float]:
+        """
+        Calculate TP/SL prices and set them in position handler.
+        This is separate from placing TP/SL orders on the exchange.
+        
+        Returns:
+            Tuple of (tp_price, sl_price)
+        """
         position = self.position_handler.position
         position_side = position.position_side
         entry_price = position.entry_price
@@ -530,11 +537,30 @@ class Bot:
             position_side=position_side,
             entry_price=entry_price
         )
+        
+        # Always set TP/SL prices in position handler for exit strategy to use
+        self.position_handler.set_tp_price(price=tp_price)
+        self.position_handler.set_sl_price(price=sl_price)
+        self.logger.debug(message=f'Calculated TP: {tp_price}, SL: {sl_price}')
+        
+        return tp_price, sl_price
+
+    def _place_position_tp_sl(self, klines_df) -> None:
+        """
+        Place TP/SL orders on the exchange if enabled in config.
+        """
+        position = self.position_handler.position
+        position_side = position.position_side
+        
+        # Calculate and set TP/SL prices
+        tp_price, sl_price = self._calculate_and_set_tp_sl(klines_df)
+        
+        # Place orders on exchange only if enabled
         if self.bot_config.tp_enabled:
-            self.logger.info(message=f'Setting TP at {tp_price}')
+            self.logger.info(message=f'Placing TP order at {tp_price}')
             _tp_order = self._place_tp_order(position_side=position_side, tp_price=tp_price)
         if self.bot_config.sl_enabled:
-            self.logger.info(message=f'Setting SL at {sl_price}')
+            self.logger.info(message=f'Placing SL order at {sl_price}')
             _sl_order = self._place_sl_order(position_side=position_side, sl_price=sl_price)
 
 
@@ -687,9 +713,14 @@ class Bot:
             
             self.position_handler.open_position(position_dict=new_position_dict)
             
-            # Place TP/SL if enabled
+            # Always calculate TP/SL for exit strategy to use
+            # Place TP/SL orders on exchange only if enabled
             if self.bot_config.tp_enabled or self.bot_config.sl_enabled:
+                # This will calculate AND place orders
                 self._place_position_tp_sl(klines_df=klines_df)
+            else:
+                # Just calculate and set TP/SL prices for exit strategy
+                self._calculate_and_set_tp_sl(klines_df=klines_df)
             
             return new_position_dict
         except Exception as e:
