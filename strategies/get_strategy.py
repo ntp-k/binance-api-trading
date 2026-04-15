@@ -20,6 +20,7 @@ EXIT_STRATEGY_REGISTRY = {
     ExitStrategy.MACDHIST_STATE: ('strategies.exit.exit_macdhist_state', 'ExitMacdHistState'),
     ExitStrategy.TP_SL: ('strategies.exit.exit_tp_sl', 'ExitTPSL'),
     ExitStrategy.CANDLE_CLOSE_WITH_SL: ('strategies.exit.exit_candle_close_with_sl', 'ExitCandleCloseWithSL'),
+    ExitStrategy.CANDLE_CLOSE: ('strategies.exit.exit_candle_close', 'ExitCandleClose'),
 }
 
 
