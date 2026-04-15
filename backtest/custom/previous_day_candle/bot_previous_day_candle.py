@@ -1011,21 +1011,26 @@ def generate_grid_configs(grid_params):
 # Grid Search Configuration
 if __name__ == "__main__":
     grid_search = {
-        "DOGEUSDC": {
-            "sl_enabled": [True, False],
-            "timeframe": [("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100)],
-            "quantity": [500]
-        },
+        # "DOGEUSDC": {
+        #     "sl_enabled": [True, False],
+        #     "timeframe": [("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100)],
+        #     "quantity": [500]
+        # },
         # "SOLUSDC": {
         #     "sl_enabled": [True, False],
-        #     "timeframe": [("5m", 1500), ("15m", 1500), ("30m", 1500), ("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
+        #     "timeframe": [("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100)],
         #     "quantity": [0.5]
         # },
         # "BNBUSDC": {
         #     "sl_enabled": [True, False],
         #     "timeframe": [("5m", 1500), ("15m", 1500), ("30m", 1500), ("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
         #     "quantity": [0.01]
-        # }
+        # },
+        "1000PEPEUSDC": {
+            "sl_enabled": [True, False],
+            "timeframe": [("5m", 1500), ("15m", 1500), ("30m", 1500), ("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
+            "quantity": [11000]
+        }
     }
 
     # Generate grid configurations
