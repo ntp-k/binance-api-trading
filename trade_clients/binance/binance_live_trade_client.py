@@ -21,6 +21,10 @@ GET_TRADE = 'https://fapi.binance.com/fapi/v1/userTrades'
 GET_ORDER_BOOK_URL = 'https://fapi.binance.com/fapi/v1/depth'
 GET_EXCHANGE_INFO_URL = 'https://fapi.binance.com/fapi/v1/exchangeInfo'
 
+API_WEIGHT_LIMIT = 2000
+API_ORDER_10s_LIMIT = 50
+API_ORDER_1m_LIMIT = 1600
+
 class BinanceLiveTradeClient(BaseLiveTradeClient):
     def __init__(self) -> None:
         super().__init__()
@@ -218,8 +222,16 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         try:
             response = self.session.get(url=GET_KLINES_URL, headers=headers, params=signed_params)
             response.raise_for_status()
-            data = response.json()
 
+            used_weight_1m = response.headers.get("X-MBX-USED-WEIGHT-1M", 0)
+            order_count_10s = response.headers.get("X-MBX-ORDER-COUNT-10S", 0)
+            order_count_1m = response.headers.get("X-MBX-ORDER-COUNT-1M", 0)
+
+            self.logger.debug(
+                message=f"[RATE LIMIT] weight_1m={used_weight_1m}/{API_WEIGHT_LIMIT}, orders_10s={order_count_10s}/{API_ORDER_10s_LIMIT}, orders_1m={order_count_1m}/{API_ORDER_1m_LIMIT}"
+            )
+
+            data = response.json()
             # Define column names for Binance klines data
             klines_columns = [
                 'open_time', 'open', 'high', 'low', 'close', 'volume',
