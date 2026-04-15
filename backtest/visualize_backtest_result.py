@@ -3,7 +3,7 @@ Visualize Backtest Results using Pandas DataFrames
 Displays backtest summary and trade history in pandas DataFrames.
 
 Usage:
-    python3 standalone_services/visualize_backtest_result.py
+    python3 backtest/visualize_backtest_result.py
     
 The script will list available backtest results and let you select one.
 """
@@ -287,8 +287,8 @@ def visualize_position_records(trades: List[Dict[str, Any]]) -> pd.DataFrame:
             'Min PnL': round(trade.get('min_pnl', 0), 4),
             'Open Time': trade.get('open_time', 'N/A'),
             'Close Time': trade.get('close_time', 'N/A'),
-            'Open Reason': trade.get('open_reason', 'N/A'),
-            'Close Reason': trade.get('close_reason', 'N/A')
+            # 'Open Reason': trade.get('open_reason', 'N/A'),
+            # 'Close Reason': trade.get('close_reason', 'N/A')
         }
         records.append(record)
     

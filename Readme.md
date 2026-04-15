@@ -696,7 +696,6 @@ EXTERNAL DEPENDENCIES
 | Optional reporting / utilities                              |
 | - gspread / google-auth                                     |
 | - standalone_services/update_position_record_to_google...   |
-| - standalone_services/visualize_backtest_result.py          |
 +-------------------------------------------------------------+
 
 

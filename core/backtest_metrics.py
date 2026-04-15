@@ -13,7 +13,7 @@ from commons.constants import POSITION_RECORDS_DIR
 
 # Import visualization methods
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from standalone_services.visualize_backtest_result import (
+from backtest.visualize_backtest_result import (
     visualize_position_records,
     visualize_bot_config,
     visualize_summary
