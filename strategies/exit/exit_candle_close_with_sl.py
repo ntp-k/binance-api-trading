@@ -3,7 +3,7 @@ from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
 from core.position_handler import PositionHandler
 
-class ExitCandleClose(BaseExitStrategy):
+class ExitCandleCloseWithSL(BaseExitStrategy):
 
     def __init__(self, dynamic_config):
         super().__init__()
@@ -26,18 +26,19 @@ class ExitCandleClose(BaseExitStrategy):
         new_position_side = position_side
 
         # ----- SL HIT CHECK -----
-        long_sl_hit  = (position_side == PositionSide.LONG  and cur_price <= sl_price)
-        short_sl_hit = (position_side == PositionSide.SHORT and cur_price >= sl_price)
-        if sl_price == 0.0:
-            long_sl_hit = False
-            short_sl_hit = False
-            sl_price = 'N/A'
-
-
-        if position_side == PositionSide.LONG:
-            checklist.append(f"LONG | price {cur_price} <= SL {sl_price}: {'✅' if long_sl_hit else '❌'}")
+        # Check if SL is set first, then check if it's hit
+        long_sl_hit = False
+        short_sl_hit = False
+        
+        if sl_price > 0.0:
+            if position_side == PositionSide.LONG:
+                long_sl_hit = (cur_price <= sl_price)
+                checklist.append(f"LONG SL | price {cur_price} <= SL {sl_price}: {'✅' if long_sl_hit else '❌'}")
+            elif position_side == PositionSide.SHORT:
+                short_sl_hit = (cur_price >= sl_price)
+                checklist.append(f"SHORT SL | price {cur_price} >= SL {sl_price}: {'✅' if short_sl_hit else '❌'}")
         else:
-            checklist.append(f"SHORT | price {cur_price} >= SL {sl_price}: {'✅' if short_sl_hit else '❌'}")
+            checklist.append(f"SL not set: N/A")
 
         # ----- CANDLE CLOSE CHECK -----
         # This closes at the **end of the candle** (new candle open time)

@@ -6,7 +6,7 @@
     "run_mode": "live",
     "trade_client": "binance",
     "entry_strategy": "previous_candle",
-    "exit_strategy": "candle_close",
+    "exit_strategy": "candle_close_with_sl",
     "tp_enabled": false,
     "sl_enabled": true,
     "symbol": "DOGEUSDC",
