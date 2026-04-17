@@ -4,12 +4,14 @@ import numpy as np
 import pandas as pd
 import json
 from datetime import datetime
+import inspect
 
 # Add project root to Python path
-project_root = Path(__file__).parent.parent.parent.parent
+project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from trade_clients.binance.binance_live_trade_client import BinanceLiveTradeClient
+from backtest.custom.previous_day_candle.previous_day_candle import execute_trading_logic
 
 
 # ============================================================================
@@ -387,167 +389,29 @@ def run_backtest(symbol, timeframe, quantity, enable_sl, initial_capital=10, lev
         start_date_str = start_dt.strftime('%Y-%m-%d %H:%M:%S')
         end_date_str = end_dt.strftime('%Y-%m-%d %H:%M:%S')
 
-    # Initialize tracking variables
-    current_capital = initial_capital
-    total_pnl = 0
-    total_pnl_percent = 0
-    trade_count = 0
-    winning_trades = 0
-    losing_trades = 0
-    long_trades = 0
-    short_trades = 0
-    long_wins = 0
-    short_wins = 0
-    sl_triggered_count = 0
-    trade_details = []
+    # 2. Execute trading logic using the extracted module
+    trading_results = execute_trading_logic(
+        klines=klines,
+        quantity=quantity,
+        enable_sl=enable_sl,
+        initial_capital=initial_capital,
+        debug_mode=debug_mode,
+        debug_trades_to_show=debug_trades_to_show
+    )
     
-    # Equity curve tracking (capital after each trade)
-    equity_curve = [initial_capital]
-
-    # Track current position
-    current_position = None  # Will store: {'side': 'LONG'/'SHORT', 'entry_price': float, 'entry_time': int, 'sl_price': float}
-
-    # 2. Loop through klines starting from index 1 (we need t-1 to exist)
-    for i in range(1, len(klines)):
-        candle_t_minus_1 = klines.iloc[i - 1]
-        candle_t = klines.iloc[i]
-        
-        # Extract prices
-        open_t_minus_1 = float(candle_t_minus_1['open'])
-        close_t_minus_1 = float(candle_t_minus_1['close'])
-        high_t_minus_1 = float(candle_t_minus_1['high'])
-        low_t_minus_1 = float(candle_t_minus_1['low'])
-        open_t = float(candle_t['open'])
-        high_t = float(candle_t['high'])
-        low_t = float(candle_t['low'])
-        
-        # Determine if t-1 is red (bearish) or green (bullish)
-        is_red = close_t_minus_1 < open_t_minus_1
-        is_green = close_t_minus_1 > open_t_minus_1
-        
-        # Debug output for each iteration
-        if debug_mode and i <= debug_trades_to_show:
-            print(f"\n{'='*100}")
-            print(f"ITERATION {i}")
-            print(f"{'='*100}")
-            print(f"Candle t-1 (index {i-1}): Open={open_t_minus_1:.6f}, Close={close_t_minus_1:.6f}, High={high_t_minus_1:.6f}, Low={low_t_minus_1:.6f}")
-            print(f"  -> Color: {'RED (bearish)' if is_red else 'GREEN (bullish)' if is_green else 'DOJI'}")
-            print(f"Candle t   (index {i}):   Open={open_t:.6f}, High={high_t:.6f}, Low={low_t:.6f}")
-            if current_position:
-                print(f"Current Position: {current_position['side']} @ Entry={current_position['entry_price']:.6f}, SL={current_position['sl_price']:.6f}")
-            else:
-                print(f"Current Position: None")
-        
-        # At start of t, close existing position if any
-        if current_position is not None:
-            entry_price = current_position['entry_price']
-            sl_price = current_position['sl_price']
-            side = current_position['side']
-            sl_hit = False
-            exit_price = open_t
-            
-            if debug_mode and i <= debug_trades_to_show:
-                print(f"\n--- CLOSING POSITION ---")
-                print(f"Position: {side} @ Entry={entry_price:.6f}, SL={sl_price:.6f}")
-                print(f"Candle t-1 High={high_t_minus_1:.6f}, Low={low_t_minus_1:.6f}")
-                print(f"Candle t   Open={open_t:.6f}")
-            
-            # Check if stop loss was hit during candle t-1 (the candle where position was active)
-            if enable_sl:
-                if side == 'LONG':
-                    # For LONG, check if low of candle t-1 hit the SL (below SL price)
-                    if low_t_minus_1 <= sl_price:
-                        sl_hit = True
-                        exit_price = sl_price
-                        sl_triggered_count += 1
-                        if debug_mode and i <= debug_trades_to_show:
-                            print(f"  -> LONG SL HIT! t-1 Low={low_t_minus_1:.6f} <= SL={sl_price:.6f}, Exit @ {exit_price:.6f}")
-                else:  # SHORT
-                    # For SHORT, check if high of candle t-1 hit the SL (above SL price)
-                    if high_t_minus_1 >= sl_price:
-                        sl_hit = True
-                        exit_price = sl_price
-                        sl_triggered_count += 1
-                        if debug_mode and i <= debug_trades_to_show:
-                            print(f"  -> SHORT SL HIT! t-1 High={high_t_minus_1:.6f} >= SL={sl_price:.6f}, Exit @ {exit_price:.6f}")
-            
-            if debug_mode and i <= debug_trades_to_show and not sl_hit:
-                print(f"  -> Normal exit @ Open={exit_price:.6f}")
-            
-            # Calculate PnL based on position side
-            if side == 'LONG':
-                # Long PnL = (exit_price - entry_price) * quantity
-                pnl = (exit_price - entry_price) * quantity
-                pnl_percent = ((exit_price - entry_price) / entry_price) * 100
-            else:  # SHORT
-                # Short PnL = (entry_price - exit_price) * quantity
-                pnl = (entry_price - exit_price) * quantity
-                pnl_percent = ((entry_price - exit_price) / entry_price) * 100
-            
-            # Update capital
-            current_capital += pnl
-            
-            total_pnl += pnl
-            total_pnl_percent += pnl_percent
-            trade_count += 1
-            
-            if pnl > 0:
-                winning_trades += 1
-                if side == 'LONG':
-                    long_wins += 1
-                else:
-                    short_wins += 1
-            
-            # Store trade details
-            trade_details.append({
-                'trade_num': trade_count,
-                'side': side,
-                'entry_time': current_position['entry_time'],
-                'exit_time': candle_t['open_time'],
-                'entry_price': entry_price,
-                'exit_price': exit_price,
-                'sl_price': sl_price,
-                'sl_hit': sl_hit,
-                'pnl': pnl,
-                'pnl_percent': pnl_percent,
-                'capital_after': current_capital
-            })
-            
-            # Update equity curve
-            equity_curve.append(current_capital)
-        
-        # At start of t, open new position based on t-1 candle color
-        if is_red:
-            # t-1 is red (bearish) -> open SHORT position
-            # SL is set at previous high (t-1 high)
-            current_position = {
-                'side': 'SHORT',
-                'entry_price': open_t,
-                'entry_time': candle_t['open_time'],
-                'sl_price': high_t_minus_1
-            }
-            short_trades += 1
-            if debug_mode and i <= debug_trades_to_show:
-                print(f"\n--- OPENING NEW POSITION ---")
-                print(f"  -> SHORT @ Entry={open_t:.6f}, SL={high_t_minus_1:.6f} (t-1 HIGH)")
-        elif is_green:
-            # t-1 is green (bullish) -> open LONG position
-            # SL is set at previous low (t-1 low)
-            current_position = {
-                'side': 'LONG',
-                'entry_price': open_t,
-                'entry_time': candle_t['open_time'],
-                'sl_price': low_t_minus_1
-            }
-            long_trades += 1
-            if debug_mode and i <= debug_trades_to_show:
-                print(f"\n--- OPENING NEW POSITION ---")
-                print(f"  -> LONG @ Entry={open_t:.6f}, SL={low_t_minus_1:.6f} (t-1 LOW)")
-        else:
-            # Doji or equal open/close - skip this candle
-            current_position = None
-            if debug_mode and i <= debug_trades_to_show:
-                print(f"\n--- NO POSITION OPENED (DOJI) ---")
+    # Extract results from trading logic
+    current_capital = trading_results['current_capital']
+    total_pnl = trading_results['total_pnl']
+    total_pnl_percent = trading_results['total_pnl_percent']
+    trade_count = trading_results['trade_count']
+    winning_trades = trading_results['winning_trades']
+    long_trades = trading_results['long_trades']
+    short_trades = trading_results['short_trades']
+    long_wins = trading_results['long_wins']
+    short_wins = trading_results['short_wins']
+    sl_triggered_count = trading_results['sl_triggered_count']
+    trade_details = trading_results['trade_details']
+    equity_curve = trading_results['equity_curve']
 
     # Calculate ROI metrics
     return_percent = ((current_capital - initial_capital) / initial_capital * 100)
@@ -952,19 +816,20 @@ def print_grid_search_summary(all_results):
     # SAVE TABLES TO JSON FILES
     # ========================================
     
-    # Get current file directory
-    current_dir = Path(__file__).parent
+    # Get the directory of the execute_trading_logic function (strategy module)
+    strategy_module_file = inspect.getfile(execute_trading_logic)
+    strategy_dir = Path(strategy_module_file).parent
     
     # Generate timestamp for filenames
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     
     # Save Table 1: Backtest Results
-    backtest_json_path = current_dir / f'{symbol}_results_{timestamp}.json'
+    backtest_json_path = strategy_dir / f'{symbol}_results_{timestamp}.json'
     df_backtest.to_json(backtest_json_path, orient='records', indent=2)
     print(f"\n💾 Table 1 saved: {backtest_json_path}")
     
     # Save Table 2: Bot Ranking
-    ranking_json_path = current_dir / f'{symbol}_ranking_{timestamp}.json'
+    ranking_json_path = strategy_dir / f'{symbol}_ranking_{timestamp}.json'
     df_ranking.to_json(ranking_json_path, orient='records', indent=2)
     print(f"💾 Table 2 saved: {ranking_json_path}")
     
@@ -1026,11 +891,31 @@ if __name__ == "__main__":
         #     "timeframe": [("5m", 1500), ("15m", 1500), ("30m", 1500), ("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
         #     "quantity": [0.01]
         # },
-        "1000PEPEUSDC": {
+        # "1000PEPEUSDC": {
+        #     "sl_enabled": [True, False],
+        #     "timeframe": [("5m", 1500), ("15m", 1500), ("30m", 1500), ("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
+        #     "quantity": [11000]
+        # },
+        # "XRPUSDC": {
+        #     "sl_enabled": [True, False],
+        #     "timeframe": [("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
+        #     "quantity": [40]
+        # },
+        # "AAVEUSDC": {
+        #     "sl_enabled": [True, False],
+        #     "timeframe": [("5m", 1500), ("15m", 1500), ("30m", 1500), ("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
+        #     "quantity": [0.3]
+        # },
+        # "BIOUSDC": {
+        #     "sl_enabled": [True, False],
+        #     "timeframe": [("5m", 1500), ("15m", 1500), ("30m", 1500), ("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
+        #     "quantity": [1000]
+        # },
+        "ETHUSDC": {
             "sl_enabled": [True, False],
             "timeframe": [("5m", 1500), ("15m", 1500), ("30m", 1500), ("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
-            "quantity": [11000]
-        }
+            "quantity": [0.02]
+        },
     }
 
     # Generate grid configurations
@@ -1044,34 +929,3 @@ if __name__ == "__main__":
 
 
 
-'''
-Validation Comparison Table: Real vs Simulation Results
-Period: April 5-15, 2026 | Symbol: DOGEUSDC | Quantity: 500
-┌──────┬───────┬────────────┬────────────┬────────────┬────────────┬─────────────┬─────────────┬───────────┬──────────┬─────────┬───────┐
-│ Date │ Side  │ Real Entry │ Sim Entry  │ Real Exit  │ Sim Exit   │ Real SL Hit │ Sim SL Hit  │ Real PnL  │ Sim PnL  │ Δ PnL   │ Match │
-├──────┼───────┼────────────┼────────────┼────────────┼────────────┼─────────────┼─────────────┼───────────┼──────────┼─────────┼───────┤
-│04-05 │ LONG  │ 0.092100   │ 0.091990   │ 0.090700   │ 0.090660   │     ✅      │     ✅     │  -$0.73   │  -$0.66  │ +$0.07  │  ✅   │
-│04-06 │ LONG  │ 0.092500   │ 0.092320   │ 0.090500   │ 0.090530   │     ❌      │     ❌     │  -$1.00   │  -$0.90  │ +$0.10  │  ✅   │
-│04-07 │ SHORT │ 0.090400   │ 0.090530   │ 0.093600   │ 0.093570   │     ✅      │     ✅     │  -$1.60   │  -$1.52  │ +$0.08  │  ✅   │
-│04-08 │ LONG  │ 0.095000   │ 0.094870   │ 0.092300   │ 0.092360   │     ❌      │     ❌     │  -$1.36   │  -$1.25  │ +$0.11  │  ✅   │
-│04-09 │ SHORT │ 0.092300   │ 0.092360   │ 0.092600   │ 0.092560   │     ❌      │     ❌     │  -$0.15   │  -$0.10  │ +$0.05  │  ✅   │
-│04-10 │ LONG  │ 0.092600   │ 0.092560   │ 0.093700   │ 0.093660   │     ❌      │     ❌     │  +$0.55   │  +$0.55  │  $0.00  │  ✅   │
-│04-11 │ LONG  │ 0.093700   │ 0.093660   │ 0.093000   │ 0.093070   │     ❌      │     ❌     │  -$0.35   │  -$0.29  │ +$0.06  │  ✅   │
-│04-12 │ SHORT │ 0.093000   │ 0.093070   │ 0.090800   │ 0.090800   │     ❌      │     ❌     │  +$1.10   │  +$1.13  │ -$0.03  │  ✅   │
-│04-13 │ SHORT │ 0.090800   │ 0.090800   │ 0.093200   │ 0.093220   │     ✅      │     ✅     │  -$1.20   │  -$1.21  │ -$0.01  │  ✅   │
-└──────┴───────┴────────────┴────────────┴────────────┴────────────┴─────────────┴─────────────┴───────────┴──────────┴─────────┴───────┘
-
-Summary Statistics
-Metric	        Real Trades	Simulation	Difference	Accuracy
-Total Trades	10	        10	        0	        100%
-Total PnL	    -$4.74	    -$4.82	    -$0.08	    98.3%
-Winning Trades	2	        2	        0	        100%
-Losing Trades	8	        8	        0	        100%
-Win Rate	    20%	        20%	        0%	        100%
-SL Triggered	3	        3	        0	        100%
-SL Hit Rate	    30%	        30%	        0%	        100%
-Avg PnL/Trade   -$0.47	    -$0.48	    -$0.01	    97.9%
-Max Drawdown    -$2.59	    -$2.56	    +$0.03	    98.8%
-
-
-'''
