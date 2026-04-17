@@ -13,8 +13,8 @@ class EntryMacdHistEMAV1(BaseEntryStrategy):
     dynamic_config: dict
     ema_period: int
 
-    def __init__(self, dynamic_config):
-        super().__init__()
+    def __init__(self, dynamic_config, logger=None):
+        super().__init__(logger=logger)
         self.dynamic_config = dynamic_config
         self.ema_period = int(dynamic_config.get('ema_period', 200))
 

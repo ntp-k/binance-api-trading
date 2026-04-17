@@ -58,7 +58,8 @@ class CustomLogger:
         self,
         name: str = '',
         level: str = os.getenv(key='LOG_LEVELS', default=DEFAULT_LOG_LEVEL),
-        log_filename: str = ''
+        log_filename: str = '',
+        bot_id: str = ''
     ) -> None:
         """
         Initialize custom logger.
@@ -67,19 +68,26 @@ class CustomLogger:
             name: Logger name (defaults to 'default')
             level: Log level from environment or default
             log_filename: Optional custom log filename
+            bot_id: Optional bot identifier for per-bot logs
         """
         self.logger_name = name if name else 'default'
         self.level = level.upper()
 
         # Ensure log directory exists
         log_dir = os.path.join(os.getcwd(), LOGS_DIR)
-        os.makedirs(log_dir, exist_ok=True)
         
-        # Determine log filename (shared across loggers for same day)
+        # Determine log filename
         if log_filename:
             self.log_filename = os.path.join(log_dir, log_filename)
+        elif bot_id:
+            # Bot-specific log in date folder
+            self.log_filename = self._get_bot_log_filename(log_dir, bot_id)
         else:
-            self.log_filename = self._get_daily_log_filename(log_dir)
+            # System log in date folder
+            self.log_filename = self._get_system_log_filename(log_dir)
+        
+        # Ensure parent directory exists
+        os.makedirs(os.path.dirname(self.log_filename), exist_ok=True)
 
         # Get or create logger
         self.logger = logging.getLogger(name=self.logger_name)
@@ -108,6 +116,44 @@ class CustomLogger:
             cls._log_file_cache[date_key] = os.path.join(log_dir, f'{dt_str}.log')
         
         return cls._log_file_cache[date_key]
+    
+    @classmethod
+    def _get_bot_log_filename(cls, log_dir: str, bot_id: str) -> str:
+        """
+        Get log filename for specific bot in date folder.
+        
+        Args:
+            log_dir: Base directory for log files
+            bot_id: Bot identifier (e.g., '32', 'bot_32')
+            
+        Returns:
+            Full path to bot log file (e.g., logs/20260417/bot_32.log)
+        """
+        today = datetime.now(timezone.utc) + timedelta(hours=7)
+        date_folder = today.strftime('%Y%m%d')
+        date_dir = os.path.join(log_dir, date_folder)
+        
+        # Clean bot_id (remove 'bot_' prefix if present)
+        clean_bot_id = bot_id.replace('bot_', '')
+        
+        return os.path.join(date_dir, f'bot_{clean_bot_id}.log')
+    
+    @classmethod
+    def _get_system_log_filename(cls, log_dir: str) -> str:
+        """
+        Get system log filename in date folder.
+        
+        Args:
+            log_dir: Base directory for log files
+            
+        Returns:
+            Full path to system log file (e.g., logs/20260417/system.log)
+        """
+        today = datetime.now(timezone.utc) + timedelta(hours=7)
+        date_folder = today.strftime('%Y%m%d')
+        date_dir = os.path.join(log_dir, date_folder)
+        
+        return os.path.join(date_dir, 'system.log')
     
     def _setup_handlers(self) -> None:
         """Setup file and console handlers for logger."""

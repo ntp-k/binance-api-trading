@@ -2,6 +2,7 @@
 Base class for exit strategy implementations.
 """
 from abc import ABC, abstractmethod
+from typing import Optional
 import pandas as pd
 
 from commons.custom_logger import CustomLogger
@@ -18,9 +19,17 @@ class BaseExitStrategy(ABC):
     - should_close: Determine if position should be closed
     """
     
-    def __init__(self) -> None:
-        """Initialize the exit strategy with logger."""
-        self.logger = CustomLogger(name=self.__class__.__name__)
+    def __init__(self, logger: Optional[CustomLogger] = None) -> None:
+        """
+        Initialize the exit strategy with logger.
+        
+        Args:
+            logger: Optional logger to inherit from bot. If None, creates own logger.
+        """
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = CustomLogger(name=self.__class__.__name__)
         self.logger.debug(f'Initializing {self.__class__.__name__}')
     
     @abstractmethod

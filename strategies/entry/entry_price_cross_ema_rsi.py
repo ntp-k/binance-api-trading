@@ -39,8 +39,8 @@ class EntryPriceCrossEMARSI(BaseEntryStrategy):
     - Stop-loss: $99 (1 ATR below)
     - Take-profit: $102 (2 ATR above)
     """
-    def __init__(self, dynamic_config):
-        super().__init__()
+    def __init__(self, dynamic_config, logger=None):
+        super().__init__(logger=logger)
         self.decimal = dynamic_config.get('macd_decimal', 2)
         self.ema_fast = dynamic_config.get('ema_fast', 9)
         self.ema_slow = dynamic_config.get('ema_slow', 21)

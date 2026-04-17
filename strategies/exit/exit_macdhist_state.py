@@ -16,8 +16,8 @@ class ExitMacdHistState(BaseExitStrategy):
     macd_decimal: int
     close_price_diff_threshold: float
 
-    def __init__(self, dynamic_config):
-        super().__init__()
+    def __init__(self, dynamic_config, logger=None):
+        super().__init__(logger=logger)
         self.dynamic_config = dynamic_config
         self.macd_decimal = int(dynamic_config.get('macd_decimal', 2))
         self.close_price_diff_threshold = float(dynamic_config.get('close_price_diff_thsd', 0.0))

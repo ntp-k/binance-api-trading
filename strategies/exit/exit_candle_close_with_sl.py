@@ -5,8 +5,8 @@ from core.position_handler import PositionHandler
 
 class ExitCandleCloseWithSL(BaseExitStrategy):
 
-    def __init__(self, dynamic_config):
-        super().__init__()
+    def __init__(self, dynamic_config, logger=None):
+        super().__init__(logger=logger)
         self.dynamic_config = dynamic_config
 
     def _process_data(self, klines_df):

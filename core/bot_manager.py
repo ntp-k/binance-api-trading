@@ -52,7 +52,7 @@ class BotManager:
                 )
             else:
                 # Load all enabled bots
-                self.logger.info(message="Loading all enabled bots from directory")
+                self.logger.debug(message="Loading all enabled bots from directory")
                 return bot_config_loader.load_all_bot_configs(
                     config_dir=self.config_dir,
                     enabled_only=True
@@ -91,7 +91,7 @@ class BotManager:
                 # Validate configuration
                 bot_config.validate()
                 
-                self.logger.info(message=f'Loading 🤖  [{bot_config.bot_name}] ...')
+                self.logger.debug(message=f'Loading 🤖  [{bot_config.bot_name}] ...')
                 self.logger.debug(message=f'config: {bot_config}')
                 bot = Bot(bot_config=bot_config)
                 self.bots.append(bot)
@@ -107,7 +107,7 @@ class BotManager:
                 )
                 failed_count += 1
         
-        self.logger.info(message=f"Loaded {enabled_count} bot(s), {failed_count} failed")
+        self.logger.info(message=f"Loaded {enabled_count} bot(s)" + (f", {failed_count} failed" if failed_count > 0 else ""))
 
     def execute(self) -> None:
         """Start all bot threads and wait for completion."""

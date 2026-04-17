@@ -6,6 +6,7 @@ import pandas as pd
 from typing import Optional, Dict, Any
 
 from abstracts.base_live_trade_client import BaseLiveTradeClient
+from commons.custom_logger import CustomLogger
 from models.enum.position_side import PositionSide
 import trade_clients.binance.binance_auth as binance_auth
 from models.enum.order_type import OrderType
@@ -21,13 +22,22 @@ GET_TRADE = 'https://fapi.binance.com/fapi/v1/userTrades'
 GET_ORDER_BOOK_URL = 'https://fapi.binance.com/fapi/v1/depth'
 GET_EXCHANGE_INFO_URL = 'https://fapi.binance.com/fapi/v1/exchangeInfo'
 
+# Rate limit constants
 API_WEIGHT_LIMIT = 2000
 API_ORDER_10s_LIMIT = 50
 API_ORDER_1m_LIMIT = 1600
 
+# Rate limit thresholds
+WEIGHT_WARNING_THRESHOLD = 0.60  # 60% = 1200/2000
+WEIGHT_CRITICAL_THRESHOLD = 0.80  # 80% = 1600/2000
+ORDER_10s_WARNING_THRESHOLD = 0.60  # 60% = 30/50
+ORDER_10s_CRITICAL_THRESHOLD = 0.80  # 80% = 40/50
+ORDER_1m_WARNING_THRESHOLD = 0.60  # 60% = 960/1600
+ORDER_1m_CRITICAL_THRESHOLD = 0.80  # 80% = 1280/1600
+
 class BinanceLiveTradeClient(BaseLiveTradeClient):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, logger: Optional[CustomLogger] = None) -> None:
+        super().__init__(logger=logger)
         self.set_wait_time(wait_time_sec=20)
         self.set_running(running=True)
         
@@ -58,6 +68,77 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         session.mount("https://", adapter)
         
         return session
+    
+    def _log_rate_limits(self, response: requests.Response) -> None:
+        """
+        Log rate limit status with appropriate severity levels.
+        
+        Monitors three types of rate limits:
+        - API weight (1 minute window)
+        - Order count (10 second window)
+        - Order count (1 minute window)
+        
+        Args:
+            response: HTTP response object containing rate limit headers
+        """
+        used_weight = int(response.headers.get("X-MBX-USED-WEIGHT-1M", 0))
+        order_count_10s = int(response.headers.get("X-MBX-ORDER-COUNT-10S", 0))
+        order_count_1m = int(response.headers.get("X-MBX-ORDER-COUNT-1M", 0))
+        
+        # Calculate percentages
+        weight_pct = used_weight / API_WEIGHT_LIMIT if API_WEIGHT_LIMIT > 0 else 0
+        order_10s_pct = order_count_10s / API_ORDER_10s_LIMIT if API_ORDER_10s_LIMIT > 0 else 0
+        order_1m_pct = order_count_1m / API_ORDER_1m_LIMIT if API_ORDER_1m_LIMIT > 0 else 0
+        
+        # Track highest severity for summary log
+        max_severity = "DEBUG"
+        
+        # Check API weight limit
+        if weight_pct >= WEIGHT_CRITICAL_THRESHOLD:
+            self.logger.error(
+                f"🚨 CRITICAL: API weight at {weight_pct:.0%} ({used_weight}/{API_WEIGHT_LIMIT})"
+            )
+            max_severity = "ERROR"
+        elif weight_pct >= WEIGHT_WARNING_THRESHOLD:
+            self.logger.warning(
+                f"⚠️ API weight at {weight_pct:.0%} ({used_weight}/{API_WEIGHT_LIMIT})"
+            )
+            if max_severity == "DEBUG":
+                max_severity = "WARNING"
+        
+        # Check order count 10s limit
+        if order_10s_pct >= ORDER_10s_CRITICAL_THRESHOLD:
+            self.logger.error(
+                f"🚨 CRITICAL: Order rate at {order_10s_pct:.0%} ({order_count_10s}/{API_ORDER_10s_LIMIT} in 10s)"
+            )
+            max_severity = "ERROR"
+        elif order_10s_pct >= ORDER_10s_WARNING_THRESHOLD:
+            self.logger.warning(
+                f"⚠️ Order rate at {order_10s_pct:.0%} ({order_count_10s}/{API_ORDER_10s_LIMIT} in 10s)"
+            )
+            if max_severity == "DEBUG":
+                max_severity = "WARNING"
+        
+        # Check order count 1m limit
+        if order_1m_pct >= ORDER_1m_CRITICAL_THRESHOLD:
+            self.logger.error(
+                f"🚨 CRITICAL: Order rate at {order_1m_pct:.0%} ({order_count_1m}/{API_ORDER_1m_LIMIT} in 1m)"
+            )
+            max_severity = "ERROR"
+        elif order_1m_pct >= ORDER_1m_WARNING_THRESHOLD:
+            self.logger.warning(
+                f"⚠️ Order rate at {order_1m_pct:.0%} ({order_count_1m}/{API_ORDER_1m_LIMIT} in 1m)"
+            )
+            if max_severity == "DEBUG":
+                max_severity = "WARNING"
+        
+        # Always log summary at DEBUG level (unless higher severity was triggered)
+        # if max_severity == "DEBUG":
+        #     self.logger.debug(
+        #         f"[RATE LIMIT] weight_1m={used_weight}/{API_WEIGHT_LIMIT} ({weight_pct:.0%}), "
+        #         f"orders_10s={order_count_10s}/{API_ORDER_10s_LIMIT} ({order_10s_pct:.0%}), "
+        #         f"orders_1m={order_count_1m}/{API_ORDER_1m_LIMIT} ({order_1m_pct:.0%})"
+        #     )
     
     def init(self):
         """Initialize Binance credentials."""
@@ -93,6 +174,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         )
         
         try:
+            response = None
             if method == 'GET':
                 response = self.session.get(url=url, headers=headers, params=signed_params)
             elif method == 'POST':
@@ -102,12 +184,14 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
             
+            # Monitor rate limits with appropriate severity
+            self._log_rate_limits(response)
             response.raise_for_status()
             return response.json()
         
         except requests.exceptions.HTTPError as e:
             self.logger.error_e(message=f"HTTP error during {operation}", e=e)
-            self.logger.error(message=f"Response: {response.text}")
+            # self.logger.error(message=f"Response: {response.text}")
             return {}
         except requests.exceptions.RequestException as e:
             self.logger.error_e(message=f"Network error during {operation}", e=e)
@@ -137,7 +221,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         
         result = self._make_request('POST', SET_LEVERAGE_URL, params, "set leverage")
         if result:
-            self.logger.debug(message=f"Leverage set successfully: {result}")
+            self.logger.info(message=f"Leverage set to {leverage}x for {symbol}")
         return result
 
     def fetch_position(self, symbol: str) -> Dict[str, Any]:
@@ -223,13 +307,8 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             response = self.session.get(url=GET_KLINES_URL, headers=headers, params=signed_params)
             response.raise_for_status()
 
-            used_weight_1m = response.headers.get("X-MBX-USED-WEIGHT-1M", 0)
-            order_count_10s = response.headers.get("X-MBX-ORDER-COUNT-10S", 0)
-            order_count_1m = response.headers.get("X-MBX-ORDER-COUNT-1M", 0)
-
-            self.logger.debug(
-                message=f"[RATE LIMIT] weight_1m={used_weight_1m}/{API_WEIGHT_LIMIT}, orders_10s={order_count_10s}/{API_ORDER_10s_LIMIT}, orders_1m={order_count_1m}/{API_ORDER_1m_LIMIT}"
-            )
+            # Monitor rate limits with appropriate severity
+            self._log_rate_limits(response)
 
             data = response.json()
             # Define column names for Binance klines data
@@ -273,7 +352,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         }
         result = self._make_request('GET', GET_ORDER, params, "fetch order")
         if result:
-            self.logger.debug(message=f"Order fetched: {result}")
+            self.logger.debug(message=f"Order status: {result.get('status', 'UNKNOWN')}")
         return result
 
     def cancel_order(self, symbol: str, order_id: str = '') -> Dict[str, Any]:
@@ -327,8 +406,9 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         try:
             response = self.session.post(url=SET_ORDER_URL, headers=headers, params=signed_params)
             response.raise_for_status()
-            self.logger.debug(message=f"Order placed: {response.json()}")
-            return response.json()
+            order_result = response.json()
+            self.logger.debug(message=f"Order placed: ID={order_result.get('orderId')}, Status={order_result.get('status')}")
+            return order_result
         except requests.exceptions.HTTPError as e:
             self.logger.error_e(message=f"Error placing order", e=e)
             self.logger.error(message=f"Response: {response.text}") # type: ignore
@@ -348,8 +428,9 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         try:
             response = self.session.get(url=SET_ALGO_ORDER_URL, headers=headers, params=signed_params)
             response.raise_for_status()
-            self.logger.debug(message=f"Order fetched: {response.json()}")
-            return response.json()
+            algo_result = response.json()
+            self.logger.debug(message=f"Algo order ID={order_id}, Status={algo_result.get('algoStatus')}")
+            return algo_result
         except requests.exceptions.HTTPError as e:
             self.logger.error_e(message=f"Error getting algo order", e=e)
             self.logger.error(message=f"Response: {response.text}") # type: ignore

@@ -12,14 +12,14 @@ class ExitTPSL(BaseExitStrategy):
     - SHORT position: price <= TP or price >= SL
     """
 
-    def __init__(self, dynamic_config):
+    def __init__(self, dynamic_config, logger=None):
         """
         Initialize TP/SL exit strategy.
         
         Args:
             dynamic_config: Dynamic configuration dictionary (not used but kept for consistency)
         """
-        super().__init__()
+        super().__init__(logger=logger)
         self.dynamic_config = dynamic_config
 
     def _process_data(self, klines_df):

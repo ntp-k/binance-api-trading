@@ -12,6 +12,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 
 from abstracts.base_backtest_trade_client import BaseBacktestTradeClient
+from commons.custom_logger import CustomLogger
 from models.enum.position_side import PositionSide
 import trade_clients.binance.binance_auth as binance_auth
 from commons.fee_calculator import calculate_open_fee, calculate_close_fee
@@ -26,8 +27,8 @@ class BinanceBacktestTradeClient(BaseBacktestTradeClient):
     Fetches real klines data but simulates all trading operations.
     """
     
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, logger: Optional[CustomLogger] = None) -> None:
+        super().__init__(logger=logger)
         self.set_wait_time(wait_time_sec=0)  # No wait time for backtest
         self.set_running(running=True)
         

@@ -15,8 +15,8 @@ class EntryPreviousCandle(BaseEntryStrategy):
     - SHORT: previous candle's HIGH price
     """
 
-    def __init__(self, dynamic_config):
-        super().__init__()
+    def __init__(self, dynamic_config, logger=None):
+        super().__init__(logger=logger)
         self.decimal = dynamic_config.get('decimal', 2)
 
     def _process_data(self, klines_df):
