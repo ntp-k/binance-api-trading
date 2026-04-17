@@ -2,7 +2,7 @@
 Base class for entry strategy implementations.
 """
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import Tuple, Optional
 import pandas as pd
 
 from commons.custom_logger import CustomLogger
@@ -21,9 +21,17 @@ class BaseEntryStrategy(ABC):
     - calculate_tp_sl: Calculate take profit and stop loss prices
     """
     
-    def __init__(self) -> None:
-        """Initialize the entry strategy with logger."""
-        self.logger = CustomLogger(name=self.__class__.__name__)
+    def __init__(self, logger: Optional[CustomLogger] = None) -> None:
+        """
+        Initialize the entry strategy with logger.
+        
+        Args:
+            logger: Optional logger to inherit from bot. If None, creates own logger.
+        """
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = CustomLogger(name=self.__class__.__name__)
         self.logger.debug(f'Initializing {self.__class__.__name__}')
     
     @abstractmethod

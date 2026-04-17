@@ -2,8 +2,6 @@ from time import sleep
 from typing import Optional, Dict, Any, Tuple
 from decimal import Decimal, ROUND_UP
 
-from abstracts.base_entry_strategy import BaseEntryStrategy
-from abstracts.base_exit_strategy import BaseExitStrategy
 from abstracts.base_trade_client import BaseTradeClient
 from commons.constants import (
     ORDER_PLACEMENT_WAIT,
@@ -21,7 +19,6 @@ from models.enum.order_type import OrderType
 from models.enum.position_side import PositionSide
 from models.enum.run_mode import RunMode
 from models.enum.trade_client import TradeClient
-from models.position_signal import PositionSignal
 from trade_clients.get_trade_client import get_trade_client
 import strategies.get_strategy as get_strategy
 
@@ -32,16 +29,26 @@ class Bot:
     """
 
     def __init__(self, bot_config: BotConfig):
+        # Extract bot_id from bot_name (e.g., 'bot_32' -> '32')
+        bot_id = bot_config.bot_name.replace('bot_', '').replace(' ', '_')
+        
         self.logger = CustomLogger(
-            name=f"{self.__class__.__name__}:{bot_config.bot_name.replace(' ', '_')}")
-        self.logger.debug(message=f'Initializing {self.__class__.__name__}')
+            name=f"{bot_config.bot_name.replace(' ', '_')}",
+            bot_id=bot_id
+        )
+        self.logger.info(message=f'Initializing {self.__class__.__name__}: {bot_config.bot_name}')
 
         self.bot_config: BotConfig = bot_config
+
         self.position_handler: PositionHandler = PositionHandler(
-            bot_config=bot_config)
+            bot_config=bot_config,
+            logger=self.logger
+        )
 
         self.trade_client = self._init_trade_client(
-            run_mode=bot_config.run_mode, trade_client=bot_config.trade_client)
+            run_mode=bot_config.run_mode,
+            trade_client=bot_config.trade_client
+        )
         self._set_leverage()
         
         # Pre-fetch and cache exchange info for the symbol
@@ -52,19 +59,21 @@ class Bot:
         self.entry_strategy, self.exit_strategy = get_strategy.init_strategies(
             entry_strategy=self.bot_config.entry_strategy,
             exit_strategy=self.bot_config.exit_strategy,
-            dynamic_config=self.bot_config.dynamic_config
+            dynamic_config=self.bot_config.dynamic_config,
+            logger=self.logger
         )
-        self.logger.debug(
-                message=f'Entry Strategy { self.entry_strategy.__class__.__name__}')
-        self.logger.debug(
-                message=f'Exit Strategy { self.exit_strategy.__class__.__name__}')
+        self.logger.info(
+                message=f'Entry Strategy: {self.entry_strategy.__class__.__name__}')
+        self.logger.info(
+                message=f'Exit Strategy: {self.exit_strategy.__class__.__name__}')
         
         # Initialize backtest metrics and preload data for backtest mode
         self.backtest_metrics: Optional[BacktestMetrics] = None
         if self.bot_config.run_mode == RunMode.BACKTEST:
             self.backtest_metrics = BacktestMetrics(
                 bot_name=bot_config.bot_name,
-                run_id=bot_config.run_id
+                run_id=bot_config.run_id,
+                logger=self.logger
             )
             self._preload_backtest_data()
     
@@ -94,14 +103,12 @@ class Bot:
         if self.backtest_metrics and hasattr(self.trade_client, 'klines_cache'):
             klines_cache = self.trade_client.klines_cache  # type: ignore
             if klines_cache is not None and len(klines_cache) > 0:
-                # first_kline_time = str(klines_cache.iloc[candle_for_indicator - 1]['open_time'])
-                # last_kline_time = str(klines_cache.iloc[-1]['close_time'])
                 first_kline_time = str(klines_cache.iloc[candle_for_indicator - 1]['open_time']).split('+')[0]
                 last_kline_time = str(klines_cache.iloc[-1]['close_time']).split('+')[0].split('.')[0]
                 self.backtest_metrics.set_backtest_period(first_kline_time, last_kline_time)
                 self.logger.info(f"Backtest period: {first_kline_time} to {last_kline_time}")
         
-        self.logger.info(f"Backtest will start from candle {candle_for_indicator} (index {candle_for_indicator - 1})")
+        self.logger.debug(f"Backtest will start from candle {candle_for_indicator} (index {candle_for_indicator - 1})")
 
     def _init_trade_client(self, run_mode: RunMode, trade_client: TradeClient) -> BaseTradeClient:
         """
@@ -120,7 +127,10 @@ class Bot:
         try:
             self.logger.debug(message=f'Initializing trade client')
             _trade_client: BaseTradeClient = get_trade_client(
-                run_mode=run_mode, trade_client=trade_client)
+                run_mode=run_mode,
+                trade_client=trade_client,
+                logger=self.logger
+            )
             _trade_client.set_running(running=True)
             self.logger.debug(
                 message=f'Initialized trade client {_trade_client.__class__.__name__}')
@@ -133,7 +143,7 @@ class Bot:
     def _set_leverage(self):
         self.trade_client.set_leverage(
             symbol=self.bot_config.symbol, leverage=self.bot_config.leverage)
-        self.logger.debug(f'Leverage is set to {self.bot_config.leverage}')
+        self.logger.info(f'Leverage is set to {self.bot_config.leverage}')
 
     def _round_to_tick_size(self, price: float, tick_size: float, order_side: str) -> float:
         """
@@ -243,7 +253,7 @@ class Bot:
         return remote_position_dict
 
     def _place_tp_order(self, position_side: PositionSide, tp_price: float) -> Dict[str, Any]:
-        self.logger.debug(message='Placing new take profit order')
+        self.logger.debug(message='Placing take profit order')
         order_side = OrderSide.SELL.value if position_side == PositionSide.LONG else OrderSide.BUY.value
         self.position_handler.set_tp_price(price=tp_price)
 
@@ -260,7 +270,7 @@ class Bot:
         return tp_order
 
     def _place_sl_order(self, position_side: PositionSide, sl_price: float) -> Dict[str, Any]:
-        self.logger.debug(message='Placing new stop loss order')
+        self.logger.debug(message='Placing stop loss order')
         order_side = OrderSide.SELL.value if position_side == PositionSide.LONG else OrderSide.BUY.value
         self.position_handler.set_sl_price(price=sl_price)
 
@@ -277,7 +287,7 @@ class Bot:
         return sl_order
 
     def _place_market_order(self, order_side: str, reduce_only: bool) -> Dict[str, Any]:
-        self.logger.debug(message='Placing new market order')
+        self.logger.debug(message='Placing market order')
         _order = self.trade_client.place_order(
             symbol=self.bot_config.symbol,
             order_side=order_side,
@@ -297,7 +307,7 @@ class Bot:
             _order_filled = _check_order.get('status') == ORDER_STATUS_FILLED
 
             if not _order_filled:
-                self.logger.info(message="Market Order still pending. Waiting...")
+                self.logger.debug(message="Market Order still pending. Waiting...")
             else:
                 self.logger.info(message="Market Order filled")
                 break
@@ -322,14 +332,14 @@ class Bot:
                 # Cancel existing order if price changed
                 if _order_id:
                     self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=_order_id)
-                    self.logger.info(f"Price {_ordered_price} -> {current_price}  |  Canceling order {_order_id}...")
+                    self.logger.debug(f"Price {_ordered_price} -> {current_price}  |  Canceling order {_order_id}...")
                     
                     # Skip waits in backtest mode
                     if self.bot_config.run_mode != RunMode.BACKTEST:
                         sleep(ORDER_STATUS_CHECK_INTERVAL)  # wait for binance to cancel order
                 
                 # Place new order at current price
-                self.logger.info(message=f"Placing new LIMIT order at price: {current_price}")
+                self.logger.debug(message=f"Placing LIMIT order at price: {current_price}")
                 _order = self.trade_client.place_order(
                     symbol=self.bot_config.symbol,
                     order_side=order_side,
@@ -355,7 +365,7 @@ class Bot:
                 self.logger.info(message="Limit Order filled")
                 break
             else:
-                self.logger.info(message="Limit Order still pending. Waiting...")
+                self.logger.debug(message="Limit Order still pending. Waiting...")
     
         self.logger.debug(message=f'Getting trade history order_id: {_order_id}')
         return self.trade_client.fetch_order_trade(symbol=self.bot_config.symbol, order_id=_order_id)
@@ -417,7 +427,7 @@ class Bot:
             if _ordered_maker_price != current_maker_price:
                 # Cancel existing order if price changed
                 if _order_id:
-                    self.logger.info(f"Maker price {_ordered_maker_price} → {current_maker_price}  |  Canceling order {_order_id}...")
+                    self.logger.debug(f"Maker price {_ordered_maker_price} → {current_maker_price}  |  Canceling order {_order_id}...")
                     self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=_order_id)
                     
                     # Skip waits in backtest mode
@@ -425,7 +435,7 @@ class Bot:
                         sleep(ORDER_STATUS_CHECK_INTERVAL)  # Wait for cancellation
                 
                 # Place new order at maker price
-                self.logger.info(f"Placing MAKER order at price: {current_maker_price}")
+                self.logger.debug(f"Placing MAKER order at price: {current_maker_price}")
                 _order = self.trade_client.place_order(
                     symbol=self.bot_config.symbol,
                     order_side=order_side,
@@ -447,7 +457,7 @@ class Bot:
                 
                 _order_id = _order.get('orderId', '')
                 _ordered_maker_price = current_maker_price
-                self.logger.info(f"Maker order placed: ID={_order_id}, Price={current_maker_price}")
+                self.logger.debug(f"Maker order placed: ID={_order_id}, Price={current_maker_price}")
             else:
                 self.logger.debug("Maker price unchanged. Keep monitoring order.")
             
@@ -471,8 +481,6 @@ class Bot:
     def _place_order_to_open_position(self, position_side: PositionSide):
         _order_side = OrderSide.BUY.value if position_side == PositionSide.LONG else OrderSide.SELL.value
         _order_trade = None
-
-        self.logger.debug(message='Placing order to open position')
 
         if self.bot_config.order_type == OrderType.MARKET:
             _order_trade = self._place_market_order(order_side=_order_side, reduce_only=False)
@@ -550,11 +558,6 @@ class Bot:
                     self.logger.info("SL hit ✅")
                     filled_order_id = _check_sl_order.get('actualOrderId')
                     close_reason = 'SL Hit'
-                    # if self.bot_config.tp_enabled:
-                    #     self.logger.info("Cancelling TP due to SL hit")
-                    #     self._cancel_tp_order()
-            else:
-                self.logger.debug("No SL order in memory")
 
         # Check TP only if no order has already been filled
         if self.bot_config.tp_enabled and not filled_order_id:
@@ -566,11 +569,6 @@ class Bot:
                     self.logger.info("TP hit ✅")
                     filled_order_id = _check_tp_order.get('actualOrderId')
                     close_reason = 'TP Hit'
-                    # if self.bot_config.sl_enabled:
-                    #     self.logger.info("Cancelling SL due to TP hit")
-                    #     self._cancel_sl_order()
-            else:
-                self.logger.debug("No TP order in memory")
 
         # Process filled order
         if filled_order_id:
@@ -618,7 +616,7 @@ class Bot:
         )
         
         if klines_df is None or klines_df.empty:
-            self.logger.error("Failed to fetch klines data")
+            self.logger.error(f"Failed to fetch klines data for {self.bot_config.symbol}")
             return None
         
         return klines_df
@@ -685,7 +683,6 @@ class Bot:
             self.logger.debug(message=f'Calculated TP: {tp_price}, SL: {sl_price}')
 
             # Place TP/SL orders on exchange only if enabled
-            # This allows exit strategies to check TP/SL manually without using Binance's algo orders            
             if self.bot_config.tp_enabled:
                 self.logger.info(message=f'Placing TP order at {tp_price}')
                 self._place_tp_order(position_side=position_side, tp_price=tp_price)
@@ -701,7 +698,6 @@ class Bot:
     def _handle_tp_sl_monitoring(self, current_candle_open_time: str) -> bool:
         """Monitor TP/SL orders and process if filled."""
         try:
-            self.logger.debug(message='Checking TP/SL orders')
             return self._monitor_tp_sl_fill(close_candle_open_time=current_candle_open_time)
         except Exception as e:
             self.logger.error_e(message='Error while checking TP/SL orders', e=e)
@@ -716,7 +712,6 @@ class Bot:
         """Check for exit signals and close position if triggered."""
         # Update PnL
         pnl = active_position_dict.get('pnl', 0.0)
-        self.logger.debug(message=f"Updating position pnl {'+' if pnl >= 0 else ''}{pnl:.2f}")
         self.position_handler.update_pnl(pnl=pnl)
         
         # Check exit signal
@@ -733,7 +728,7 @@ class Bot:
         
         # Close position
         self.logger.info(message=f'{self.bot_config.symbol} Exit signal triggered')
-        self.logger.info(message=f'Active position: {active_position_dict}')
+        self.logger.debug(message=f'Active position: {active_position_dict}')
         
         try:
             closed_position_dict = self._place_order_to_close_position(
@@ -780,12 +775,11 @@ class Bot:
         # Fetch market data
         klines_df = self._fetch_market_data()
         if klines_df is None:
-            self.logger.critical(message='Error while fetching market data')
+            self.logger.error(message=f'Failed to fetch market data for {self.bot_config.symbol}')
+            return
         
         # Get position state
         active_position_dict, current_candle_open_time = self._get_position_state(klines_df)
-        # if active_position_dict is None and current_candle_open_time is None:
-        #     return
         
         # Cache state flags
         have_position = bool(active_position_dict)

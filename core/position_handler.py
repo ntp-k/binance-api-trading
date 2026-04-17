@@ -21,8 +21,18 @@ class PositionHandler:
     Handles TP/SL order tracking and position state persistence to disk.
     """
     
-    def __init__(self, bot_config: BotConfig):
-        self.logger = CustomLogger(name=f"PositionHandler:{bot_config.bot_name}")
+    def __init__(self, bot_config: BotConfig, logger: Optional[CustomLogger] = None):
+        """
+        Initialize position handler.
+        
+        Args:
+            bot_config: Bot configuration
+            logger: Optional logger to inherit from bot. If None, creates own logger.
+        """
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = CustomLogger(name=f"PositionHandler:{bot_config.bot_name}")
         self.bot_config: BotConfig = bot_config
         self.position: Optional[Position] = None
         self._entry_price: float = 0.0

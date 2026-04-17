@@ -25,9 +25,17 @@ class BaseTradeClient(ABC):
     wait_time: int = 0
     running: bool = False
 
-    def __init__(self) -> None:
-        """Initialize the trade client with logger."""
-        self.logger = CustomLogger(name=self.__class__.__name__)
+    def __init__(self, logger: Optional[CustomLogger] = None) -> None:
+        """
+        Initialize the trade client with logger.
+        
+        Args:
+            logger: Optional logger to inherit from bot. If None, creates own logger.
+        """
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = CustomLogger(name=self.__class__.__name__)
         self.logger.debug(message=f'Initializing {self.__class__.__name__}')
 
     @abstractmethod

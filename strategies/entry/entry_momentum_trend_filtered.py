@@ -39,8 +39,8 @@ class EntryMomentumTrendFiltered(BaseEntryStrategy):
         atr_threshold_multiplier: ATR threshold multiplier (default: 0.9)
     """
     
-    def __init__(self, dynamic_config: dict):
-        super().__init__()
+    def __init__(self, dynamic_config: dict, logger=None):
+        super().__init__(logger=logger)
         self.dynamic_config = dynamic_config
         
         # Configuration parameters with defaults

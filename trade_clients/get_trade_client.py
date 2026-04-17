@@ -1,5 +1,6 @@
-from typing import Dict, Tuple, Type
+from typing import Dict, Tuple, Type, Optional
 from abstracts.base_trade_client import BaseTradeClient
+from commons.custom_logger import CustomLogger
 from models.enum.run_mode import RunMode
 from models.enum.trade_client import TradeClient
 
@@ -24,13 +25,14 @@ TRADE_CLIENT_REGISTRY: Dict[Tuple[TradeClient, RunMode], Tuple[str, str, bool]] 
 }
 
 
-def get_trade_client(run_mode: RunMode, trade_client: TradeClient) -> BaseTradeClient:
+def get_trade_client(run_mode: RunMode, trade_client: TradeClient, logger: Optional[CustomLogger] = None) -> BaseTradeClient:
     """
     Factory function to create trade client instances.
     
     Args:
         run_mode: Trading mode (LIVE, BACKTEST, etc.)
         trade_client: Client type (BINANCE, OFFLINE, etc.)
+        logger: Optional logger to inherit from bot
         
     Returns:
         Initialized trade client instance
@@ -55,8 +57,8 @@ def get_trade_client(run_mode: RunMode, trade_client: TradeClient) -> BaseTradeC
         module = __import__(module_path, fromlist=[class_name])
         client_class: Type[BaseTradeClient] = getattr(module, class_name)
         
-        # Instantiate client
-        client = client_class()
+        # Instantiate client with logger
+        client = client_class(logger=logger)
         
         # Call init() if required and available
         if needs_init and hasattr(client, 'init'):

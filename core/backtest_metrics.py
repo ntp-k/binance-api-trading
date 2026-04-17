@@ -25,8 +25,19 @@ class BacktestMetrics:
     Tracks and calculates backtest performance metrics.
     """
     
-    def __init__(self, bot_name: str, run_id: int):
-        self.logger = CustomLogger(name=f"BacktestMetrics:{bot_name}")
+    def __init__(self, bot_name: str, run_id: int, logger: Optional[CustomLogger] = None):
+        """
+        Initialize backtest metrics tracker.
+        
+        Args:
+            bot_name: Name of the bot
+            run_id: Run ID for the backtest
+            logger: Optional logger to inherit from bot
+        """
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = CustomLogger(name=f"BacktestMetrics:{bot_name}")
         self.bot_name = bot_name
         self.run_id = run_id
         self.trades: List[Dict[str, Any]] = []
