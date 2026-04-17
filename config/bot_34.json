@@ -1,0 +1,23 @@
+{
+    "is_enabled": false,
+    "bot_id": 34,
+    "run_id": 34,
+    "bot_name": "bot 34",
+    "run_mode": "live",
+    "trade_client": "binance",
+    "entry_strategy": "previous_candle",
+    "exit_strategy": "candle_close",
+    "tp_enabled": false,
+    "sl_enabled": false,
+    "symbol": "BIOUSDC",
+    "leverage": 5,
+    "quantity": 600,
+    "timeframe": "5m",
+    "timeframe_limit": 10,
+    "order_type": "MAKER_ONLY",
+    "dynamic_config": {
+        "decimal": 5,
+        "candle_for_indicator": 5
+    },
+    "created_at": "2026-04-17T01:23:00"
+}
