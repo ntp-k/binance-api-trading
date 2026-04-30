@@ -69,8 +69,10 @@ class PositionHandler:
     
     @tp_order_id.setter
     def tp_order_id(self, value: str) -> None:
-        """Set take profit order ID."""
+        """Set take profit order ID and sync with position."""
         self._tp_order_id = value
+        if self.position:
+            self.position.tp_order_id = value
     
     @property
     def tp_price(self) -> float:
@@ -79,8 +81,10 @@ class PositionHandler:
     
     @tp_price.setter
     def tp_price(self, value: float) -> None:
-        """Set take profit price."""
+        """Set take profit price and sync with position."""
         self._tp_price = value
+        if self.position:
+            self.position.tp_price = value
     
     @property
     def sl_order_id(self) -> str:
@@ -89,8 +93,10 @@ class PositionHandler:
     
     @sl_order_id.setter
     def sl_order_id(self, value: str) -> None:
-        """Set stop loss order ID."""
+        """Set stop loss order ID and sync with position."""
         self._sl_order_id = value
+        if self.position:
+            self.position.sl_order_id = value
     
     @property
     def sl_price(self) -> float:
@@ -99,8 +105,10 @@ class PositionHandler:
     
     @sl_price.setter
     def sl_price(self, value: float) -> None:
-        """Set stop loss price."""
+        """Set stop loss price and sync with position."""
         self._sl_price = value
+        if self.position:
+            self.position.sl_price = value
     
     @property
     def entry_price(self) -> float:
@@ -213,6 +221,9 @@ class PositionHandler:
 
     def clear_position(self) -> None:
         """Clear position and remove state file."""
+        # Update last_position_open_candle to prevent re-entry on same candle
+        if self.position:
+            self.last_position_open_candle = self.position.open_candle
         self.position = None
         self._remove_state_file()
 
@@ -268,7 +279,15 @@ class PositionHandler:
                 data = json.load(fp=f)
                 self.position = Position.from_dict(data=data)
                 self.position.run_id = self.bot_config.run_id
-                self.logger.info(message="Position state restored successfully")
+                
+                # Restore TP/SL prices and order IDs from position
+                self._entry_price = self.position.entry_price
+                self._tp_price = self.position.tp_price
+                self._sl_price = self.position.sl_price
+                self._tp_order_id = self.position.tp_order_id
+                self._sl_order_id = self.position.sl_order_id
+                
+                self.logger.info(message=f"Position state restored successfully (TP: {self._tp_price}, SL: {self._sl_price})")
         except (IOError, json.JSONDecodeError, KeyError) as e:
             self.logger.error_e(message="Could not restore position state", e=e)
             self.position = None

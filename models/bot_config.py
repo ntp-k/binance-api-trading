@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from models.enum.entry_strategy import EntryStrategy
 from models.enum.exit_strategy import ExitStrategy
@@ -17,6 +17,11 @@ class BotConfig:
     
     Contains all parameters needed to initialize and run a trading bot,
     including strategy selection, risk management, and execution settings.
+    
+    Position Sizing:
+    - Use `quantity` for fixed quantity per trade (legacy mode)
+    - Use `position_margin` for fixed margin per trade (recommended)
+    - If both are provided, `position_margin` takes precedence
     """
     is_enabled: bool
     bot_id: int
@@ -30,12 +35,13 @@ class BotConfig:
     sl_enabled: bool
     symbol: str
     leverage: int
-    quantity: float
+    quantity: Optional[float]
     timeframe: str
     timeframe_limit: int
     order_type: OrderType
     dynamic_config: Dict[str, Any]
     created_at: datetime
+    position_margin: Optional[float] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'BotConfig':
@@ -78,8 +84,18 @@ class BotConfig:
         if data['leverage'] <= 0:
             raise ValueError(f"Leverage must be positive, got {data['leverage']}")
         
-        if data['quantity'] <= 0:
+        # Validate position sizing: either quantity or position_margin must be provided
+        has_quantity = 'quantity' in data and data['quantity'] is not None
+        has_position_margin = 'position_margin' in data and data['position_margin'] is not None
+        
+        if not has_quantity and not has_position_margin:
+            raise ValueError("Either 'quantity' or 'position_margin' must be provided")
+        
+        if has_quantity and data['quantity'] <= 0:
             raise ValueError(f"Quantity must be positive, got {data['quantity']}")
+        
+        if has_position_margin and data['position_margin'] <= 0:
+            raise ValueError(f"Position margin must be positive, got {data['position_margin']}")
         
         if data['timeframe_limit'] <= 0:
             raise ValueError(f"Timeframe limit must be positive, got {data['timeframe_limit']}")
@@ -89,12 +105,14 @@ class BotConfig:
         data.setdefault('sl_enabled', False)
         data.setdefault('dynamic_config', {})
         data.setdefault('created_at', datetime.now())
+        data.setdefault('quantity', None)
+        data.setdefault('position_margin', None)
         
         return cls(**data)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert BotConfig to dictionary for serialization."""
-        return {
+        result = {
             'is_enabled': self.is_enabled,
             'bot_id': self.bot_id,
             'run_id': self.run_id,
@@ -107,13 +125,29 @@ class BotConfig:
             'sl_enabled': self.sl_enabled,
             'symbol': self.symbol,
             'leverage': self.leverage,
-            'quantity': self.quantity,
             'timeframe': self.timeframe,
             'timeframe_limit': self.timeframe_limit,
             'order_type': self.order_type.value,
             'dynamic_config': self.dynamic_config,
             'created_at': self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at
         }
+        
+        # Include quantity or position_margin based on what's set
+        if self.position_margin is not None:
+            result['position_margin'] = self.position_margin
+        if self.quantity is not None:
+            result['quantity'] = self.quantity
+            
+        return result
+    
+    def uses_fixed_margin(self) -> bool:
+        """
+        Check if bot uses fixed margin mode (position_margin) instead of fixed quantity.
+        
+        Returns:
+            True if using position_margin, False if using fixed quantity
+        """
+        return self.position_margin is not None
     
     def validate(self) -> bool:
         """
@@ -133,6 +167,10 @@ class BotConfig:
         
         if self.leverage < 1 or self.leverage > 125:
             raise ValueError(f"Leverage must be between 1 and 125, got {self.leverage}")
+        
+        # Validate position sizing
+        if not self.quantity and not self.position_margin:
+            raise ValueError("Either quantity or position_margin must be set")
         
         return True
 

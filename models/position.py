@@ -27,6 +27,10 @@ class Position:
         max_pnl: Maximum PnL reached during position lifetime
         min_pnl: Minimum PnL reached during position lifetime
         created_at: Position creation timestamp
+        tp_price: Take profit price (for persistence across restarts)
+        sl_price: Stop loss price (for persistence across restarts)
+        tp_order_id: Take profit order ID (for persistence across restarts)
+        sl_order_id: Stop loss order ID (for persistence across restarts)
     """
     position_id: Optional[int] = None
     run_id: int = 0
@@ -45,6 +49,10 @@ class Position:
     max_pnl: float = 0.0
     min_pnl: float = 0.0
     created_at: str = field(default_factory=lambda: get_datetime_now_string_gmt_plus_7())
+    tp_price: float = 0.0
+    sl_price: float = 0.0
+    tp_order_id: str = ''
+    sl_order_id: str = ''
     
     def to_dict(self) -> dict:
         """Convert position to dictionary for serialization."""
@@ -63,7 +71,11 @@ class Position:
             "close_reason": self.close_reason,
             "close_fee": self.close_fee,
             "max_pnl": self.max_pnl,
-            "min_pnl": self.min_pnl
+            "min_pnl": self.min_pnl,
+            "tp_price": self.tp_price,
+            "sl_price": self.sl_price,
+            "tp_order_id": self.tp_order_id,
+            "sl_order_id": self.sl_order_id
         }
 
     @classmethod
@@ -97,7 +109,11 @@ class Position:
             close_reason=data.get("close_reason", ""),
             close_fee=data.get("close_fee", 0.0),
             max_pnl=data.get("max_pnl", 0.0),
-            min_pnl=data.get("min_pnl", 0.0)
+            min_pnl=data.get("min_pnl", 0.0),
+            tp_price=data.get("tp_price", 0.0),
+            sl_price=data.get("sl_price", 0.0),
+            tp_order_id=data.get("tp_order_id", ""),
+            sl_order_id=data.get("sl_order_id", "")
         )
 
 

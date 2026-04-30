@@ -1,21 +1,12 @@
 from time import sleep
 from typing import Optional, Dict, Any, Tuple
-from decimal import Decimal, ROUND_UP
 
 from abstracts.base_trade_client import BaseTradeClient
-from commons.constants import (
-    ORDER_PLACEMENT_WAIT,
-    ORDER_STATUS_CHECK_INTERVAL,
-    LIMIT_ORDER_PRICE_CHECK_INTERVAL,
-    ORDER_STATUS_FILLED,
-    ALGO_ORDER_STATUS_FINISHED
-)
 from commons.custom_logger import CustomLogger
 from core.position_handler import PositionHandler
+from core.trade_handler import TradeHandler
 from core.backtest_metrics import BacktestMetrics
 from models.bot_config import BotConfig
-from models.enum.order_side import OrderSide
-from models.enum.order_type import OrderType
 from models.enum.position_side import PositionSide
 from models.enum.run_mode import RunMode
 from models.enum.trade_client import TradeClient
@@ -54,6 +45,15 @@ class Bot:
         # Pre-fetch and cache exchange info for the symbol
         self.logger.debug(message=f'Fetching exchange info for {bot_config.symbol}')
         self.trade_client.fetch_exchange_info(bot_config.symbol)
+        
+        # Initialize trade handler
+        self.logger.debug(message=f'Initializing trade handler')
+        self.trade_handler = TradeHandler(
+            trade_client=self.trade_client,
+            bot_config=self.bot_config,
+            logger=self.logger,
+            position_handler=self.position_handler
+        )
         
         self.logger.debug(message=f'Initializing strategies')
         self.entry_strategy, self.exit_strategy = get_strategy.init_strategies(
@@ -145,70 +145,6 @@ class Bot:
             symbol=self.bot_config.symbol, leverage=self.bot_config.leverage)
         self.logger.info(f'Leverage is set to {self.bot_config.leverage}')
 
-    def _round_to_tick_size(self, price: float, tick_size: float, order_side: str) -> float:
-        """
-        Round price to valid tick size with proper precision.
-        
-        Args:
-            price: Price to round
-            tick_size: Minimum price increment
-            order_side: 'BUY' or 'SELL'
-        
-        Returns:
-            Rounded price
-        """
-        price_decimal = Decimal(str(price))
-        tick_decimal = Decimal(str(tick_size))
-        
-        if order_side == OrderSide.BUY.value:
-            # Round DOWN for BUY to ensure price < best_bid (maker)
-            return float((price_decimal // tick_decimal) * tick_decimal)
-        else:
-            # Round UP for SELL to ensure price > best_ask (maker)
-            return float((price_decimal / tick_decimal).to_integral_value(rounding=ROUND_UP) * tick_decimal)
-
-    def _calculate_maker_price(self, order_side: str, tick_size: float, offset_ticks: int = 1) -> float:
-        """
-        Calculate a maker-only price from order book.
-        
-        Args:
-            order_side: 'BUY' or 'SELL'
-            tick_size: Minimum price increment
-            offset_ticks: Number of ticks away from best bid/ask
-        
-        Returns:
-            Calculated maker price
-        """
-        # Fetch order book
-        order_book = self.trade_client.fetch_order_book(self.bot_config.symbol, limit=5)
-        if not order_book.get('bids') or not order_book.get('asks'):
-            self.logger.error("Failed to fetch order book")
-            raise ValueError("Failed to fetch order book")
-        
-        best_bid = Decimal(str(order_book['bids'][0][0]))
-        best_ask = Decimal(str(order_book['asks'][0][0]))
-        tick = Decimal(str(tick_size))
-        offset = Decimal(str(offset_ticks)) * tick
-        
-        self.logger.debug(f"Order book: Best Bid={best_bid}, Best Ask={best_ask}")
-        
-        if order_side == OrderSide.BUY.value:
-            # For BUY: price must be < best_bid to be maker
-            maker_price = best_bid - offset
-        else:
-            # For SELL: price must be > best_ask to be maker
-            maker_price = best_ask + offset
-        
-        # Round to tick size
-        rounded_price = self._round_to_tick_size(
-            price=float(maker_price),
-            tick_size=tick_size,
-            order_side=order_side
-        )
-        
-        self.logger.debug(f"Calculated maker price: {rounded_price} (offset={offset_ticks} ticks)")
-        return rounded_price
-
     def _sync_position_state(
         self,
         remote_position_dict: Optional[Dict[str, Any]],
@@ -227,9 +163,10 @@ class Bot:
         # CASE 1: No position on remote but has position in memory
         if not remote_position_dict and self.position_handler.is_open():
             if not (self.bot_config.tp_enabled or self.bot_config.sl_enabled):
-                # Not in TP/SL mode - positions should match, clear local state
+                # Not in TP/SL mode - position was likely liquidated or closed externally
                 self.logger.warning(
-                    message="Bot has position in memory but trade client has none; resetting state.")
+                    message="⚠️ Position closed on exchange (likely LIQUIDATED) - clearing local state")
+                # clear_position() will update last_position_open_candle to prevent re-entry on same candle
                 self.position_handler.clear_position()
             else:
                 # In TP/SL mode - position might have been closed by TP/SL
@@ -251,361 +188,6 @@ class Bot:
                 self.position_handler.clear_position()
         
         return remote_position_dict
-
-    def _place_tp_order(self, position_side: PositionSide, tp_price: float) -> Dict[str, Any]:
-        self.logger.debug(message='Placing take profit order')
-        order_side = OrderSide.SELL.value if position_side == PositionSide.LONG else OrderSide.BUY.value
-        self.position_handler.set_tp_price(price=tp_price)
-
-        tp_order = self.trade_client.place_algorithmic_order(
-            symbol=self.bot_config.symbol,
-            order_side=order_side,
-            order_type=OrderType.TAKE_PROFIT_MARKET.value,
-            trigger_price=tp_price,
-            quantity=self.bot_config.quantity
-        )
-        _order_id = tp_order.get('algoId')
-        self.logger.info(message=f"TP order placed at {tp_price}, order id: {_order_id}")
-        self.position_handler.set_tp_order_id(id=_order_id)
-        return tp_order
-
-    def _place_sl_order(self, position_side: PositionSide, sl_price: float) -> Dict[str, Any]:
-        self.logger.debug(message='Placing stop loss order')
-        order_side = OrderSide.SELL.value if position_side == PositionSide.LONG else OrderSide.BUY.value
-        self.position_handler.set_sl_price(price=sl_price)
-
-        sl_order = self.trade_client.place_algorithmic_order(
-            symbol=self.bot_config.symbol,
-            order_side=order_side,
-            order_type=OrderType.STOP_MARKET.value,
-            trigger_price=sl_price,
-            quantity=self.bot_config.quantity
-        )
-        _order_id = sl_order.get('algoId')
-        self.logger.info(message=f"SL order placed at {sl_price}, order id: {_order_id}")
-        self.position_handler.set_sl_order_id(id=_order_id)
-        return sl_order
-
-    def _place_market_order(self, order_side: str, reduce_only: bool) -> Dict[str, Any]:
-        self.logger.debug(message='Placing market order')
-        _order = self.trade_client.place_order(
-            symbol=self.bot_config.symbol,
-            order_side=order_side,
-            order_type=OrderType.MARKET.value,
-            quantity=self.bot_config.quantity,
-            reduce_only=reduce_only,
-        )
-        
-        # Skip waits in backtest mode
-        if self.bot_config.run_mode != RunMode.BACKTEST:
-            sleep(ORDER_PLACEMENT_WAIT)  # wait for binance to process order
-
-        _order_id = _order.get('orderId')
-        _order_filled = False
-        while not _order_filled:
-            _check_order = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=_order_id)
-            _order_filled = _check_order.get('status') == ORDER_STATUS_FILLED
-
-            if not _order_filled:
-                self.logger.debug(message="Market Order still pending. Waiting...")
-            else:
-                self.logger.info(message="Market Order filled")
-                break
-            
-            # Skip waits in backtest mode
-            if self.bot_config.run_mode != RunMode.BACKTEST:
-                sleep(ORDER_STATUS_CHECK_INTERVAL)  # wait before checking again
-
-        self.logger.debug(message=f'Getting trade history order_id: {_order_id}')
-        return self.trade_client.fetch_order_trade(symbol=self.bot_config.symbol, order_id=_order_id)
-
-    def _place_limit_order(self, order_side: str, reduce_only: bool) -> Dict[str, Any]:
-        _order_filled = False
-        _order_id = ''
-        _ordered_price = None  # Track the price at which order was placed
-        
-        while not _order_filled:
-            current_price = self.trade_client.fetch_price(symbol=self.bot_config.symbol)
-
-            # Place order if no active order OR price changed from ordered price
-            if _ordered_price != current_price:
-                # Cancel existing order if price changed
-                if _order_id:
-                    self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=_order_id)
-                    self.logger.debug(f"Price {_ordered_price} -> {current_price}  |  Canceling order {_order_id}...")
-                    
-                    # Skip waits in backtest mode
-                    if self.bot_config.run_mode != RunMode.BACKTEST:
-                        sleep(ORDER_STATUS_CHECK_INTERVAL)  # wait for binance to cancel order
-                
-                # Place new order at current price
-                self.logger.debug(message=f"Placing LIMIT order at price: {current_price}")
-                _order = self.trade_client.place_order(
-                    symbol=self.bot_config.symbol,
-                    order_side=order_side,
-                    order_type=OrderType.LIMIT.value,
-                    quantity=self.bot_config.quantity,
-                    price=current_price,
-                    reduce_only=reduce_only,
-                )
-                _order_id = _order.get('orderId', '')
-                _ordered_price = current_price  # Remember the price we ordered at
-            else:
-                self.logger.debug(message="Price unchanged. Keep monitoring order.")
-
-            # Skip waits in backtest mode
-            if self.bot_config.run_mode != RunMode.BACKTEST:
-                sleep(LIMIT_ORDER_PRICE_CHECK_INTERVAL)  # wait before checking order status
-
-            # Check if order filled
-            _check_order = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=_order_id)
-            _order_filled = _check_order.get('status') == ORDER_STATUS_FILLED
-            
-            if _order_filled:
-                self.logger.info(message="Limit Order filled")
-                break
-            else:
-                self.logger.debug(message="Limit Order still pending. Waiting...")
-    
-        self.logger.debug(message=f'Getting trade history order_id: {_order_id}')
-        return self.trade_client.fetch_order_trade(symbol=self.bot_config.symbol, order_id=_order_id)
-
-    def _place_maker_only_order(self, order_side: str, reduce_only: bool) -> Dict[str, Any]:
-        """
-        Place a maker-only limit order with automatic repricing.
-        
-        Uses order book data to calculate maker price and automatically
-        reprices if market moves. Ensures orders are always placed as maker
-        (adding liquidity) to get reduced fees.
-        
-        Expected behavior:
-        1. Get maker price from order book
-        2. Place order with maker price (GTX - post-only)
-        3. If placement fails (-5022), re-calculate and retry
-        4. If placement succeeds, wait before checking status
-        5. If order filled, return trade details
-        6. If not filled and price unchanged, keep monitoring
-        7. If not filled and price changed, cancel and place new order
-        
-        Args:
-            order_side: 'BUY' or 'SELL'
-            reduce_only: Whether order should only reduce position
-        
-        Returns:
-            Trade details dictionary
-        """
-        # Get exchange info from cache (pre-fetched in __init__)
-        exchange_info = self.trade_client.get_cached_exchange_info(self.bot_config.symbol)
-        if not exchange_info:
-            self.logger.error("Exchange info not cached. This should not happen.")
-            raise ValueError("Exchange info not available in cache")
-        
-        tick_size = exchange_info.get('tickSize', 0.01)
-        offset_ticks = 0  # Can be made configurable in bot_config if needed
-        
-        _order_filled = False
-        _order_id = ''
-        _ordered_maker_price = None
-        
-        while not _order_filled:
-            # Calculate current maker price from order book
-            try:
-                current_maker_price = self._calculate_maker_price(
-                    order_side=order_side,
-                    tick_size=tick_size,
-                    offset_ticks=offset_ticks
-                )
-            except ValueError as e:
-                self.logger.error_e(message="Failed to calculate maker price", e=e)
-                
-                # Skip waits in backtest mode
-                if self.bot_config.run_mode != RunMode.BACKTEST:
-                    sleep(ORDER_STATUS_CHECK_INTERVAL)
-                continue
-            
-            # Place or replace order if price changed
-            if _ordered_maker_price != current_maker_price:
-                # Cancel existing order if price changed
-                if _order_id:
-                    self.logger.debug(f"Maker price {_ordered_maker_price} → {current_maker_price}  |  Canceling order {_order_id}...")
-                    self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=_order_id)
-                    
-                    # Skip waits in backtest mode
-                    if self.bot_config.run_mode != RunMode.BACKTEST:
-                        sleep(ORDER_STATUS_CHECK_INTERVAL)  # Wait for cancellation
-                
-                # Place new order at maker price
-                self.logger.debug(f"Placing MAKER order at price: {current_maker_price}")
-                _order = self.trade_client.place_order(
-                    symbol=self.bot_config.symbol,
-                    order_side=order_side,
-                    order_type=OrderType.LIMIT.value,
-                    quantity=self.bot_config.quantity,
-                    price=current_maker_price,
-                    reduce_only=reduce_only,
-                    time_in_force='GTX'  # Post-only to ensure maker
-                )
-                
-                if not _order or not _order.get('orderId'):
-                    self.logger.warning("Maker order placement failed (likely -5022), will retry")
-                    _ordered_maker_price = None
-                    
-                    # Skip waits in backtest mode
-                    if self.bot_config.run_mode != RunMode.BACKTEST:
-                        sleep(1)
-                    continue
-                
-                _order_id = _order.get('orderId', '')
-                _ordered_maker_price = current_maker_price
-                self.logger.debug(f"Maker order placed: ID={_order_id}, Price={current_maker_price}")
-            else:
-                self.logger.debug("Maker price unchanged. Keep monitoring order.")
-            
-            # Wait before checking order status (skip in backtest mode)
-            if self.bot_config.run_mode != RunMode.BACKTEST:
-                sleep(LIMIT_ORDER_PRICE_CHECK_INTERVAL)
-            
-            # Check if order filled
-            _check_order = self.trade_client.fetch_order(symbol=self.bot_config.symbol, order_id=_order_id)
-            _order_filled = _check_order.get('status') == ORDER_STATUS_FILLED
-            
-            if _order_filled:
-                self.logger.info("Maker Order filled")
-                break
-            else:
-                self.logger.debug("Maker Order still pending")
-        
-        self.logger.debug(f'Getting trade history order_id: {_order_id}')
-        return self.trade_client.fetch_order_trade(symbol=self.bot_config.symbol, order_id=_order_id)
-
-    def _place_order_to_open_position(self, position_side: PositionSide):
-        _order_side = OrderSide.BUY.value if position_side == PositionSide.LONG else OrderSide.SELL.value
-        _order_trade = None
-
-        if self.bot_config.order_type == OrderType.MARKET:
-            _order_trade = self._place_market_order(order_side=_order_side, reduce_only=False)
-        elif self.bot_config.order_type == OrderType.MAKER_ONLY:
-            _order_trade = self._place_maker_only_order(order_side=_order_side, reduce_only=False)
-        else:  # LIMIT
-            _order_trade = self._place_limit_order(order_side=_order_side, reduce_only=False)
-
-        self.logger.debug(message=f'Order Trade: {_order_trade}')
-
-        new_position_dict: dict = self.trade_client.fetch_position(
-            symbol=self.bot_config.symbol)
-        if not new_position_dict:
-            self.logger.critical(
-                message=f'💥 Failed to place order to binance!')
-            raise Exception('💥 Failed to place order to binance!')
-        
-        new_position_dict['open_fee'] = _order_trade['fee']
-        self.logger.info(
-            message=f"{self.bot_config.symbol} | {'OPEN':<5} | {position_side.value:<5} | {new_position_dict["entry_price"]}")
-        return new_position_dict
-
-    def _place_order_to_close_position(self, position_dict: dict):
-        _order_side = OrderSide.BUY.value if position_dict['position_side'] == PositionSide.SHORT else OrderSide.SELL.value
-        _order_trade = None
-
-        self.logger.debug(message='Placing order to close position')
-    
-        if self.bot_config.order_type == OrderType.MARKET:
-            _order_trade = self._place_market_order(order_side=_order_side, reduce_only=True)
-        elif self.bot_config.order_type == OrderType.MAKER_ONLY:
-            _order_trade = self._place_maker_only_order(order_side=_order_side, reduce_only=True)
-        else:  # LIMIT
-            _order_trade = self._place_limit_order(order_side=_order_side, reduce_only=True)
-
-        self.logger.debug(message=f'Order Trade: {_order_trade}')
-
-        closed_position_dict = {
-            'close_price': _order_trade['price'],
-            'close_fee': _order_trade['fee'],
-            'pnl': _order_trade['pnl']
-        }
-
-        self.logger.info(
-            message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {position_dict['position_side'].value:<5} | {position_dict['entry_price']:.4f} -> {_order_trade['price']:.4f} | {'+' if _order_trade['pnl'] >= 0 else ''}{_order_trade['pnl']:.4f}")
-        return closed_position_dict
-
-    def _cancel_tp_order(self) -> None:
-        order_id = self.position_handler.get_tp_order_id()
-        if order_id:
-            self.trade_client.cancel_algorithmic_order(order_id=order_id)
-
-    def _cancel_sl_order(self) -> None:
-        order_id = self.position_handler.get_sl_order_id()
-        if order_id:
-            self.trade_client.cancel_algorithmic_order(order_id=order_id)
-
-    def _monitor_tp_sl_fill(self, close_candle_open_time: str = '') -> bool:
-        """
-        Monitor TP/SL orders and close position if any is filled.
-        Scenarios:
-        1. Both TP and SL enabled: only one can hit; cancel the other.
-        2. Only one order enabled: works normally.
-        """
-        filled_order_id = ''
-        close_reason = ''
-
-        # Check SL first
-        if self.bot_config.sl_enabled:
-            sl_order_id = self.position_handler.get_sl_order_id()
-            if sl_order_id:
-                _check_sl_order = self.trade_client.fetch_algorithmic_order(order_id=sl_order_id)
-                sl_status = _check_sl_order.get('algoStatus')
-                if sl_status == ALGO_ORDER_STATUS_FINISHED:
-                    self.logger.info("SL hit ✅")
-                    filled_order_id = _check_sl_order.get('actualOrderId')
-                    close_reason = 'SL Hit'
-
-        # Check TP only if no order has already been filled
-        if self.bot_config.tp_enabled and not filled_order_id:
-            tp_order_id = self.position_handler.get_tp_order_id()
-            if tp_order_id:
-                _check_tp_order = self.trade_client.fetch_algorithmic_order(order_id=tp_order_id)
-                tp_status = _check_tp_order.get('algoStatus')
-                if tp_status == ALGO_ORDER_STATUS_FINISHED:
-                    self.logger.info("TP hit ✅")
-                    filled_order_id = _check_tp_order.get('actualOrderId')
-                    close_reason = 'TP Hit'
-
-        # Process filled order
-        if filled_order_id:
-            try:
-                self.logger.debug(f'Getting trade history for filled order_id: {filled_order_id}')
-                order_trade = self.trade_client.fetch_order_trade(
-                    symbol=self.bot_config.symbol, order_id=filled_order_id)
-
-                closed_position_dict = {
-                    'close_fee': order_trade['fee'],
-                    'close_reason': close_reason,
-                    'close_price': order_trade['price'],
-                    'pnl': order_trade['pnl'],
-                    'close_candle_open_time': close_candle_open_time
-                }
-                if self.bot_config.run_mode == RunMode.BACKTEST:
-                    # last_kline_time = str(klines_df.iloc[-1]['close_time']).split('+')[0].split('.')[0]
-                    closed_position_dict['close_time'] = close_candle_open_time
-
-                trade_dict = self.position_handler.close_position(position_dict=closed_position_dict)
-                self.position_handler.clear_tp_sl_orders()
-                
-                # Track trade for backtest
-                if self.backtest_metrics and trade_dict:
-                    self.backtest_metrics.add_trade(trade_dict)
-
-                self.logger.info(
-                message=f"{self.bot_config.symbol} | {'CLOSE':<5} | {order_trade['side']:<5} | {self.position_handler.entry_price:.4f} -> {order_trade['price']:.4f} | {'+' if order_trade['pnl'] >= 0 else ''}{order_trade['pnl']:.4f}")
-            
-            except (KeyError, ValueError, TypeError) as e:
-                self.logger.error_e(
-                    message='Error while processing filled TP/SL order', e=e)
-                return False
-
-            return True
-
-        return False
 
     def _fetch_market_data(self):
         """Fetch klines data from exchange."""
@@ -654,7 +236,7 @@ class Bot:
         self.logger.info(message=f'{self.bot_config.symbol} Entry signal triggered')
         
         try:
-            new_position_dict = self._place_order_to_open_position(
+            new_position_dict = self.trade_handler.place_order_to_open_position(
                 position_side=entry_signal.position_side)
             
             new_position_dict['run_id'] = self.bot_config.run_id
@@ -685,10 +267,10 @@ class Bot:
             # Place TP/SL orders on exchange only if enabled
             if self.bot_config.tp_enabled:
                 self.logger.info(message=f'Placing TP order at {tp_price}')
-                self._place_tp_order(position_side=position_side, tp_price=tp_price)
+                self.trade_handler.place_tp_order(position_side=position_side, tp_price=tp_price)
             if self.bot_config.sl_enabled:
                 self.logger.info(message=f'Placing SL order at {sl_price}')
-                self._place_sl_order(position_side=position_side, sl_price=sl_price)
+                self.trade_handler.place_sl_order(position_side=position_side, sl_price=sl_price)
             
             return new_position_dict
         except Exception as e:
@@ -698,7 +280,10 @@ class Bot:
     def _handle_tp_sl_monitoring(self, current_candle_open_time: str) -> bool:
         """Monitor TP/SL orders and process if filled."""
         try:
-            return self._monitor_tp_sl_fill(close_candle_open_time=current_candle_open_time)
+            return self.trade_handler.monitor_tp_sl_fill(
+                close_candle_open_time=current_candle_open_time,
+                backtest_metrics=self.backtest_metrics
+            )
         except Exception as e:
             self.logger.error_e(message='Error while checking TP/SL orders', e=e)
             return False
@@ -731,8 +316,14 @@ class Bot:
         self.logger.debug(message=f'Active position: {active_position_dict}')
         
         try:
-            closed_position_dict = self._place_order_to_close_position(
+            closed_position_dict = self.trade_handler.place_order_to_close_position(
                 position_dict=active_position_dict)
+            
+            # Cancel any active TP/SL orders
+            if self.bot_config.tp_enabled:
+                self.trade_handler.cancel_tp_order()
+            if self.bot_config.sl_enabled:
+                self.trade_handler.cancel_sl_order()
             
             self.position_handler.clear_tp_sl_orders()
             
@@ -751,6 +342,12 @@ class Bot:
                 self.backtest_metrics.add_trade(trade_dict)
             
             return True
+        except ValueError as e:
+            # Position already closed (likely by TP/SL)
+            self.logger.warning(f'Position already closed: {e}')
+            self.position_handler.clear_position()
+            self.position_handler.clear_tp_sl_orders()
+            return False
         except Exception as e:
             self.logger.error_e(message='Error while closing position', e=e)
             return False

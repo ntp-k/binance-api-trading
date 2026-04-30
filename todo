@@ -1,0 +1,63 @@
+1. handle partial fill order, making position size wired
+
+Entry signal: PositionSide.SHORT - XRPUSDC Entry Signal | Looking for SHORT | ema short cross 1.4366 < 1.4368: ✅ | rsi bearish 44.48 < 45: ✅
+2026-04-24 22:39:04,188   INFO  	[bot_28]   XRPUSDC Entry signal triggered
+2026-04-24 22:39:04,261   DEBUG  	[bot_28]   Order book: Best Bid=1.4323, Best Ask=1.4324
+2026-04-24 22:39:04,261   DEBUG  	[bot_28]   Calculated maker price: 1.4324 (offset=0 ticks)
+2026-04-24 22:39:04,261   DEBUG  	[bot_28]   Placing MAKER order at price: 1.4324
+2026-04-24 22:39:04,261   DEBUG  	[bot_28]   Placing order: LIMIT SELL 40 XRPUSDC (reduce_only=False)
+2026-04-24 22:39:04,333   DEBUG  	[bot_28]   Order placed: ID=7470902324, Status=NEW
+2026-04-24 22:39:04,333   DEBUG  	[bot_28]   Maker order placed: ID=7470902324, Price=1.4324
+2026-04-24 22:39:09,413   DEBUG  	[bot_28]   Order status: PARTIALLY_FILLED
+
+2026-04-30 19:30:39,211   DEBUG         [bot_36]   Maker Order still pending
+2026-04-30 19:30:39,284   DEBUG         [bot_36]   Order book: Best Bid=618.69, Best Ask=618.7
+2026-04-30 19:30:39,284   DEBUG         [bot_36]   Calculated maker price: 618.69 (offset=0 ticks)
+2026-04-30 19:30:39,284   DEBUG         [bot_36]   Maker price unchanged. Keep monitoring order.
+2026-04-30 19:30:44,358   DEBUG         [bot_36]   Order status: PARTIALLY_FILLED
+2026-04-30 19:30:44,358   DEBUG         [bot_36]   Maker Order still pending
+2026-04-30 19:30:44,431   DEBUG         [bot_36]   Order book: Best Bid=618.69, Best Ask=618.7
+2026-04-30 19:30:44,431   DEBUG         [bot_36]   Calculated maker price: 618.69 (offset=0 ticks)
+2026-04-30 19:30:44,431   DEBUG         [bot_36]   Maker price unchanged. Keep monitoring order.
+2026-04-30 19:30:49,506   DEBUG         [bot_36]   Order status: FILLED
+2026-04-30 19:30:49,507   INFO          [bot_36]   Maker Order filled
+2026-04-30 19:30:49,507   DEBUG         [bot_36]   Getting trade history order_id: 4786069605
+2026-04-30 19:30:49,585   DEBUG         [bot_36]   BNBUSDC trades: [{'symbol': 'BNBUSDC', 'id': 144143680, 'orderId': 4786069605, 'side': 'BUY', 'price': '618.690', 'qty': '0.01', 'realizedPnl': '-0.01000000', 'quoteQty': '6.18690', 'commission': '0', 'commissionAsset': 'USDC', 'time': 1777577439592, 'positionSide': 'BOTH', 'maker': True, 'buyer': True}, {'symbol': 'BNBUSDC', 'id': 144143681, 'orderId': 4786069605, 'side': 'BUY', 'price': '618.690', 'qty': '0.04', 'realizedPnl': '-0.04000000', 'quoteQty': '24.74760', 'commission': '0', 'commissionAsset': 'USDC', 'time': 1777577448621, 'positionSide': 'BOTH', 'maker': True, 'buyer': True}]
+2026-04-30 19:30:49,585   DEBUG         [bot_36]   Order Trade: {'price': 618.6899999999999, 'fee': 0.0, 'pnl': -0.05, 'side': 'BUY'}
+2026-04-30 19:30:49,586   INFO          [bot_36]   BNBUSDC | CLOSE | SHORT | 617.6900 -> 618.6900 | -0.0500
+
+
+2. open based on fix margin, not quantity -> calculate quantity from current price
+(prevent spike)
+
+3. when stop and start main.py, tl and sl is loss, so position will never close
+
+4. try to place order to close position that already closed
+2026-04-30 21:24:18,167   DEBUG         [bot_32]   Placing MAKER order at price: 82.99
+2026-04-30 21:24:18,167   DEBUG         [bot_32]   Placing order: LIMIT BUY 0.5 SOLUSDC (reduce_only=True)
+2026-04-30 21:24:18,240   ERROR         [bot_32]   Error placing order
+2026-04-30 21:24:18,240   ERROR         [bot_32]   HTTPError: 400 Client Error: Bad Request for url: https://fapi.binance.com/fapi/v1/order?symbol=SOLUSDC&side=BUY&type=LIMIT&reduceOnly=True&quantity=0.5&timestamp=1777584258167&price=82.99&timeInForce=GTX&signature=eb9551099bb9111836784d07d5f487773e2542db91705e506d6a1567acf302a2
+2026-04-30 21:24:18,240   ERROR         [bot_32]   Response: {"code":-4118,"msg":"ReduceOnly Order Failed. Please check your existing position and open orders."}
+2026-04-30 21:24:18,240   WARNING       [bot_32]   Maker order placement failed (likely -5022), will retry
+2026-04-30 21:24:19,315   DEBUG         [bot_32]   Order book: Best Bid=82.99, Best Ask=83.0
+2026-04-30 21:24:19,315   DEBUG         [bot_32]   Calculated maker price: 82.99 (offset=0 ticks)
+2026-04-30 21:24:19,315   DEBUG         [bot_32]   Maker price None → 82.99  |  Canceling order 12134215682...
+2026-04-30 21:24:19,388   ERROR         [bot_32]   HTTP error during cancel order
+2026-04-30 21:24:19,388   ERROR         [bot_32]   HTTPError: 400 Client Error: Bad Request for url: https://fapi.binance.com/fapi/v1/order?symbol=SOLUSDC&orderId=12134215682&timestamp=1777584259315&signature=d7e1bb0152df80495149532257b01f1437a02931e233dfc0e2904022ffff5a1b
+2026-04-30 21:24:20,388   DEBUG         [bot_32]   Placing MAKER order at price: 82.99
+2026-04-30 21:24:20,388   DEBUG         [bot_32]   Placing order: LIMIT BUY 0.5 SOLUSDC (reduce_only=True)
+2026-04-30 21:24:20,463   ERROR         [bot_32]   Error placing order
+2026-04-30 21:24:20,464   ERROR         [bot_32]   HTTPError: 400 Client Error: Bad Request for url: https://fapi.binance.com/fapi/v1/order?symbol=SOLUSDC&side=BUY&type=LIMIT&reduceOnly=True&quantity=0.5&timestamp=1777584260388&price=82.99&timeInForce=GTX&signature=c89a1b5376f73f1a9b0786078512f0cfbcac69f4b3caebd955d43d177a0b3711
+2026-04-30 21:24:20,464   ERROR         [bot_32]   Response: {"code":-4118,"msg":"ReduceOnly Order Failed. Please check your existing position and open orders."}
+2026-04-30 21:24:20,464   WARNING       [bot_32]   Maker order placement failed (likely -5022), will retry
+2026-04-30 21:24:21,538   DEBUG         [bot_32]   Order book: Best Bid=82.99, Best Ask=83.0
+2026-04-30 21:24:21,538   DEBUG         [bot_32]   Calculated maker price: 82.99 (offset=0 ticks)
+2026-04-30 21:24:21,538   DEBUG         [bot_32]   Maker price None → 82.99  |  Canceling order 12134215682...
+2026-04-30 21:24:21,611   ERROR         [bot_32]   HTTP error during cancel order
+2026-04-30 21:24:21,611   ERROR         [bot_32]   HTTPError: 400 Client Error: Bad Request for url: https://fapi.binance.com/fapi/v1/order?symbol=SOLUSDC&orderId=12134215682&timestamp=1777584261538&signature=5c665b6d4d33f5104a96882fb050aa0df21bf8f7ae1ecdfa034cc037bb4ebbb8
+
+5. try to cancle order that was already filled
+
+[Done]
+
+6. track liquidated position
