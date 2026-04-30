@@ -793,24 +793,98 @@ def print_grid_search_summary(all_results):
     print(df_ranking.to_string(index=False))
     print("=" * 140)
     
-    # Print TOP 3 details
-    print("\n" + "=" * 140)
-    print("🎯 TOP 3 RECOMMENDED CONFIGURATIONS")
-    print("=" * 140)
+    # ========================================
+    # CATEGORIZE BOTS BY RISK PROFILE
+    # ========================================
     
-    for rank, result in enumerate(sorted_results[:3], 1):
-        pf_display = f"{result['profit_factor']:.2f}" if result['profit_factor'] != float('inf') else "∞"
-        calmar_display = f"{result['calmar_ratio']:.2f}" if result['calmar_ratio'] != float('inf') else "∞"
+    # Filter profitable bots (return > 0%)
+    profitable_bots = [r for r in all_results if r['return_percent'] > 0]
+    
+    if not profitable_bots:
+        print("\n⚠️  WARNING: No profitable configurations found!")
+        print("=" * 140)
+    else:
+        # Categorize based on MDD and Return
+        # Aggressive: High return (>50%) OR High MDD (>30%)
+        # Conservative: Low MDD (<15%) AND Positive return
+        # Moderate: Everything else
         
-        medal = '🥇' if rank == 1 else '🥈' if rank == 2 else '🥉'
-        print(f"\n{medal} RANK #{rank} - Score: {result['unified_score']:.2f}")
-        print(f"   Config: {result['symbol']} | {result['timeframe']} | SL: {'Yes' if result['enable_sl'] else 'No'}")
-        print(f"   Return: {result['return_percent']:.2f}% | MDD: {result['max_drawdown_percent']:.2f}% | "
-              f"Calmar: {calmar_display} | PF: {pf_display} | SR: {result['sharpe_ratio']:.2f}")
-        print(f"   Expectancy/day: ${result['expectancy_per_day']:.4f} | Trades/day: {result['trades_per_day']:.2f} | "
-              f"Win Rate: {result['win_rate']:.2f}%")
-    
-    print("\n" + "=" * 140)
+        aggressive = []
+        moderate = []
+        conservative = []
+        
+        for bot in profitable_bots:
+            ret = bot['return_percent']
+            mdd = bot['max_drawdown_percent']
+            
+            if ret > 50 or mdd > 30:
+                aggressive.append(bot)
+            elif mdd < 15 and ret > 0:
+                conservative.append(bot)
+            else:
+                moderate.append(bot)
+        
+        # Sort each category by return percentage
+        aggressive.sort(key=lambda x: x['return_percent'], reverse=True)
+        moderate.sort(key=lambda x: x['return_percent'], reverse=True)
+        conservative.sort(key=lambda x: x['return_percent'], reverse=True)
+        
+        # Print categorized recommendations
+        print("\n" + "=" * 140)
+        print("🎯 RECOMMENDED CONFIGURATIONS BY RISK PROFILE")
+        print("=" * 140)
+        
+        # AGGRESSIVE
+        print("\n🔥 AGGRESSIVE (High Return / High Risk)")
+        print("-" * 140)
+        if aggressive:
+            for rank, result in enumerate(aggressive[:3], 1):
+                pf_display = f"{result['profit_factor']:.2f}" if result['profit_factor'] != float('inf') else "∞"
+                calmar_display = f"{result['calmar_ratio']:.2f}" if result['calmar_ratio'] != float('inf') else "∞"
+                
+                print(f"\n  #{rank}. {result['symbol']} | {result['timeframe']} | SL: {'Yes' if result['enable_sl'] else 'No'}")
+                print(f"      Return: {result['return_percent']:.2f}% | Monthly ROI: {result['monthly_roi']:.2f}%")
+                print(f"      MDD: {result['max_drawdown_percent']:.2f}% | Calmar: {calmar_display} | PF: {pf_display}")
+                print(f"      Win Rate: {result['win_rate']:.2f}% | Trades: {result['trade_count']} | SR: {result['sharpe_ratio']:.2f}")
+        else:
+            print("  No aggressive configurations found.")
+        
+        # MODERATE
+        print("\n\n⚖️  MODERATE (Balanced Risk/Reward)")
+        print("-" * 140)
+        if moderate:
+            for rank, result in enumerate(moderate[:3], 1):
+                pf_display = f"{result['profit_factor']:.2f}" if result['profit_factor'] != float('inf') else "∞"
+                calmar_display = f"{result['calmar_ratio']:.2f}" if result['calmar_ratio'] != float('inf') else "∞"
+                
+                print(f"\n  #{rank}. {result['symbol']} | {result['timeframe']} | SL: {'Yes' if result['enable_sl'] else 'No'}")
+                print(f"      Return: {result['return_percent']:.2f}% | Monthly ROI: {result['monthly_roi']:.2f}%")
+                print(f"      MDD: {result['max_drawdown_percent']:.2f}% | Calmar: {calmar_display} | PF: {pf_display}")
+                print(f"      Win Rate: {result['win_rate']:.2f}% | Trades: {result['trade_count']} | SR: {result['sharpe_ratio']:.2f}")
+        else:
+            print("  No moderate configurations found.")
+        
+        # CONSERVATIVE
+        print("\n\n🛡️  CONSERVATIVE (Low Risk / Steady Returns)")
+        print("-" * 140)
+        if conservative:
+            for rank, result in enumerate(conservative[:3], 1):
+                pf_display = f"{result['profit_factor']:.2f}" if result['profit_factor'] != float('inf') else "∞"
+                calmar_display = f"{result['calmar_ratio']:.2f}" if result['calmar_ratio'] != float('inf') else "∞"
+                
+                print(f"\n  #{rank}. {result['symbol']} | {result['timeframe']} | SL: {'Yes' if result['enable_sl'] else 'No'}")
+                print(f"      Return: {result['return_percent']:.2f}% | Monthly ROI: {result['monthly_roi']:.2f}%")
+                print(f"      MDD: {result['max_drawdown_percent']:.2f}% | Calmar: {calmar_display} | PF: {pf_display}")
+                print(f"      Win Rate: {result['win_rate']:.2f}% | Trades: {result['trade_count']} | SR: {result['sharpe_ratio']:.2f}")
+        else:
+            print("  No conservative configurations found.")
+        
+        print("\n" + "=" * 140)
+        print("\n📝 CATEGORY DEFINITIONS:")
+        print("  🔥 AGGRESSIVE: Return >50% OR Max Drawdown >30%")
+        print("  ⚖️  MODERATE: Balanced risk/reward (between aggressive and conservative)")
+        print("  🛡️  CONSERVATIVE: Max Drawdown <15% AND Positive return")
+        print("=" * 140)
     
     # ========================================
     # SAVE TABLES TO JSON FILES
@@ -845,11 +919,10 @@ def generate_grid_configs(grid_params):
     Args:
         grid_params: Dictionary with structure:
             {
-                "SYMBOL": {
-                    "sl_enabled": [True, False],
-                    "timeframe": [("5m", 1500), ("1h", 1500), ...],
-                    "quantity": [500]
-                }
+                "symbol": ["ETHUSDC", "BNBUSDC"],
+                "sl_enabled": [True, False],
+                "timeframe": [("30m", 1440), ("1h", 720)],
+                "quantity": [0.02]
             }
     
     Returns:
@@ -857,11 +930,11 @@ def generate_grid_configs(grid_params):
     """
     configs = []
     
-    for symbol, params in grid_params.items():
-        for sl_enabled in params["sl_enabled"]:
-            for timeframe_tuple in params["timeframe"]:
+    for symbol in grid_params["symbol"]:
+        for sl_enabled in grid_params["sl_enabled"]:
+            for timeframe_tuple in grid_params["timeframe"]:
                 timeframe, timeframe_limit = timeframe_tuple
-                for quantity in params["quantity"]:
+                for quantity in grid_params["quantity"]:
                     configs.append({
                         "symbol": symbol,
                         "sl_enabled": sl_enabled,
@@ -876,46 +949,12 @@ def generate_grid_configs(grid_params):
 # Grid Search Configuration
 if __name__ == "__main__":
     grid_search = {
-        # "DOGEUSDC": {
-        #     "sl_enabled": [True, False],
-        #     "timeframe": [("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100)],
-        #     "quantity": [500]
-        # },
-        # "SOLUSDC": {
-        #     "sl_enabled": [True, False],
-        #     "timeframe": [("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100)],
-        #     "quantity": [0.5]
-        # },
-        # "BNBUSDC": {
-        #     "sl_enabled": [True, False],
-        #     "timeframe": [("5m", 1500), ("15m", 1500), ("30m", 1500), ("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
-        #     "quantity": [0.01]
-        # },
-        # "1000PEPEUSDC": {
-        #     "sl_enabled": [True, False],
-        #     "timeframe": [("5m", 1500), ("15m", 1500), ("30m", 1500), ("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
-        #     "quantity": [11000]
-        # },
-        # "XRPUSDC": {
-        #     "sl_enabled": [True, False],
-        #     "timeframe": [("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
-        #     "quantity": [40]
-        # },
-        # "AAVEUSDC": {
-        #     "sl_enabled": [True, False],
-        #     "timeframe": [("5m", 1500), ("15m", 1500), ("30m", 1500), ("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
-        #     "quantity": [0.3]
-        # },
-        # "BIOUSDC": {
-        #     "sl_enabled": [True, False],
-        #     "timeframe": [("5m", 1500), ("15m", 1500), ("30m", 1500), ("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
-        #     "quantity": [1000]
-        # },
-        "ETHUSDC": {
-            "sl_enabled": [True, False],
-            "timeframe": [("5m", 1500), ("15m", 1500), ("30m", 1500), ("1h", 1500), ("4h", 600), ("6h", 400), ("8h", 300), ("12h", 200), ("1d", 100), ("3d", 50)],
-            "quantity": [0.02]
-        },
+        # "symbol": ["ETHUSDC", "BNBUSDC", "BTCUSDC", "TIAUSDC", "WLDUSDC", "BIOUSDC", "BCHUSDC", "PENGUUSDC", "NEARUSDC", "1000BONKUSDC", "BOMEUSDC", "1000SHIBUSDC", "ETHFIUSDC", "ENAUSDC", "IPUSDC"],
+        "symbol": ["ETHFIUSDC"],
+        "sl_enabled": [True, False],
+        # "timeframe": [("30m", 2*24*30), ("1h", 24*30), ("4h", 6*30), ("6h", 4*30), ("8h", 3*30), ("12h", 2*30), ("1d", 1*30)],
+        "timeframe": [("30m", 2*24*30), ("1h", 24*30)],
+        "quantity": [87]
     }
 
     # Generate grid configurations
