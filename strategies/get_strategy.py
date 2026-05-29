@@ -14,6 +14,7 @@ ENTRY_STRATEGY_REGISTRY = {
     EntryStrategy.PRICE_CROSS_EMA_RSI: ('strategies.entry.entry_price_cross_ema_rsi', 'EntryPriceCrossEMARSI'),
     EntryStrategy.PREVIOUS_CANDLE: ('strategies.entry.entry_previous_candle', 'EntryPreviousCandle'),
     EntryStrategy.MOMENTUM_TREND_FILTERED: ('strategies.entry.entry_momentum_trend_filtered', 'EntryMomentumTrendFiltered'),
+    EntryStrategy.WICK_MEAN_REVERSION: ('strategies.entry.entry_wick_mean_reversion', 'EntryWickMeanReversion'),
 }
 
 EXIT_STRATEGY_REGISTRY = {
@@ -22,6 +23,7 @@ EXIT_STRATEGY_REGISTRY = {
     ExitStrategy.TP_SL: ('strategies.exit.exit_tp_sl', 'ExitTPSL'),
     ExitStrategy.CANDLE_CLOSE_WITH_SL: ('strategies.exit.exit_candle_close_with_sl', 'ExitCandleCloseWithSL'),
     ExitStrategy.CANDLE_CLOSE: ('strategies.exit.exit_candle_close', 'ExitCandleClose'),
+    ExitStrategy.WICK_TARGET: ('strategies.exit.exit_wick_target', 'ExitWickTarget'),
 }
 
 
