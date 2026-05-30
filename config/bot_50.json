@@ -15,7 +15,7 @@
     "quantity": 0.001,
     "timeframe": "15m",
     "timeframe_limit": 500,
-    "order_type": "LIMIT",
+    "order_type": "MAKER_ONLY",
     "dynamic_config": {
         "min_body_pct": 0.002,
         "decimal": 2,

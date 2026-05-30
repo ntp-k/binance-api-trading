@@ -116,11 +116,11 @@ def test_strategy(df: pd.DataFrame, percentiles: Dict, min_body_pct: float,
 
 def main():
     SYMBOL = 'BTCUSDC'
-    INTERVALS = ['1h', '2h', '4h', '6h', '8h', '12h', '1d']
-    BODY_FILTERS = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    INTERVALS = ['15m']
+    BODY_FILTERS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.2, 1.5]
     MARGIN = 5.0
     LEVERAGE = 15
-    LIMIT = 1000
+    LIMIT = 500
     
     print("="*160)
     print(f"BTCUSDC STRATEGY OPTIMIZATION")
