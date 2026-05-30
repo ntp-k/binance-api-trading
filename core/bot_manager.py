@@ -79,14 +79,14 @@ class BotManager:
         
         for bot_config in self.bots_config:
             try:
-                # When loading specific bots, respect their enabled status
-                # When loading all bots, only enabled ones are loaded
+                # When loading specific bots by ID, force run them regardless of enabled status
+                # When loading all bots, only enabled ones are loaded (filtered in _load_bots_config)
                 if self.bot_ids and not bot_config.is_enabled:
                     self.logger.warning(
-                        message=f'Bot: {bot_config.bot_name} is disabled but was explicitly requested'
+                        message=f'Bot: {bot_config.bot_name} is disabled but will run because it was explicitly requested'
                     )
-                    # Still skip disabled bots even if explicitly requested
-                    continue
+                    # Force enable the bot since it was explicitly requested
+                    bot_config.is_enabled = True
                 
                 # Validate configuration
                 bot_config.validate()
