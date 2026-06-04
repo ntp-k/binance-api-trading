@@ -1,0 +1,25 @@
+{
+    "is_enabled": false,
+    "bot_id": 50,
+    "run_id": 50,
+    "bot_name": "bot 50",
+    "run_mode": "live",
+    "trade_client": "binance",
+    "entry_strategy": "WICK_MEAN_REVERSION",
+    "exit_strategy": "WICK_TARGET",
+    "tp_enabled": false,
+    "sl_enabled": false,
+    "symbol": "BTCUSDC",
+    "leverage": 15,
+    "position_margin": 5.0,
+    "quantity": 0.001,
+    "timeframe": "15m",
+    "timeframe_limit": 500,
+    "order_type": "MAKER_ONLY",
+    "dynamic_config": {
+        "min_body_pct": 0.002,
+        "decimal": 2,
+        "training_candles": 300
+    },
+    "created_at": "2026-05-28T13:45:00"
+}
