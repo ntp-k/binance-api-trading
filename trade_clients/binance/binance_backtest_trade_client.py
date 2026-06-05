@@ -411,7 +411,8 @@ class BinanceBacktestTradeClient(BaseBacktestTradeClient):
         order_side: str,
         order_type: str,
         quantity: float,
-        trigger_price: float
+        trigger_price: float,
+        close_position: bool = False
     ) -> Dict[str, Any]:
         """
         Simulate placing TP/SL order.

@@ -245,7 +245,8 @@ class TradeHandler:
                 order_side=order_side,
                 order_type=OrderType.STOP_MARKET.value,
                 trigger_price=backup_stop_price,
-                quantity=quantity
+                quantity=quantity,
+                close_position=True
             )
             _stop_order_id = tp_stop_order.get('algoId', '')
             self.logger.info(message=f"TP STOP_MARKET backup placed at {backup_stop_price} (taker fee), order id: {_stop_order_id}")
@@ -316,7 +317,8 @@ class TradeHandler:
                 order_side=order_side,
                 order_type=OrderType.STOP_MARKET.value,
                 trigger_price=backup_stop_price,
-                quantity=quantity
+                quantity=quantity,
+                close_position=True,
             )
             _stop_order_id = sl_stop_order.get('algoId', '')
             self.logger.info(message=f"SL STOP_MARKET backup placed at {backup_stop_price} (taker fee), order id: {_stop_order_id}")

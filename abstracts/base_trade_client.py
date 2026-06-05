@@ -174,7 +174,8 @@ class BaseTradeClient(ABC):
         order_side: str,
         order_type: str,
         quantity: float,
-        trigger_price: float
+        trigger_price: float,
+        close_position: bool = False,
     ) -> Dict[str, Any]:
         """
         Place an algorithmic order (TP/SL).

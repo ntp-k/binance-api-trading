@@ -454,27 +454,35 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             return {}
 
     def place_algorithmic_order(self, symbol: str, order_side: str, order_type: str,
-                               quantity: float, trigger_price: float) -> Dict[str, Any]:
-        """Place an algorithmic order (conditional order) on Binance Futures."""
+                                quantity: float, trigger_price: float, close_position: bool = False) -> Dict[str, Any]:
+        """
+        Place an algorithmic order (conditional order) on Binance Futures.
+        Args:
+            symbol: Trading pair symbol
+            order_side: 'BUY' or 'SELL'
+            order_type: Order type (e.g., 'STOP_MARKET', 'TAKE_PROFIT_MARKET')
+            quantity: Order quantity (ignored if close_position=True)
+            trigger_price: Price at which order triggers
+            close_position: If True, closes entire position; if False, uses quantity
+        """
         params = {
             'algoType': 'CONDITIONAL',
             'symbol': symbol.upper(),
             'side': order_side.upper(),
             'type': order_type.upper(),
-            'timestamp': self._get_timestamp()
+            'timestamp': self._get_timestamp(),
+            'triggerPrice': trigger_price
         }
 
-        # Configure order based on type
-        if order_type == OrderType.STOP_MARKET.value or order_type == OrderType.TAKE_PROFIT_MARKET.value:
-            params.update({
-                'triggerPrice': trigger_price,
-                'closePosition': 'true'
-            })
+        if close_position:
+            # Close entire position - use closePosition parameter
+            params['closePosition'] = 'true'
+            # Don't include quantity or reduceOnly with closePosition
         else:
-            params.update({
-                'quantity': quantity,
-                'reduceOnly': 'true',
-            })
+            # Close specific quantity - use quantity + reduceOnly
+            params['quantity'] = quantity
+            params['reduceOnly'] = 'true'
+            # Don't include closePosition when using quantity
 
         result = self._make_request('POST', SET_ALGO_ORDER_URL, params, "place algo order")
         if result:
