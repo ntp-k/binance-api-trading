@@ -233,7 +233,7 @@ class TradeHandler:
         # 2. Place backup STOP_MARKET slightly beyond TP (safety net)
         # For LONG: stop price slightly above TP (price goes up past TP)
         # For SHORT: stop price slightly below TP (price goes down past TP)
-        backup_offset_pct = 0.0002  # 0.02% beyond TP
+        backup_offset_pct = 0.001  # 0.1% beyond TP
         if position_side == PositionSide.LONG:
             backup_stop_price = tp_price * (1 + backup_offset_pct)
         else:
@@ -253,13 +253,13 @@ class TradeHandler:
             tp_stop_order = self.trade_client.place_algorithmic_order(
                 symbol=self.bot_config.symbol,
                 order_side=order_side,
-                order_type=OrderType.STOP_MARKET.value,
+                order_type=OrderType.TAKE_PROFIT_MARKET.value,
                 trigger_price=backup_stop_price,
                 quantity=quantity,
                 close_position=True
             )
             _stop_order_id = tp_stop_order.get('algoId', '')
-            self.logger.info(message=f"TP STOP_MARKET backup placed at {backup_stop_price} (taker fee), order id: {_stop_order_id}")
+            self.logger.info(message=f"TP TAKE_PROFIT_MARKET backup placed at {backup_stop_price} (taker fee), order id: {_stop_order_id}")
             self.position_handler.set_tp_backup_order_id(id=_stop_order_id)
         except Exception as e:
             # If backup fails, cancel the LIMIT order and re-raise
