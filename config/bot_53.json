@@ -1,24 +1,24 @@
 {
     "is_enabled": false,
-    "bot_id": 44,
-    "run_id": 44,
-    "bot_name": "bot 44",
+    "bot_id": 53,
+    "run_id": 53,
+    "bot_name": "bot 53",
     "run_mode": "live",
     "trade_client": "binance",
-    "entry_strategy": "previous_candle",
-    "exit_strategy": "candle_close",
+    "entry_strategy": "GUARANTEED_SCALP",
+    "exit_strategy": "WICK_TARGET",
     "tp_enabled": false,
     "sl_enabled": false,
     "symbol": "BNBUSDC",
+    "leverage": 15,
+    "quantity": 0.001,
     "position_margin": 5.0,
-    "leverage": 7,
-    "quantity": 0.05,
     "timeframe": "12h",
     "timeframe_limit": 10,
     "order_type": "MAKER_ONLY",
     "dynamic_config": {
-        "decimal": 2,
-        "candle_for_indicator": 5
+        "tp_pct": 0.001,
+        "decimal": 2
     },
-    "created_at": "2026-05-01T05:30:00"
+    "created_at": "2026-06-05T19:19:00"
 }
