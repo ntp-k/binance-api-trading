@@ -191,7 +191,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         
         except requests.exceptions.HTTPError as e:
             self.logger.error_e(message=f"HTTP error during {operation}", e=e)
-            # self.logger.error(message=f"Response: {response.text}")
+            self.logger.error(message=f"Response: {response.text}")
             return {}
         except requests.exceptions.RequestException as e:
             self.logger.error_e(message=f"Network error during {operation}", e=e)
