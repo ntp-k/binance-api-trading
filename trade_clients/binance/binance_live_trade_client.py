@@ -476,13 +476,14 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
 
         if close_position:
             # Close entire position - use closePosition parameter
+            # Note: Binance expects string 'true', not boolean
             params['closePosition'] = 'true'
-            # Don't include quantity or reduceOnly with closePosition
+            # IMPORTANT: Don't include quantity or reduceOnly with closePosition
         else:
             # Close specific quantity - use quantity + reduceOnly
             params['quantity'] = quantity
             params['reduceOnly'] = 'true'
-            # Don't include closePosition when using quantity
+            # IMPORTANT: Don't include closePosition when using quantity
 
         result = self._make_request('POST', SET_ALGO_ORDER_URL, params, "place algo order")
         if result:
