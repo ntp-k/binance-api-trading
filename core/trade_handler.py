@@ -192,63 +192,145 @@ class TradeHandler:
 
     def place_tp_order(self, position_side: PositionSide, tp_price: float) -> Dict[str, Any]:
         """
-        Place a take profit order.
+        Place hybrid take profit orders: LIMIT (0% fee) + STOP_MARKET backup.
+        
+        Strategy:
+        1. Primary: LIMIT order at exact TP price (maker, 0% fee)
+        2. Backup: STOP_MARKET slightly beyond TP (taker, small fee if triggered)
         
         Args:
             position_side: Current position side (LONG/SHORT)
             tp_price: Take profit trigger price
         
         Returns:
-            TP order details
+            Primary TP order details (LIMIT order)
         """
-        self.logger.debug(message='Placing take profit order')
+        self.logger.debug(message='Placing hybrid TP orders (LIMIT + STOP_MARKET backup)')
         order_side = OrderSide.SELL.value if position_side == PositionSide.LONG else OrderSide.BUY.value
         self.position_handler.set_tp_price(price=tp_price)
         
         # Use cached quantity for TP/SL orders
         quantity = self.get_trade_quantity()
-
-        tp_order = self.trade_client.place_algorithmic_order(
-            symbol=self.bot_config.symbol,
-            order_side=order_side,
-            order_type=OrderType.TAKE_PROFIT_MARKET.value,
-            trigger_price=tp_price,
-            quantity=quantity
-        )
-        _order_id = tp_order.get('algoId', '')
-        self.logger.info(message=f"TP order placed at {tp_price}, order id: {_order_id}")
-        self.position_handler.set_tp_order_id(id=_order_id)
-        return tp_order
+        
+        # 1. Place primary LIMIT order at exact TP price (0% maker fee)
+        try:
+            tp_limit_order = self.trade_client.place_order(
+                symbol=self.bot_config.symbol,
+                order_side=order_side,
+                order_type=OrderType.LIMIT.value,
+                quantity=quantity,
+                price=tp_price,
+                reduce_only=True,
+                time_in_force='GTC'  # Good Till Cancel
+            )
+            _limit_order_id = tp_limit_order.get('orderId', '')
+            self.logger.info(message=f"TP LIMIT order placed at {tp_price} (0% fee), order id: {_limit_order_id}")
+            self.position_handler.set_tp_order_id(id=_limit_order_id)
+        except Exception as e:
+            self.logger.error_e(message="Failed to place TP LIMIT order", e=e)
+            raise
+        
+        # 2. Place backup STOP_MARKET slightly beyond TP (safety net)
+        # For LONG: stop price slightly above TP (price goes up past TP)
+        # For SHORT: stop price slightly below TP (price goes down past TP)
+        backup_offset_pct = 0.0002  # 0.02% beyond TP
+        if position_side == PositionSide.LONG:
+            backup_stop_price = tp_price * (1 + backup_offset_pct)
+        else:
+            backup_stop_price = tp_price * (1 - backup_offset_pct)
+        
+        try:
+            tp_stop_order = self.trade_client.place_algorithmic_order(
+                symbol=self.bot_config.symbol,
+                order_side=order_side,
+                order_type=OrderType.STOP_MARKET.value,
+                trigger_price=backup_stop_price,
+                quantity=quantity
+            )
+            _stop_order_id = tp_stop_order.get('algoId', '')
+            self.logger.info(message=f"TP STOP_MARKET backup placed at {backup_stop_price} (taker fee), order id: {_stop_order_id}")
+            self.position_handler.set_tp_backup_order_id(id=_stop_order_id)
+        except Exception as e:
+            # If backup fails, cancel the LIMIT order and re-raise
+            self.logger.error_e(message="Failed to place TP STOP_MARKET backup, canceling LIMIT order", e=e)
+            try:
+                self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=_limit_order_id)
+            except:
+                pass
+            raise
+        
+        return tp_limit_order
 
     def place_sl_order(self, position_side: PositionSide, sl_price: float) -> Dict[str, Any]:
         """
-        Place a stop loss order.
+        Place hybrid stop loss orders: LIMIT (0% fee) + STOP_MARKET backup.
+        
+        Strategy:
+        1. Primary: LIMIT order at exact SL price (maker, 0% fee)
+        2. Backup: STOP_MARKET slightly beyond SL (taker, small fee if triggered)
         
         Args:
             position_side: Current position side (LONG/SHORT)
             sl_price: Stop loss trigger price
         
         Returns:
-            SL order details
+            Primary SL order details (LIMIT order)
         """
-        self.logger.debug(message='Placing stop loss order')
+        self.logger.debug(message='Placing hybrid SL orders (LIMIT + STOP_MARKET backup)')
         order_side = OrderSide.SELL.value if position_side == PositionSide.LONG else OrderSide.BUY.value
         self.position_handler.set_sl_price(price=sl_price)
         
         # Use cached quantity for TP/SL orders
         quantity = self.get_trade_quantity()
-
-        sl_order = self.trade_client.place_algorithmic_order(
-            symbol=self.bot_config.symbol,
-            order_side=order_side,
-            order_type=OrderType.STOP_MARKET.value,
-            trigger_price=sl_price,
-            quantity=quantity
-        )
-        _order_id = sl_order.get('algoId', '')
-        self.logger.info(message=f"SL order placed at {sl_price}, order id: {_order_id}")
-        self.position_handler.set_sl_order_id(id=_order_id)
-        return sl_order
+        
+        # 1. Place primary LIMIT order at exact SL price (0% maker fee)
+        try:
+            sl_limit_order = self.trade_client.place_order(
+                symbol=self.bot_config.symbol,
+                order_side=order_side,
+                order_type=OrderType.LIMIT.value,
+                quantity=quantity,
+                price=sl_price,
+                reduce_only=True,
+                time_in_force='GTC'  # Good Till Cancel
+            )
+            _limit_order_id = sl_limit_order.get('orderId', '')
+            self.logger.info(message=f"SL LIMIT order placed at {sl_price} (0% fee), order id: {_limit_order_id}")
+            self.position_handler.set_sl_order_id(id=_limit_order_id)
+        except Exception as e:
+            self.logger.error_e(message="Failed to place SL LIMIT order", e=e)
+            raise
+        
+        # 2. Place backup STOP_MARKET slightly beyond SL (safety net)
+        # For LONG: stop price slightly below SL (price goes down past SL)
+        # For SHORT: stop price slightly above SL (price goes up past SL)
+        backup_offset_pct = 0.0002  # 0.02% beyond SL
+        if position_side == PositionSide.LONG:
+            backup_stop_price = sl_price * (1 - backup_offset_pct)
+        else:
+            backup_stop_price = sl_price * (1 + backup_offset_pct)
+        
+        try:
+            sl_stop_order = self.trade_client.place_algorithmic_order(
+                symbol=self.bot_config.symbol,
+                order_side=order_side,
+                order_type=OrderType.STOP_MARKET.value,
+                trigger_price=backup_stop_price,
+                quantity=quantity
+            )
+            _stop_order_id = sl_stop_order.get('algoId', '')
+            self.logger.info(message=f"SL STOP_MARKET backup placed at {backup_stop_price} (taker fee), order id: {_stop_order_id}")
+            self.position_handler.set_sl_backup_order_id(id=_stop_order_id)
+        except Exception as e:
+            # If backup fails, cancel the LIMIT order and re-raise
+            self.logger.error_e(message="Failed to place SL STOP_MARKET backup, canceling LIMIT order", e=e)
+            try:
+                self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=_limit_order_id)
+            except:
+                pass
+            raise
+        
+        return sl_limit_order
 
     def place_market_order(self, order_side: str, reduce_only: bool) -> Dict[str, Any]:
         """
@@ -779,23 +861,53 @@ class TradeHandler:
         return closed_position_dict
 
     def cancel_tp_order(self) -> None:
-        """Cancel the active take profit order."""
+        """Cancel both TP orders (LIMIT and STOP_MARKET backup)."""
+        # Cancel primary LIMIT order
         order_id = self.position_handler.get_tp_order_id()
         if order_id:
-            self.trade_client.cancel_algorithmic_order(order_id=order_id)
+            try:
+                self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=order_id)
+                self.logger.debug(f"Canceled TP LIMIT order: {order_id}")
+            except Exception as e:
+                self.logger.warning(f"Failed to cancel TP LIMIT order: {e}")
+        
+        # Cancel backup STOP_MARKET order
+        backup_order_id = self.position_handler.get_tp_backup_order_id()
+        if backup_order_id:
+            try:
+                self.trade_client.cancel_algorithmic_order(order_id=backup_order_id)
+                self.logger.debug(f"Canceled TP STOP_MARKET backup: {backup_order_id}")
+            except Exception as e:
+                self.logger.warning(f"Failed to cancel TP STOP_MARKET backup: {e}")
 
     def cancel_sl_order(self) -> None:
-        """Cancel the active stop loss order."""
+        """Cancel both SL orders (LIMIT and STOP_MARKET backup)."""
+        # Cancel primary LIMIT order
         order_id = self.position_handler.get_sl_order_id()
         if order_id:
-            self.trade_client.cancel_algorithmic_order(order_id=order_id)
+            try:
+                self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=order_id)
+                self.logger.debug(f"Canceled SL LIMIT order: {order_id}")
+            except Exception as e:
+                self.logger.warning(f"Failed to cancel SL LIMIT order: {e}")
+        
+        # Cancel backup STOP_MARKET order
+        backup_order_id = self.position_handler.get_sl_backup_order_id()
+        if backup_order_id:
+            try:
+                self.trade_client.cancel_algorithmic_order(order_id=backup_order_id)
+                self.logger.debug(f"Canceled SL STOP_MARKET backup: {backup_order_id}")
+            except Exception as e:
+                self.logger.warning(f"Failed to cancel SL STOP_MARKET backup: {e}")
 
     def monitor_tp_sl_fill(self, close_candle_open_time: str = '', backtest_metrics=None) -> bool:
         """
         Monitor TP/SL orders and close position if any is filled.
         
+        Checks both TP orders (LIMIT and STOP_MARKET backup) and SL order.
+        
         Scenarios:
-        1. Both TP and SL enabled: only one can hit; cancel the other.
+        1. Both TP and SL enabled: only one can hit; cancel the others.
         2. Only one order enabled: works normally.
         
         Args:
@@ -807,32 +919,137 @@ class TradeHandler:
         """
         filled_order_id = ''
         close_reason = ''
+        
+        # Track which specific order filled for proper cancellation logic
+        sl_limit_filled = False
+        sl_backup_filled = False
+        tp_limit_filled = False
+        tp_backup_filled = False
 
-        # Check SL first
+        # Check SL LIMIT order (primary, 0% fee)
         if self.bot_config.sl_enabled:
             sl_order_id = self.position_handler.get_sl_order_id()
             if sl_order_id:
-                _check_sl_order = self.trade_client.fetch_algorithmic_order(order_id=sl_order_id)
-                sl_status = _check_sl_order.get('algoStatus')
-                if sl_status == ALGO_ORDER_STATUS_FINISHED:
-                    self.logger.info("SL hit ✅")
-                    filled_order_id = _check_sl_order.get('actualOrderId')
-                    close_reason = 'SL Hit'
+                try:
+                    _check_sl_order = self.trade_client.fetch_order(
+                        symbol=self.bot_config.symbol,
+                        order_id=sl_order_id
+                    )
+                    sl_status = _check_sl_order.get('status')
+                    if sl_status == ORDER_STATUS_FILLED:
+                        self.logger.info("SL LIMIT hit ✅ (0% fee)")
+                        filled_order_id = sl_order_id
+                        close_reason = 'SL Hit (LIMIT)'
+                        sl_limit_filled = True
+                except Exception as e:
+                    self.logger.warning(f"Failed to check SL LIMIT order: {e}")
+        
+        # Check SL STOP_MARKET backup only if LIMIT didn't fill
+        if self.bot_config.sl_enabled and not filled_order_id:
+            sl_backup_order_id = self.position_handler.get_sl_backup_order_id()
+            if sl_backup_order_id:
+                try:
+                    _check_sl_backup = self.trade_client.fetch_algorithmic_order(order_id=sl_backup_order_id)
+                    sl_backup_status = _check_sl_backup.get('algoStatus')
+                    if sl_backup_status == ALGO_ORDER_STATUS_FINISHED:
+                        self.logger.info("SL STOP_MARKET backup hit ✅ (taker fee)")
+                        filled_order_id = _check_sl_backup.get('actualOrderId')
+                        close_reason = 'SL Hit (STOP_MARKET backup)'
+                        sl_backup_filled = True
+                except Exception as e:
+                    self.logger.warning(f"Failed to check SL STOP_MARKET backup: {e}")
 
-        # Check TP only if no order has already been filled
+        # Check TP LIMIT order (primary, 0% fee)
         if self.bot_config.tp_enabled and not filled_order_id:
             tp_order_id = self.position_handler.get_tp_order_id()
             if tp_order_id:
-                _check_tp_order = self.trade_client.fetch_algorithmic_order(order_id=tp_order_id)
-                tp_status = _check_tp_order.get('algoStatus')
-                if tp_status == ALGO_ORDER_STATUS_FINISHED:
-                    self.logger.info("TP hit ✅")
-                    filled_order_id = _check_tp_order.get('actualOrderId')
-                    close_reason = 'TP Hit'
+                try:
+                    _check_tp_order = self.trade_client.fetch_order(
+                        symbol=self.bot_config.symbol,
+                        order_id=tp_order_id
+                    )
+                    tp_status = _check_tp_order.get('status')
+                    if tp_status == ORDER_STATUS_FILLED:
+                        self.logger.info("TP LIMIT hit ✅ (0% fee)")
+                        filled_order_id = tp_order_id
+                        close_reason = 'TP Hit (LIMIT)'
+                        tp_limit_filled = True
+                except Exception as e:
+                    self.logger.warning(f"Failed to check TP LIMIT order: {e}")
+        
+        # Check TP STOP_MARKET backup only if LIMIT didn't fill
+        if self.bot_config.tp_enabled and not filled_order_id:
+            tp_backup_order_id = self.position_handler.get_tp_backup_order_id()
+            if tp_backup_order_id:
+                try:
+                    _check_tp_backup = self.trade_client.fetch_algorithmic_order(order_id=tp_backup_order_id)
+                    tp_backup_status = _check_tp_backup.get('algoStatus')
+                    if tp_backup_status == ALGO_ORDER_STATUS_FINISHED:
+                        self.logger.info("TP STOP_MARKET backup hit ✅ (taker fee)")
+                        filled_order_id = _check_tp_backup.get('actualOrderId')
+                        close_reason = 'TP Hit (STOP_MARKET backup)'
+                        tp_backup_filled = True
+                except Exception as e:
+                    self.logger.warning(f"Failed to check TP STOP_MARKET backup: {e}")
 
         # Process filled order
         if filled_order_id:
             try:
+                # Cancel unfilled orders based on which order filled
+                # Use boolean flags for clear, testable logic
+                
+                if sl_limit_filled or sl_backup_filled:
+                    # Any SL order filled - cancel all TP orders
+                    if self.bot_config.tp_enabled:
+                        self.cancel_tp_order()
+                    
+                    # Cancel the other SL order (LIMIT or backup, whichever didn't fill)
+                    if sl_limit_filled:
+                        # SL LIMIT filled, cancel backup
+                        backup_id = self.position_handler.get_sl_backup_order_id()
+                        if backup_id:
+                            try:
+                                self.trade_client.cancel_algorithmic_order(order_id=backup_id)
+                                self.logger.debug("Canceled SL STOP_MARKET backup after LIMIT fill")
+                            except Exception as e:
+                                self.logger.warning(f"Failed to cancel SL backup: {e}")
+                                
+                    elif sl_backup_filled:
+                        # SL backup filled, cancel LIMIT
+                        sl_id = self.position_handler.get_sl_order_id()
+                        if sl_id:
+                            try:
+                                self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=sl_id)
+                                self.logger.debug("Canceled SL LIMIT after backup fill")
+                            except Exception as e:
+                                self.logger.warning(f"Failed to cancel SL LIMIT: {e}")
+                        
+                elif tp_limit_filled or tp_backup_filled:
+                    # Any TP order filled - cancel all SL orders
+                    if self.bot_config.sl_enabled:
+                        self.cancel_sl_order()
+                    
+                    # Cancel the other TP order (LIMIT or backup, whichever didn't fill)
+                    if tp_limit_filled:
+                        # TP LIMIT filled, cancel backup
+                        backup_id = self.position_handler.get_tp_backup_order_id()
+                        if backup_id:
+                            try:
+                                self.trade_client.cancel_algorithmic_order(order_id=backup_id)
+                                self.logger.debug("Canceled TP STOP_MARKET backup after LIMIT fill")
+                            except Exception as e:
+                                self.logger.warning(f"Failed to cancel TP backup: {e}")
+                                
+                    elif tp_backup_filled:
+                        # TP backup filled, cancel LIMIT
+                        tp_id = self.position_handler.get_tp_order_id()
+                        if tp_id:
+                            try:
+                                self.trade_client.cancel_order(symbol=self.bot_config.symbol, order_id=tp_id)
+                                self.logger.debug("Canceled TP LIMIT after backup fill")
+                            except Exception as e:
+                                self.logger.warning(f"Failed to cancel TP LIMIT: {e}")
+                
                 self.logger.debug(f'Getting trade history for filled order_id: {filled_order_id}')
                 order_trade = self.trade_client.fetch_order_trade(
                     symbol=self.bot_config.symbol, order_id=filled_order_id)
