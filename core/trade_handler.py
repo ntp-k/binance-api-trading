@@ -239,6 +239,16 @@ class TradeHandler:
         else:
             backup_stop_price = tp_price * (1 - backup_offset_pct)
         
+        # Round backup price to tick size to avoid precision errors
+        exchange_info = self.trade_client.get_cached_exchange_info(self.bot_config.symbol)
+        if exchange_info:
+            tick_size = float(exchange_info.get('tickSize', 0.01))
+            backup_stop_price = self.round_to_tick_size(
+                price=backup_stop_price,
+                tick_size=tick_size,
+                order_side=order_side
+            )
+        
         try:
             tp_stop_order = self.trade_client.place_algorithmic_order(
                 symbol=self.bot_config.symbol,
@@ -311,6 +321,16 @@ class TradeHandler:
         else:
             backup_stop_price = sl_price * (1 + backup_offset_pct)
         
+        # Round backup price to tick size to avoid precision errors
+        exchange_info = self.trade_client.get_cached_exchange_info(self.bot_config.symbol)
+        if exchange_info:
+            tick_size = float(exchange_info.get('tickSize', 0.01))
+            backup_stop_price = self.round_to_tick_size(
+                price=backup_stop_price,
+                tick_size=tick_size,
+                order_side=order_side
+            )
+        
         try:
             sl_stop_order = self.trade_client.place_algorithmic_order(
                 symbol=self.bot_config.symbol,
@@ -318,7 +338,7 @@ class TradeHandler:
                 order_type=OrderType.STOP_MARKET.value,
                 trigger_price=backup_stop_price,
                 quantity=quantity,
-                close_position=True,
+                close_position=True
             )
             _stop_order_id = sl_stop_order.get('algoId', '')
             self.logger.info(message=f"SL STOP_MARKET backup placed at {backup_stop_price} (taker fee), order id: {_stop_order_id}")
