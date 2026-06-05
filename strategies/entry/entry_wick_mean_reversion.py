@@ -30,11 +30,12 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         self.min_body_pct = dynamic_config.get('min_body_pct', 0.005)  # Default 0.5%
         self.decimal = dynamic_config.get('decimal', 2)
         self.training_candles = dynamic_config.get('training_candles', 300)
-        self.upper_wick_25th = None
-        self.lower_wick_25th = None
+        self.percentile = dynamic_config.get('percentile', 0.25)  # Default 25th percentile (0.15-0.40)
+        self.upper_wick_percentile = None
+        self.lower_wick_percentile = None
         
         self.logger.info(f"Initialized WickMeanReversion: min_body_pct={self.min_body_pct*100:.2f}%, "
-                        f"training_candles={self.training_candles}")
+                        f"training_candles={self.training_candles}, percentile={int(self.percentile*100)}th")
 
     def _process_data(self, klines_df: pd.DataFrame) -> pd.DataFrame:
         """Process klines data and calculate wick metrics."""
@@ -51,10 +52,10 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         # Calculate percentiles from training data
         if len(klines_df) >= self.training_candles:
             training_df = klines_df.iloc[-self.training_candles:]
-            self.upper_wick_25th = training_df['upper_wick_pct'].quantile(0.25)
-            self.lower_wick_25th = training_df['lower_wick_pct'].quantile(0.25)
-            self.logger.debug(f"Calculated percentiles: upper_25th={self.upper_wick_25th:.4f}%, "
-                            f"lower_25th={self.lower_wick_25th:.4f}%")
+            self.upper_wick_percentile = training_df['upper_wick_pct'].quantile(self.percentile)
+            self.lower_wick_percentile = training_df['lower_wick_pct'].quantile(self.percentile)
+            self.logger.debug(f"Calculated {int(self.percentile*100)}th percentiles: "
+                            f"upper={self.upper_wick_percentile:.4f}%, lower={self.lower_wick_percentile:.4f}%")
         
         return klines_df
 
@@ -75,7 +76,7 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         current_candle = klines_df.iloc[-1]
         
         # Check if percentiles are calculated
-        if self.upper_wick_25th is None or self.lower_wick_25th is None:
+        if self.upper_wick_percentile is None or self.lower_wick_percentile is None:
             checklist_reasons.append("Percentiles not calculated yet: ❌")
             return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
 
@@ -114,25 +115,25 @@ class EntryWickMeanReversion(BaseEntryStrategy):
 
     def calculate_tp_sl(self, klines_df, position_side, entry_price):
         """
-        Calculate TP based on 25th percentile wick.
+        Calculate TP based on configurable percentile wick.
         SL is not set here (returns -1.0) - handled by exit strategy.
         
         TP Logic:
-        - LONG: entry + lower_wick_25th% (expect price to rise by typical lower wick amount)
-        - SHORT: entry - upper_wick_25th% (expect price to fall by typical upper wick amount)
+        - LONG: entry + lower_wick_percentile% (expect price to rise by typical lower wick amount)
+        - SHORT: entry - upper_wick_percentile% (expect price to fall by typical upper wick amount)
         """
-        if self.upper_wick_25th is None or self.lower_wick_25th is None:
+        if self.upper_wick_percentile is None or self.lower_wick_percentile is None:
             self.logger.warning("Percentiles not calculated, using default TP")
             return -1.0, -1.0
 
         if position_side == PositionSide.LONG:
-            # For LONG: TP is entry + lower_wick_25th%
-            tp_price = round(entry_price * (1 + self.lower_wick_25th / 100), self.decimal)
-            self.logger.debug(f"LONG TP = entry + {self.lower_wick_25th:.4f}%: {tp_price}")
+            # For LONG: TP is entry + lower_wick_percentile%
+            tp_price = round(entry_price * (1 + self.lower_wick_percentile / 100), self.decimal)
+            self.logger.debug(f"LONG TP = entry + {self.lower_wick_percentile:.4f}%: {tp_price}")
         elif position_side == PositionSide.SHORT:
-            # For SHORT: TP is entry - upper_wick_25th%
-            tp_price = round(entry_price * (1 - self.upper_wick_25th / 100), self.decimal)
-            self.logger.debug(f"SHORT TP = entry - {self.upper_wick_25th:.4f}%: {tp_price}")
+            # For SHORT: TP is entry - upper_wick_percentile%
+            tp_price = round(entry_price * (1 - self.upper_wick_percentile / 100), self.decimal)
+            self.logger.debug(f"SHORT TP = entry - {self.upper_wick_percentile:.4f}%: {tp_price}")
         else:
             self.logger.warning(f"Unexpected position_side: {position_side}")
             tp_price = -1.0
