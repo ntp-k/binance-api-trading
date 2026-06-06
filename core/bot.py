@@ -398,6 +398,14 @@ class Bot:
         
         # STATE 3: Looking for exit signal
         if have_position and active_position_dict:
+            # Sync position quantity with remote
+            remote_quantity = active_position_dict.get('quantity', 0.0)
+            if self.trade_handler._cached_quantity > 0:
+                if abs(remote_quantity - self.trade_handler._cached_quantity) > 1e-8:
+                    self.logger.warning(
+                        message=f"Quantity mismatch - Remote: {remote_quantity}, Cached: {self.trade_handler._cached_quantity}")
+                    self.trade_handler.set_trade_quantity(remote_quantity)
+            
             if self._handle_exit_signal(klines_df, active_position_dict, current_candle_open_time):
                 have_position = False
         
