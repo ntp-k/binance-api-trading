@@ -131,7 +131,7 @@ def test_guaranteed_scalp(df: pd.DataFrame, tp_pct: float = 0.10,
 
 def main():
     # Configuration
-    SYMBOLS = ['SUIUSDC']
+    SYMBOLS = ['BNBUSDC']
     INTERVALS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d']
     TP_TARGETS = [0.05, 0.08, 0.10, 0.12, 0.15, 0.20]  # Different TP targets to test
     MARGIN = 5.0
