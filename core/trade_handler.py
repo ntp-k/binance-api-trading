@@ -124,6 +124,7 @@ class TradeHandler:
     
     def clear_cached_quantity(self) -> None:
         """Clear cached quantity when position is closed."""
+        self._cached_quantity = 0.0
     
     def set_trade_quantity(self, quantity: float) -> None:
         """
@@ -132,9 +133,8 @@ class TradeHandler:
         Args:
             quantity: The quantity to cache
         """
-        self._cached_quantity = quantity
+        self._cached_quantity = abs(quantity)
         self.logger.debug(message=f"Updated cached quantity to {quantity}")
-        self._cached_quantity = 0.0
 
     def round_to_tick_size(self, price: float, tick_size: float, order_side: str) -> float:
         """

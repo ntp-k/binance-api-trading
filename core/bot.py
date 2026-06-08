@@ -401,7 +401,7 @@ class Bot:
             # Sync position quantity with remote
             remote_quantity = active_position_dict.get('quantity', 0.0)
             if self.trade_handler._cached_quantity > 0:
-                if abs(remote_quantity - self.trade_handler._cached_quantity) > 1e-8:
+                if abs(remote_quantity) - self.trade_handler._cached_quantity > 1e-8:
                     self.logger.warning(
                         message=f"Quantity mismatch - Remote: {remote_quantity}, Cached: {self.trade_handler._cached_quantity}")
                     self.trade_handler.set_trade_quantity(remote_quantity)
