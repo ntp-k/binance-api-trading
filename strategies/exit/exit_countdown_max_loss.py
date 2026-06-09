@@ -11,6 +11,7 @@ from abstracts.base_exit_strategy import BaseExitStrategy
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
 from core.position_handler import PositionHandler
+from commons.common import get_datetime_now_gmt_plus_7
 from datetime import datetime
 import pandas as pd
 
@@ -41,17 +42,19 @@ class ExitCountdownMaxLoss(BaseExitStrategy):
         Calculate elapsed minutes since position opened using open_time.
         
         Args:
-            position_open_time: Position open time string (format: 'YYYY-MM-DD HH:MM:SS')
+            position_open_time: Position open time string (format: 'YYYY-MM-DD HH:MM:SS' in GMT+7)
             
         Returns:
             Number of minutes elapsed
         """
         try:
-            # Parse position open time
+            # Parse position open time (stored in GMT+7)
             open_dt = datetime.strptime(position_open_time, '%Y-%m-%d %H:%M:%S')
             
-            # Get current time
-            current_dt = datetime.now()
+            # Get current time in GMT+7 (to match position open_time timezone)
+            current_dt = get_datetime_now_gmt_plus_7()
+            # Remove timezone info for comparison
+            current_dt = current_dt.replace(tzinfo=None)
             
             # Calculate elapsed time
             elapsed = current_dt - open_dt
