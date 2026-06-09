@@ -17,9 +17,9 @@ class Position:
         entry_price: Price at which position was opened
         open_candle: Candle timestamp when position opened
         open_reason: Strategy reason for opening
-        open_time: Timestamp when position opened
+        open_time: str time when position opened (%Y-%m-%d %H:%M:%S)
         open_fee: Fee paid to open position
-        close_time: Timestamp when position closed
+        close_time: str time when position closed (%Y-%m-%d %H:%M:%S)
         close_price: Price at which position was closed
         pnl: Profit/loss in quote currency
         close_reason: Reason for closing position

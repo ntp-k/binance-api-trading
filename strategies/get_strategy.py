@@ -16,6 +16,7 @@ ENTRY_STRATEGY_REGISTRY = {
     EntryStrategy.MOMENTUM_TREND_FILTERED: ('strategies.entry.entry_momentum_trend_filtered', 'EntryMomentumTrendFiltered'),
     EntryStrategy.WICK_MEAN_REVERSION: ('strategies.entry.entry_wick_mean_reversion', 'EntryWickMeanReversion'),
     EntryStrategy.GUARANTEED_SCALP: ('strategies.entry.entry_guaranteed_scalp', 'EntryGuaranteedScalp'),
+    EntryStrategy.SCALP_BODY_FILTER_MOMENTUM: ('strategies.entry.entry_scalp_body_filter_momentum', 'EntryScalpBodyFilterMomentum'),
 }
 
 EXIT_STRATEGY_REGISTRY = {
@@ -25,6 +26,7 @@ EXIT_STRATEGY_REGISTRY = {
     ExitStrategy.CANDLE_CLOSE_WITH_SL: ('strategies.exit.exit_candle_close_with_sl', 'ExitCandleCloseWithSL'),
     ExitStrategy.CANDLE_CLOSE: ('strategies.exit.exit_candle_close', 'ExitCandleClose'),
     ExitStrategy.WICK_TARGET: ('strategies.exit.exit_wick_target', 'ExitWickTarget'),
+    ExitStrategy.COUNTDOWN_MAX_LOSS: ('strategies.exit.exit_countdown_max_loss', 'ExitCountdownMaxLoss'),
 }
 
 
