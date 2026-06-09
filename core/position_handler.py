@@ -43,6 +43,8 @@ class PositionHandler:
         self._sl_backup_order_id: str = ''  # Backup STOP_MARKET SL order
         self._sl_price: float = 0.0
         self.last_position_open_candle: str = ''
+        self.last_position_close_time: str = ''
+        self.last_position_holding_seconds: float = 0.0
 
         # Ensure directories exist
         self._ensure_directories()
@@ -211,6 +213,22 @@ class PositionHandler:
         
         self.position.pnl = position_dict.get('pnl', 0.0)
         self.last_position_open_candle = self.position.open_candle
+        
+        # Calculate and store holding time
+        if self.position.close_time:
+            self.last_position_close_time = self.position.close_time
+            try:
+                from datetime import datetime
+                open_dt = datetime.strptime(self.position.open_time, '%Y-%m-%d %H:%M:%S')
+                close_dt = datetime.strptime(self.position.close_time, '%Y-%m-%d %H:%M:%S')
+                holding_duration = close_dt - open_dt
+                self.last_position_holding_seconds = holding_duration.total_seconds()
+            except Exception as e:
+                self.logger.warning(f"Could not calculate holding time: {e}")
+                self.last_position_holding_seconds = 0.0
+        else:
+            self.last_position_close_time = ''
+            self.last_position_holding_seconds = 0.0
 
         # Create trade dict for backtest tracking
         trade_dict = self.position.to_dict()

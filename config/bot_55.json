@@ -20,6 +20,7 @@
         "min_body_pct": 0.001,
         "tp_pct": 0.001,
         "decimal": 4,
+        "min_holding_seconds": 45,
         "countdown_minutes": 300,
         "max_loss_pnl": -4.0
     },

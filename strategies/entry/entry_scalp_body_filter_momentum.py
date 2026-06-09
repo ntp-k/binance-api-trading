@@ -30,8 +30,12 @@ class EntryScalpBodyFilterMomentum(BaseEntryStrategy):
         self.min_body_pct = dynamic_config.get('min_body_pct', 0.003)  # 0.3% default
         self.tp_pct = dynamic_config.get('tp_pct', 0.001)  # 0.1% default
         self.decimal = dynamic_config.get('decimal', 2)
+        self.min_holding_seconds = dynamic_config.get('min_holding_seconds', 60)  # 60 seconds default
         
-        self.logger.info(f"Initialized with min_body_pct={self.min_body_pct}, tp_pct={self.tp_pct}")
+        self.logger.info(
+            f"Initialized with min_body_pct={self.min_body_pct}, tp_pct={self.tp_pct}, "
+            f"min_holding_seconds={self.min_holding_seconds}"
+        )
 
     def _process_data(self, klines_df):
         """
@@ -44,7 +48,7 @@ class EntryScalpBodyFilterMomentum(BaseEntryStrategy):
     def should_open(self, klines_df, position_handler: PositionHandler) -> PositionSignal:
         """
         Determine if position should be opened based on:
-        1. New candle check
+        1. New candle check OR last position held < min_holding_seconds (quick exit allows re-entry)
         2. Previous candle body percentage >= threshold
         3. Previous candle direction (green = LONG, red = SHORT)
         """
@@ -63,13 +67,27 @@ class EntryScalpBodyFilterMomentum(BaseEntryStrategy):
         current_open_time = str(current_candle['open_time'])
         last_position_open_candle = position_handler.last_position_open_candle
         new_candle = current_open_time != last_position_open_candle
+        
+        # Check if last position was held for less than min_holding_seconds (quick exit)
+        last_holding_seconds = position_handler.last_position_holding_seconds
+        quick_exit = last_holding_seconds > 0 and last_holding_seconds < self.min_holding_seconds
+        
+        # Allow entry if: new candle OR quick exit on same candle
+        can_enter = new_candle or quick_exit
 
-        if not new_candle:
+        if not can_enter:
             checklist_reasons.append(
-                f"Not a new candle (last: {last_position_open_candle[5:-9]} / cur: {current_open_time[5:-9]}): ❌"
+                f"Not a new candle (last: {last_position_open_candle[5:-9]} / cur: {current_open_time[5:-9]}) "
+                f"AND not quick exit (holding: {last_holding_seconds:.1f}s >= {self.min_holding_seconds}s): ❌"
             )
             reason_message = " | ".join(checklist_reasons)
             return PositionSignal(position_side=new_position_side, reason=reason_message)
+        
+        if quick_exit:
+            checklist_reasons.append(
+                f"Quick exit detected (holding: {last_holding_seconds:.1f}s < {self.min_holding_seconds}s) "
+                f"-> Allow re-entry on same candle: ✅"
+            )
 
         # Calculate previous candle metrics
         prev_body_pct = prev_candle['body_pct']
