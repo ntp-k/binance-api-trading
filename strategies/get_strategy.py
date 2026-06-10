@@ -27,7 +27,7 @@ EXIT_STRATEGY_REGISTRY = {
     ExitStrategy.CANDLE_CLOSE_WITH_SL: ('strategies.exit.exit_candle_close_with_sl', 'ExitCandleCloseWithSL'),
     ExitStrategy.CANDLE_CLOSE: ('strategies.exit.exit_candle_close', 'ExitCandleClose'),
     ExitStrategy.WICK_TARGET: ('strategies.exit.exit_wick_target', 'ExitWickTarget'),
-    ExitStrategy.COUNTDOWN_MAX_LOSS: ('strategies.exit.exit_countdown_max_loss', 'ExitCountdownMaxLoss'),
+    ExitStrategy.COUNTDOWN: ('strategies.exit.exit_countdown', 'ExitCountdown'),
 }
 
 

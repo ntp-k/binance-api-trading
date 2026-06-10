@@ -1,10 +1,9 @@
 """
-Exit strategy with countdown timer and max loss protection.
+Exit strategy with countdown timer.
 
 Strategy Logic:
 - If TP is hit, position closes automatically (handled by TP_SL system)
 - If TP not hit within countdown_minutes, force close position
-- If max_loss_pnl is reached, force close position immediately
 - Uses position open_time to calculate elapsed time
 """
 from abstracts.base_exit_strategy import BaseExitStrategy
@@ -17,15 +16,13 @@ from datetime import datetime
 import pandas as pd
 
 
-class ExitCountdownMaxLoss(BaseExitStrategy):
+class ExitCountdown(BaseExitStrategy):
     """
-    Exit strategy that closes position based on:
-    1. Countdown timer - force close after X minutes if TP not hit
-    2. Max loss threshold - force close if PnL drops below threshold
+    Exit strategy that closes position based on countdown timer.
+    Force close after X minutes if TP not hit.
     
     Configuration (dynamic_config):
     - countdown_minutes: Minutes to wait before force close (e.g., 60 = 1 hour)
-    - max_loss_pnl: Maximum loss in quote currency before force close (e.g., -5.0 = -5 USDC)
     """
 
     def __init__(self, bot_config: BotConfig, logger=None):
@@ -33,12 +30,8 @@ class ExitCountdownMaxLoss(BaseExitStrategy):
         self.bot_config: BotConfig = bot_config
         self.dynamic_config = bot_config.dynamic_config
         self.countdown_minutes = self.dynamic_config.get('countdown_minutes', 60)  # 60 min default
-        self.max_loss_pnl = self.dynamic_config.get('max_loss_pnl', -10.0)  # -10 USDC default
         
-        self.logger.info(
-            f"Initialized with countdown_minutes={self.countdown_minutes}, "
-            f"max_loss_pnl={self.max_loss_pnl}"
-        )
+        self.logger.info(f"Initialized with countdown_minutes={self.countdown_minutes}")
 
     def _calculate_elapsed_minutes(self, position_open_time: str) -> float:
         """
@@ -83,9 +76,7 @@ class ExitCountdownMaxLoss(BaseExitStrategy):
 
     def should_close(self, klines_df, position_handler: PositionHandler) -> PositionSignal:
         """
-        Determine if position should be closed based on:
-        1. Countdown timer expiration
-        2. Max loss threshold reached
+        Determine if position should be closed based on countdown timer expiration.
         
         Args:
             klines_df: DataFrame containing klines data
@@ -119,28 +110,12 @@ class ExitCountdownMaxLoss(BaseExitStrategy):
             f"{'✅ FORCE CLOSE' if countdown_expired else '❌'}"
         )
         
-        # ----- MAX LOSS CHECK -----
-        current_pnl = position.pnl
-        max_loss_hit = current_pnl <= self.max_loss_pnl
-        
-        checklist.append(
-            f"Max Loss | PnL {current_pnl:.2f} <= {self.max_loss_pnl:.2f}: "
-            f"{'✅ FORCE CLOSE' if max_loss_hit else '❌'}"
-        )
-        
-        # ----- CORE LOGIC: Close position if countdown expired or max loss hit -----
+        # ----- CORE LOGIC: Close position if countdown expired -----
         if countdown_expired:
             new_position_side = PositionSide.ZERO
             self.logger.info(
                 f"Countdown expired for {position.symbol} after {elapsed_minutes:.1f} minutes "
                 f"(threshold: {self.countdown_minutes} min, open_time: {position.open_time})"
-            )
-        
-        if max_loss_hit:
-            new_position_side = PositionSide.ZERO
-            self.logger.info(
-                f"Max loss hit for {position.symbol} at PnL {current_pnl:.2f} "
-                f"(threshold: {self.max_loss_pnl:.2f})"
             )
         
         reason_message = " | ".join(checklist)

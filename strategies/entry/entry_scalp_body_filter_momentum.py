@@ -9,7 +9,9 @@ Strategy Logic:
 - Enter SHORT if previous candle is red (bearish)
 - Uses very small TP percentage for scalping
 """
+from models.position import Position
 from abstracts.base_entry_strategy import BaseEntryStrategy
+from models.bot_config import BotConfig
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
 from core.position_handler import PositionHandler
@@ -25,12 +27,14 @@ class EntryScalpBodyFilterMomentum(BaseEntryStrategy):
     - decimal: Price decimal places for rounding (default: 2)
     """
 
-    def __init__(self, dynamic_config, logger=None):
+    def __init__(self, bot_config: BotConfig, logger=None):
         super().__init__(logger=logger)
-        self.min_body_pct = dynamic_config.get('min_body_pct', 0.003)  # 0.3% default
-        self.tp_pct = dynamic_config.get('tp_pct', 0.001)  # 0.1% default
-        self.decimal = dynamic_config.get('decimal', 2)
-        self.min_holding_seconds = dynamic_config.get('min_holding_seconds', 60)  # 60 seconds default
+        self.bot_config: BotConfig = bot_config
+        self.dynamic_config = bot_config.dynamic_config
+        self.min_body_pct = self.dynamic_config.get('min_body_pct', 0.003)  # 0.3% default
+        self.tp_pct = self.dynamic_config.get('tp_pct', 0.001)  # 0.1% default
+        self.decimal = self.dynamic_config.get('decimal', 2)
+        self.min_holding_seconds = self.dynamic_config.get('min_holding_seconds', 60)  # 60 seconds default
         
         self.logger.info(
             f"Initialized with min_body_pct={self.min_body_pct}, tp_pct={self.tp_pct}, "
@@ -119,16 +123,26 @@ class EntryScalpBodyFilterMomentum(BaseEntryStrategy):
         reason_message = " | ".join(checklist_reasons)
         return PositionSignal(position_side=new_position_side, reason=reason_message)
 
-    def calculate_tp_sl(self, klines_df, position_side, entry_price):
+    def calculate_tp_sl(self, klines_df, position_handler: PositionHandler):
         """
         Calculate TP based on configured percentage.
-        SL is not set here (will be handled by exit strategy).
+        Calculate SL based on sl_target_pnl from dynamic_config.
+        
+        Args:
+            klines_df: DataFrame with klines data
+            position_handler: Optional position handler to get actual quantity from opened position
         
         Returns:
             Tuple of (tp_price, sl_price)
             - tp_price: Entry price +/- tp_pct
-            - sl_price: -1.0 (not used, handled by exit strategy)
+            - sl_price: Price that results in sl_target_pnl, or -1.0 if not configured
         """
+
+        position: Position = position_handler.get_position()
+        position_side = position.position_side
+        entry_price = position.entry_price
+
+        # Calculate TP price
         if position_side == PositionSide.LONG:
             tp_price = round(entry_price * (1 + self.tp_pct), self.decimal)
             self.logger.debug(f"LONG TP = entry {entry_price} + {self.tp_pct*100}% = {tp_price}")
@@ -139,8 +153,39 @@ class EntryScalpBodyFilterMomentum(BaseEntryStrategy):
             self.logger.warning(f"Unexpected position_side: {position_side}")
             tp_price = -1.0
 
-        # SL is handled by exit strategy
+        # Calculate SL price based on sl_target_pnl
         sl_price = -1.0
+        sl_target_pnl = self.dynamic_config.get('sl_target_pnl', 0)
+        if sl_target_pnl >= 0:
+            self.logger.warning(f"Skipping SL calculation - sl_target_pnl is non-negative: {sl_target_pnl}")
+            return tp_price, -1
+        
+        if sl_target_pnl is not None:
+            # Get quantity from opened position (most accurate)
+            quantity = None
+            if position_handler is not None:
+                if position is not None and position.quantity > 0:
+                    quantity = position.quantity
+                    self.logger.debug(f"Using actual position quantity: {quantity}")
+            
+            if quantity is not None:
+                # Calculate SL price that results in sl_target_pnl
+                # For LONG: sl_target_pnl = (sl_price - entry_price) * quantity
+                #           sl_price = entry_price + (sl_target_pnl / quantity)
+                # For SHORT: sl_target_pnl = (entry_price - sl_price) * quantity
+                #            sl_price = entry_price - (sl_target_pnl / quantity)
+                
+                if position_side == PositionSide.LONG:
+                    sl_price = entry_price + (sl_target_pnl / quantity)
+                    sl_price = round(sl_price, self.decimal)
+                elif position_side == PositionSide.SHORT:
+                    sl_price = entry_price - (sl_target_pnl / quantity)
+                    sl_price = round(sl_price, self.decimal)
+            else:
+                self.logger.warning(
+                    "sl_target_pnl is configured but quantity not available from opened position. "
+                    "SL price cannot be calculated."
+                )
         
         return tp_price, sl_price
 
