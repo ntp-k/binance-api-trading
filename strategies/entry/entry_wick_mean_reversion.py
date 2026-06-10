@@ -19,6 +19,7 @@ from abstracts.base_entry_strategy import BaseEntryStrategy
 from models.bot_config import BotConfig
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
+from models.position import Position
 from core.position_handler import PositionHandler
 import pandas as pd
 
@@ -116,7 +117,7 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         reason_message = " | ".join(checklist_reasons)
         return PositionSignal(position_side=new_position_side, reason=reason_message)
 
-    def calculate_tp_sl(self, klines_df, position_side, entry_price):
+    def calculate_tp_sl(self, klines_df, position_handler: PositionHandler):
         """
         Calculate TP based on configurable percentile wick.
         SL is not set here (returns -1.0) - handled by exit strategy.
@@ -125,6 +126,11 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         - LONG: entry + lower_wick_percentile% (expect price to rise by typical lower wick amount)
         - SHORT: entry - upper_wick_percentile% (expect price to fall by typical upper wick amount)
         """
+
+        position: Position = position_handler.get_position()
+        position_side = position.position_side
+        entry_price = position.entry_price
+
         if self.upper_wick_percentile is None or self.lower_wick_percentile is None:
             self.logger.warning("Percentiles not calculated, using default TP")
             return -1.0, -1.0

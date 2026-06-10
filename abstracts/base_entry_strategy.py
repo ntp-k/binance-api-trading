@@ -7,7 +7,6 @@ import pandas as pd
 
 from commons.custom_logger import CustomLogger
 from models.position_signal import PositionSignal
-from models.enum.position_side import PositionSide
 from core.position_handler import PositionHandler
 
 
@@ -69,16 +68,14 @@ class BaseEntryStrategy(ABC):
     def calculate_tp_sl(
         self,
         klines_df: pd.DataFrame,
-        position_side: PositionSide,
-        entry_price: float
-    ) -> Tuple[float, float]:
+        position_handler: PositionHandler
+        ) -> Tuple[float, float]:
         """
         Calculate take profit and stop loss prices.
         
         Args:
             klines_df: DataFrame containing klines data with indicators
-            position_side: Side of the position (LONG or SHORT)
-            entry_price: Entry price of the position
+            position_handler: position handler to access opened position details
         
         Returns:
             Tuple of (tp_price, sl_price)

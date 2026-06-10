@@ -2,6 +2,7 @@ from abstracts.base_entry_strategy import BaseEntryStrategy
 from models.bot_config import BotConfig
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
+from models.position import Position
 import strategies.data_processor as data_processor
 from core.position_handler import PositionHandler
 import pandas as pd
@@ -124,7 +125,11 @@ class EntryPriceCrossEMARSI(BaseEntryStrategy):
 
         return PositionSignal(position_side=new_position_side, reason=reason_message)
 
-    def calculate_tp_sl(self, klines_df, position_side, entry_price):
+    def calculate_tp_sl(self, klines_df, position_handler: PositionHandler):
+        position: Position = position_handler.get_position()
+        position_side = position.position_side
+        entry_price = position.entry_price
+
         self.logger.debug('Calculating TP / SL')
         klines_df = data_processor.calculate_atr(df=klines_df)
         atr = klines_df.iloc[-1]['atr']

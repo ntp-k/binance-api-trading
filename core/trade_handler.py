@@ -843,7 +843,7 @@ class TradeHandler:
         
         new_position_dict['open_fee'] = _order_trade['fee']
         self.logger.info(
-            message=f"{self.bot_config.symbol} | {'OPEN':<5} | {position_side.value:<5} | {new_position_dict['entry_price']}")
+            message=f"{self.bot_config.symbol} | {'OPEN':<5} | {position_side.value:<5} | {new_position_dict['quantity']:<10} @ {new_position_dict['entry_price']}")
         return new_position_dict
 
     def place_order_to_close_position(self, position_dict: dict) -> Dict[str, Any]:

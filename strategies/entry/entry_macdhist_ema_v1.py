@@ -52,4 +52,7 @@ class EntryMacdHistEMAV1(BaseEntryStrategy):
         # self.logger.info(position_signal.reason)
         return position_signal
 
+    def calculate_tp_sl(self, klines_df, position_handler: PositionHandler):
+        return -1, -1
+
 # EOF

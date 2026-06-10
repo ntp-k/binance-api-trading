@@ -23,6 +23,7 @@ from abstracts.base_entry_strategy import BaseEntryStrategy
 from models.bot_config import BotConfig
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
+from models.position import Position
 from core.position_handler import PositionHandler
 import strategies.data_processor as data_processor
 
@@ -220,12 +221,7 @@ class EntryMomentumTrendFiltered(BaseEntryStrategy):
         
         return position_signal
     
-    def calculate_tp_sl(
-        self,
-        klines_df: pd.DataFrame,
-        position_side: PositionSide,
-        entry_price: float
-    ) -> Tuple[float, float]:
+    def calculate_tp_sl(self, klines_df, position_handler: PositionHandler):
         """
         Calculate take profit and stop loss prices based on market structure.
         
@@ -246,6 +242,9 @@ class EntryMomentumTrendFiltered(BaseEntryStrategy):
         """
         # Process data to ensure indicators are available
         klines_df = self._process_data(klines_df)
+        position: Position = position_handler.get_position()
+        position_side = position.position_side
+        entry_price = position.entry_price
         
         # Get previous candle (the one that triggered entry)
         prev_candle = klines_df.iloc[-2]

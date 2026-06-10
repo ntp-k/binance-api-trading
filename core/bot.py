@@ -248,15 +248,12 @@ class Bot:
                 new_position_dict['open_time'] = current_candle_open_time
             
             self.position_handler.open_position(position_dict=new_position_dict)
-            position = self.position_handler.position
-            position_side = position.position_side
-            entry_price = position.entry_price
+            
 
             # Always calculate TP/SL prices for exit strategies to use
             tp_price, sl_price = self.entry_strategy.calculate_tp_sl(
                 klines_df=klines_df,
-                position_side=position_side,
-                entry_price=entry_price
+                position_handler=self.position_handler
             )
 
             # Always set TP/SL prices in position handler for exit strategy to use
@@ -265,12 +262,13 @@ class Bot:
             self.logger.debug(message=f'Calculated TP: {tp_price}, SL: {sl_price}')
 
             # Place TP/SL orders on exchange only if enabled
+            position = self.position_handler.position
             if self.bot_config.tp_enabled:
                 self.logger.info(message=f'Placing TP order at {tp_price}')
-                self.trade_handler.place_tp_order(position_side=position_side, tp_price=tp_price)
+                self.trade_handler.place_tp_order(position_side=position.position_side, tp_price=tp_price)
             if self.bot_config.sl_enabled:
                 self.logger.info(message=f'Placing SL order at {sl_price}')
-                self.trade_handler.place_sl_order(position_side=position_side, sl_price=sl_price)
+                self.trade_handler.place_sl_order(position_side=position.position_side, sl_price=sl_price)
             
             return new_position_dict
         except Exception as e:

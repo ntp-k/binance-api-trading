@@ -15,6 +15,7 @@ class Position:
         symbol: Trading pair symbol
         position_side: LONG or SHORT
         entry_price: Price at which position was opened
+        quantity: Position quantity (absolute value)
         open_candle: Candle timestamp when position opened
         open_reason: Strategy reason for opening
         open_time: str time when position opened (%Y-%m-%d %H:%M:%S)
@@ -37,6 +38,7 @@ class Position:
     symbol: str = ''
     position_side: PositionSide = PositionSide.LONG
     entry_price: float = 0.0
+    quantity: float = 0.0
     open_candle: str = ''
     open_reason: str = ''
     open_time: str = field(default_factory=lambda: get_datetime_now_string_gmt_plus_7())
@@ -61,6 +63,7 @@ class Position:
             "symbol": self.symbol,
             "position_side": self.position_side.name,
             "entry_price": self.entry_price,
+            "quantity": self.quantity,
             "open_candle": self.open_candle,
             "open_reason": self.open_reason,
             "open_time": self.open_time,
@@ -99,6 +102,7 @@ class Position:
             symbol=data.get("symbol", ""),
             position_side=position_side,
             entry_price=data.get("entry_price", 0.0),
+            quantity=data.get("quantity", 0.0),
             open_candle=data.get("open_candle", ""),
             open_reason=data.get("open_reason", ""),
             open_time=data.get("open_time", get_datetime_now_string_gmt_plus_7(format='%Y-%m-%d %H:%M:%S')),

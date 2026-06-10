@@ -20,6 +20,7 @@ from abstracts.base_entry_strategy import BaseEntryStrategy
 from models.bot_config import BotConfig
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
+from models.position import Position
 from core.position_handler import PositionHandler
 import pandas as pd
 
@@ -82,7 +83,7 @@ class EntryGuaranteedScalp(BaseEntryStrategy):
         reason_message = " | ".join(checklist_reasons)
         return PositionSignal(position_side=new_position_side, reason=reason_message)
 
-    def calculate_tp_sl(self, klines_df, position_side, entry_price):
+    def calculate_tp_sl(self, klines_df, position_handler: PositionHandler):
         """
         Calculate TP based on fixed percentage.
         SL is not set here (returns -1.0) - handled by exit strategy.
@@ -91,6 +92,10 @@ class EntryGuaranteedScalp(BaseEntryStrategy):
         - LONG: entry + tp_pct% (fixed small target)
         - SHORT: entry - tp_pct% (fixed small target)
         """
+        position: Position = position_handler.get_position()
+        position_side = position.position_side
+        entry_price = position.entry_price
+
         if position_side == PositionSide.LONG:
             # For LONG: TP is entry + tp_pct%
             tp_price = round(entry_price * (1 + self.tp_pct), self.decimal)
@@ -107,7 +112,6 @@ class EntryGuaranteedScalp(BaseEntryStrategy):
         sl_price = -1.0
         
         return tp_price, sl_price
-
 
 # EOF
 

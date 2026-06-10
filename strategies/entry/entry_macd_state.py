@@ -46,4 +46,7 @@ class EntryMacdState(BaseEntryStrategy):
 
         return PositionSignal(position_side = new_position_side, reason = reason_message)
 
+    def calculate_tp_sl(self, klines_df, position_handler: PositionHandler):
+        return -1, -1
+
 # EOF
