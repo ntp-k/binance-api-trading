@@ -12,6 +12,7 @@ using a wide stop loss.
 """
 
 from abstracts.base_exit_strategy import BaseExitStrategy
+from models.bot_config import BotConfig
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
 from core.position_handler import PositionHandler
@@ -26,17 +27,10 @@ class ExitWickTarget(BaseExitStrategy):
     the wick mean reversion entry strategy for clarity.
     """
 
-    def __init__(self, dynamic_config, logger=None):
-        """
-        Initialize the wick target exit strategy.
-        
-        Args:
-            dynamic_config: Configuration dictionary (not used but kept for consistency)
-            logger: Optional logger instance
-        """
+    def __init__(self, bot_config: BotConfig, logger=None):
         super().__init__(logger=logger)
-        self.dynamic_config = dynamic_config
-        self.logger.info("Initialized WickTarget exit strategy (exit at candle close)")
+        self.bot_config: BotConfig = bot_config
+        self.dynamic_config = bot_config.dynamic_config
 
     def _process_data(self, klines_df: pd.DataFrame) -> pd.DataFrame:
         """

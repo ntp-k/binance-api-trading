@@ -1,4 +1,5 @@
 from abstracts.base_entry_strategy import BaseEntryStrategy
+from models.bot_config import BotConfig
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
 from core.position_handler import PositionHandler
@@ -15,9 +16,11 @@ class EntryPreviousCandle(BaseEntryStrategy):
     - SHORT: previous candle's HIGH price
     """
 
-    def __init__(self, dynamic_config, logger=None):
+    def __init__(self, bot_config: BotConfig, logger=None):
         super().__init__(logger=logger)
-        self.decimal = dynamic_config.get('decimal', 2)
+        self.bot_config: BotConfig = bot_config
+        self.dynamic_config = bot_config.dynamic_config
+        self.decimal = self.dynamic_config.get('decimal', 2)
 
     def _process_data(self, klines_df):
         return klines_df

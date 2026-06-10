@@ -4,6 +4,7 @@ from abstracts.base_exit_strategy import BaseExitStrategy
 from commons.custom_logger import CustomLogger
 from models.enum.entry_strategy import EntryStrategy
 from models.enum.exit_strategy import ExitStrategy
+from models.bot_config import BotConfig
 
 
 # Strategy registry for lazy loading
@@ -30,13 +31,17 @@ EXIT_STRATEGY_REGISTRY = {
 }
 
 
-def get_entry_strategy(entry_strategy: EntryStrategy, dynamic_config: Dict[str, Any], logger: Optional[CustomLogger] = None) -> BaseEntryStrategy:
+def get_entry_strategy(
+    entry_strategy: EntryStrategy,
+    bot_config: BotConfig,
+    logger: Optional[CustomLogger] = None
+) -> BaseEntryStrategy:
     """
     Factory function to create entry strategy instances.
     
     Args:
         entry_strategy: Entry strategy enum
-        dynamic_config: Strategy-specific configuration
+        bot_config: bot configuration for accessing leverage, margin, etc.
         logger: Optional logger to inherit from bot
         
     Returns:
@@ -58,20 +63,24 @@ def get_entry_strategy(entry_strategy: EntryStrategy, dynamic_config: Dict[str, 
         # Dynamic import
         module = __import__(module_path, fromlist=[class_name])
         strategy_class = getattr(module, class_name)
-        return strategy_class(dynamic_config=dynamic_config, logger=logger)
+        return strategy_class(bot_config=bot_config, logger=logger)
     except ImportError as e:
         raise ImportError(f"Failed to import {class_name} from {module_path}: {e}")
     except AttributeError as e:
         raise ImportError(f"Class {class_name} not found in {module_path}: {e}")
 
 
-def get_exit_strategy(exit_strategy: ExitStrategy, dynamic_config: Dict[str, Any], logger: Optional[CustomLogger] = None) -> BaseExitStrategy:
+def get_exit_strategy(
+    exit_strategy: ExitStrategy,
+    bot_config: BotConfig,
+    logger: Optional[CustomLogger] = None
+) -> BaseExitStrategy:
     """
     Factory function to create exit strategy instances.
     
     Args:
         exit_strategy: Exit strategy enum
-        dynamic_config: Strategy-specific configuration
+        bot_config: bot configuration for accessing leverage, margin, etc.
         logger: Optional logger to inherit from bot
         
     Returns:
@@ -93,7 +102,7 @@ def get_exit_strategy(exit_strategy: ExitStrategy, dynamic_config: Dict[str, Any
         # Dynamic import
         module = __import__(module_path, fromlist=[class_name])
         strategy_class = getattr(module, class_name)
-        return strategy_class(dynamic_config=dynamic_config, logger=logger)
+        return strategy_class(bot_config=bot_config, logger=logger)
     except ImportError as e:
         raise ImportError(f"Failed to import {class_name} from {module_path}: {e}")
     except AttributeError as e:
@@ -103,7 +112,7 @@ def get_exit_strategy(exit_strategy: ExitStrategy, dynamic_config: Dict[str, Any
 def init_strategies(
     entry_strategy: EntryStrategy,
     exit_strategy: ExitStrategy,
-    dynamic_config: Dict[str, Any],
+    bot_config: BotConfig,
     logger: Optional[CustomLogger] = None
 ) -> Tuple[BaseEntryStrategy, BaseExitStrategy]:
     """
@@ -112,7 +121,7 @@ def init_strategies(
     Args:
         entry_strategy: Entry strategy enum
         exit_strategy: Exit strategy enum
-        dynamic_config: Strategy-specific configuration
+        bot_config: Optional bot configuration for accessing leverage, margin, etc.
         logger: Optional logger to inherit from bot
         
     Returns:
@@ -124,12 +133,12 @@ def init_strategies(
     try:
         entry = get_entry_strategy(
             entry_strategy=entry_strategy,
-            dynamic_config=dynamic_config,
+            bot_config=bot_config,
             logger=logger
         )
         exit = get_exit_strategy(
             exit_strategy=exit_strategy,
-            dynamic_config=dynamic_config,
+            bot_config=bot_config,
             logger=logger
         )
     except (ValueError, ImportError) as e:

@@ -59,7 +59,7 @@ class Bot:
         self.entry_strategy, self.exit_strategy = get_strategy.init_strategies(
             entry_strategy=self.bot_config.entry_strategy,
             exit_strategy=self.bot_config.exit_strategy,
-            dynamic_config=self.bot_config.dynamic_config,
+            bot_config=self.bot_config,
             logger=self.logger
         )
         self.logger.info(

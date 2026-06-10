@@ -17,6 +17,7 @@ Best performing configurations from backtests:
 """
 
 from abstracts.base_entry_strategy import BaseEntryStrategy
+from models.bot_config import BotConfig
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
 from core.position_handler import PositionHandler
@@ -26,10 +27,12 @@ import pandas as pd
 class EntryGuaranteedScalp(BaseEntryStrategy):
     """Guaranteed scalp entry strategy with fixed TP for high win rate."""
 
-    def __init__(self, dynamic_config, logger=None):
+    def __init__(self, bot_config: BotConfig, logger=None):
         super().__init__(logger=logger)
-        self.tp_pct = dynamic_config.get('tp_pct', 0.0015)  # Default 0.15%
-        self.decimal = dynamic_config.get('decimal', 2)
+        self.bot_config: BotConfig = bot_config
+        self.dynamic_config = bot_config.dynamic_config
+        self.tp_pct = self.dynamic_config.get('tp_pct', 0.0015)  # Default 0.15%
+        self.decimal = self.dynamic_config.get('decimal', 2)
         
         self.logger.info(f"Initialized GuaranteedScalp: tp_pct={self.tp_pct*100:.2f}%")
 

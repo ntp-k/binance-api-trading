@@ -1,4 +1,5 @@
 from models.enum.position_side import PositionSide
+from models.bot_config import BotConfig
 from abstracts.base_entry_strategy import BaseEntryStrategy
 import strategies.data_processor as data_processor
 from models.position_signal import PositionSignal
@@ -13,10 +14,11 @@ class EntryMacdHistState(BaseEntryStrategy):
     dynamic_config: dict
     ema_period: float
 
-    def __init__(self, dynamic_config, logger=None):
+    def __init__(self, bot_config: BotConfig, logger=None):
         super().__init__(logger=logger)
-        self.dynamic_config = dynamic_config
-        self.ema_period = dynamic_config.get('ema_period', 200)
+        self.bot_config: BotConfig = bot_config
+        self.dynamic_config = bot_config.dynamic_config
+        self.ema_period = self.dynamic_config.get('ema_period', 200)
 
     def _process_data(self, klines_df):
         klines_df = data_processor.calculate_macd(df=klines_df, decimal=self.dynamic_config.get('macd_decimal', 2))

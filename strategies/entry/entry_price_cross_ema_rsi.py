@@ -1,4 +1,5 @@
 from abstracts.base_entry_strategy import BaseEntryStrategy
+from models.bot_config import BotConfig
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
 import strategies.data_processor as data_processor
@@ -39,19 +40,21 @@ class EntryPriceCrossEMARSI(BaseEntryStrategy):
     - Stop-loss: $99 (1 ATR below)
     - Take-profit: $102 (2 ATR above)
     """
-    def __init__(self, dynamic_config, logger=None):
+    def __init__(self, bot_config: BotConfig, logger=None):
         super().__init__(logger=logger)
-        self.decimal = dynamic_config.get('macd_decimal', 2)
-        self.ema_fast = dynamic_config.get('ema_fast', 9)
-        self.ema_slow = dynamic_config.get('ema_slow', 21)
-        self.rsi_period = dynamic_config.get('rsi_period', 14)
-        self.rsi_long_min = dynamic_config.get('rsi_long_min', 55)
-        self.rsi_short_max = dynamic_config.get('rsi_short_max', 45)
+        self.bot_config: BotConfig = bot_config
+        self.dynamic_config = bot_config.dynamic_config
+        self.decimal = self.dynamic_config.get('macd_decimal', 2)
+        self.ema_fast = self.dynamic_config.get('ema_fast', 9)
+        self.ema_slow = self.dynamic_config.get('ema_slow', 21)
+        self.rsi_period = self.dynamic_config.get('rsi_period', 14)
+        self.rsi_long_min = self.dynamic_config.get('rsi_long_min', 55)
+        self.rsi_short_max = self.dynamic_config.get('rsi_short_max', 45)
 
         # for tp/sl
-        self.atr_period = dynamic_config.get('atr_period', 14)
-        self.tp_multiplier = dynamic_config.get('take_profit_atr', 2.0)
-        self.sl_multiplier   = dynamic_config.get('stop_loss_atr', 1.0)
+        self.atr_period = self.dynamic_config.get('atr_period', 14)
+        self.tp_multiplier = self.dynamic_config.get('take_profit_atr', 2.0)
+        self.sl_multiplier   = self.dynamic_config.get('stop_loss_atr', 1.0)
 
     def _process_data(self, klines_df):
         klines_df = data_processor.calculate_ema(df=klines_df, ema=self.ema_fast, decimal=self.decimal)

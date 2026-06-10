@@ -16,6 +16,7 @@ Best performing configurations from backtests:
 """
 
 from abstracts.base_entry_strategy import BaseEntryStrategy
+from models.bot_config import BotConfig
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
 from core.position_handler import PositionHandler
@@ -25,12 +26,14 @@ import pandas as pd
 class EntryWickMeanReversion(BaseEntryStrategy):
     """Mean reversion entry strategy based on previous candle body strength."""
 
-    def __init__(self, dynamic_config, logger=None):
+    def __init__(self, bot_config: BotConfig, logger=None):
         super().__init__(logger=logger)
-        self.min_body_pct = dynamic_config.get('min_body_pct', 0.005)  # Default 0.5%
-        self.decimal = dynamic_config.get('decimal', 2)
-        self.training_candles = dynamic_config.get('training_candles', 300)
-        self.percentile = dynamic_config.get('percentile', 0.25)  # Default 25th percentile (0.15-0.40)
+        self.bot_config: BotConfig = bot_config
+        self.dynamic_config = bot_config.dynamic_config
+        self.min_body_pct = self.dynamic_config.get('min_body_pct', 0.005)  # Default 0.5%
+        self.decimal = self.dynamic_config.get('decimal', 2)
+        self.training_candles = self.dynamic_config.get('training_candles', 300)
+        self.percentile = self.dynamic_config.get('percentile', 0.25)  # Default 25th percentile (0.15-0.40)
         self.upper_wick_percentile = None
         self.lower_wick_percentile = None
         

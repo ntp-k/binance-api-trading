@@ -20,6 +20,7 @@ from typing import Tuple
 import pandas as pd
 
 from abstracts.base_entry_strategy import BaseEntryStrategy
+from models.bot_config import BotConfig
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
 from core.position_handler import PositionHandler
@@ -39,17 +40,18 @@ class EntryMomentumTrendFiltered(BaseEntryStrategy):
         atr_threshold_multiplier: ATR threshold multiplier (default: 0.9)
     """
     
-    def __init__(self, dynamic_config: dict, logger=None):
+    def __init__(self, bot_config: BotConfig, logger=None):
         super().__init__(logger=logger)
-        self.dynamic_config = dynamic_config
+        self.bot_config: BotConfig = bot_config
+        self.dynamic_config = bot_config.dynamic_config
         
         # Configuration parameters with defaults
-        self.min_body_pct = float(dynamic_config.get('min_body_pct', 0.005))
-        self.sl_buffer = float(dynamic_config.get('sl_buffer', 0.001))
-        self.ema_period = int(dynamic_config.get('ema_period', 200))
-        self.atr_period = int(dynamic_config.get('atr_period', 14))
-        self.atr_ma_period = int(dynamic_config.get('atr_ma_period', 20))
-        self.atr_threshold_multiplier = float(dynamic_config.get('atr_threshold_multiplier', 0.9))
+        self.min_body_pct = float(self.dynamic_config.get('min_body_pct', 0.005))
+        self.sl_buffer = float(self.dynamic_config.get('sl_buffer', 0.001))
+        self.ema_period = int(self.dynamic_config.get('ema_period', 200))
+        self.atr_period = int(self.dynamic_config.get('atr_period', 14))
+        self.atr_ma_period = int(self.dynamic_config.get('atr_ma_period', 20))
+        self.atr_threshold_multiplier = float(self.dynamic_config.get('atr_threshold_multiplier', 0.9))
         
         self.logger.info(
             f"Initialized with: min_body={self.min_body_pct:.3%}, "

@@ -1,4 +1,5 @@
 from abstracts.base_exit_strategy import BaseExitStrategy
+from models.bot_config import BotConfig
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
 from core.position_handler import PositionHandler
@@ -12,15 +13,10 @@ class ExitTPSL(BaseExitStrategy):
     - SHORT position: price <= TP or price >= SL
     """
 
-    def __init__(self, dynamic_config, logger=None):
-        """
-        Initialize TP/SL exit strategy.
-        
-        Args:
-            dynamic_config: Dynamic configuration dictionary (not used but kept for consistency)
-        """
+    def __init__(self, bot_config: BotConfig, logger=None):
         super().__init__(logger=logger)
-        self.dynamic_config = dynamic_config
+        self.bot_config: BotConfig = bot_config
+        self.dynamic_config = bot_config.dynamic_config
 
     def _process_data(self, klines_df):
         """
