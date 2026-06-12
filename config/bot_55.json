@@ -8,7 +8,7 @@
     "entry_strategy": "scalp_body_filter_momentum",
     "exit_strategy": "countdown",
     "tp_enabled": true,
-    "sl_enabled": false,
+    "sl_enabled": true,
     "symbol": "XRPUSDC",
     "leverage": 15,
     "quantity": 0.001,
