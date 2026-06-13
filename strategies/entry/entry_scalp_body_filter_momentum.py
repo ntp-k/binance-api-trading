@@ -70,10 +70,13 @@ class EntryScalpBodyFilterMomentum(BaseEntryStrategy):
         # Check if it's a new candle
         current_open_time = str(current_candle['open_time'])
         last_position_open_candle = position_handler.last_position_open_candle
-        
-        # First run: store current candle but don't enter
-        if last_position_open_candle is None or last_position_open_candle == '':
-            checklist_reasons.append(f"First run - storing candle {current_open_time[5:-9]} for next check: ⏳")
+
+        # skip first run
+        if last_position_open_candle == '':
+            position_handler.last_position_open_candle = current_open_time
+            checklist_reasons.append(
+                f"First run, skipping (last: {last_position_open_candle[5:-9]} / cur: {current_open_time[5:-9]}) ❌"
+            )
             reason_message = " | ".join(checklist_reasons)
             return PositionSignal(position_side=new_position_side, reason=reason_message)
         
