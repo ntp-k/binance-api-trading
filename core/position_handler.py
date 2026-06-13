@@ -40,7 +40,6 @@ class PositionHandler:
         self._tp_backup_order_id: str = ''  # Backup STOP_MARKET TP order
         self._tp_price: float = 0.0
         self._sl_order_id: str = ''
-        self._sl_backup_order_id: str = ''  # Backup STOP_MARKET SL order
         self._sl_price: float = 0.0
         self.last_position_open_candle: str = ''
         self.last_position_close_time: str = ''
@@ -144,14 +143,6 @@ class PositionHandler:
         """Set SL order ID (legacy method)."""
         self.sl_order_id = id
     
-    def set_sl_backup_order_id(self, id: str) -> None:
-        """Set SL backup order ID."""
-        self._sl_backup_order_id = id
-    
-    def get_sl_backup_order_id(self) -> str:
-        """Get SL backup order ID."""
-        return self._sl_backup_order_id
-    
     def set_sl_price(self, price: float) -> None:
         """Set SL price (legacy method)."""
         self.sl_price = price
@@ -167,7 +158,6 @@ class PositionHandler:
         self._tp_backup_order_id = ''
         self._tp_price = 0.0
         self._sl_order_id = ''
-        self._sl_backup_order_id = ''
         self._sl_price = 0.0
 
     def open_position(self, position_dict: dict) -> None:
