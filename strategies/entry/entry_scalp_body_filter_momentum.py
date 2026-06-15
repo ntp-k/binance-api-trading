@@ -174,7 +174,7 @@ class EntryScalpBodyFilterMomentum(BaseEntryStrategy):
             # Get quantity from opened position (most accurate)
             quantity = None
             if position_handler is not None:
-                if position is not None and position.quantity > 0:
+                if position is not None and position.quantity != 0: # positive for long and negative for short
                     quantity = position.quantity
                     self.logger.debug(f"Using actual position quantity: {quantity}")
             
@@ -182,14 +182,15 @@ class EntryScalpBodyFilterMomentum(BaseEntryStrategy):
                 # Calculate SL price that results in sl_target_pnl
                 # For LONG: sl_target_pnl = (sl_price - entry_price) * quantity
                 #           sl_price = entry_price + (sl_target_pnl / quantity)
-                # For SHORT: sl_target_pnl = (entry_price - sl_price) * quantity
-                #            sl_price = entry_price - (sl_target_pnl / quantity)
+                # For SHORT: sl_target_pnl = (entry_price - sl_price) * abs(quantity)
+                #            sl_price = entry_price - (sl_target_pnl / abs(quantity))
                 
                 if position_side == PositionSide.LONG:
                     sl_price = entry_price + (sl_target_pnl / quantity)
                     sl_price = round(sl_price, self.decimal)
                 elif position_side == PositionSide.SHORT:
-                    sl_price = entry_price - (sl_target_pnl / quantity)
+                    # Use absolute value of quantity for SHORT positions
+                    sl_price = entry_price - (sl_target_pnl / abs(quantity))
                     sl_price = round(sl_price, self.decimal)
             else:
                 self.logger.warning(
