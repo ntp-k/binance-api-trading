@@ -84,22 +84,22 @@ class EntryWickMeanReversion(BaseEntryStrategy):
             checklist_reasons.append("Percentiles not calculated yet: ❌")
             return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
 
-        # Check if it's a new candle
+        # Check if it's a new candle (compare with last close candle, not open candle)
         current_open_time = str(current_candle['open_time'])
-        last_position_open_candle = position_handler.last_position_open_candle
+        last_position_close_candle = position_handler.last_position_close_candle
 
         # skip first run
-        if last_position_open_candle == '':
-            position_handler.last_position_open_candle = current_open_time
+        if last_position_close_candle == '':
+            position_handler.last_position_close_candle = current_open_time
             checklist_reasons.append(
-                f"First run, skipping (last: \"{last_position_open_candle[5:-9]}\" / cur: {current_open_time[5:-9]}) ❌"
+                f"First run, skipping (last_close: \"{last_position_close_candle[5:-9]}\" / cur: {current_open_time[5:-9]}) ❌"
             )
             reason_message = " | ".join(checklist_reasons)
             return PositionSignal(position_side=new_position_side, reason=reason_message)
         
-        new_candle = current_open_time != last_position_open_candle
+        new_candle = current_open_time != last_position_close_candle
         if not new_candle:
-            checklist_reasons.append(f"Not new candle (last: {last_position_open_candle[5:-9]} / cur: {current_open_time[5:-9]}): ❌")
+            checklist_reasons.append(f"Not new candle (last_close: {last_position_close_candle[5:-9]} / cur: {current_open_time[5:-9]}): ❌")
             return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
 
         # Check body change filter

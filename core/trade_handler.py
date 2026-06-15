@@ -894,7 +894,7 @@ class TradeHandler:
             except Exception as e:
                 self.logger.warning(f"Failed to cancel SL STOP_MARKET order: {e}")
 
-    def monitor_tp_sl_fill(self, close_candle_open_time: str = '', backtest_metrics=None) -> bool:
+    def monitor_tp_sl_fill(self, current_candle_open_time: str = '', backtest_metrics=None) -> bool:
         """
         Monitor TP/SL orders and close position if any is filled.
         
@@ -907,7 +907,7 @@ class TradeHandler:
         3. Orders EXPIRED/CANCELLED: position was liquidated - clear state.
         
         Args:
-            close_candle_open_time: Candle open time for close timestamp
+            current_candle_open_time: Candle open time for close timestamp
             backtest_metrics: Optional backtest metrics object to track trades
         
         Returns:
@@ -1033,11 +1033,11 @@ class TradeHandler:
                         'close_reason': 'LIQUIDATED',
                         'close_price': close_price,
                         'pnl': final_pnl,
-                        'close_candle_open_time': close_candle_open_time
+                        'current_candle_open_time': current_candle_open_time
                     }
                     
                     if self.bot_config.run_mode == RunMode.BACKTEST:
-                        closed_position_dict['close_time'] = close_candle_open_time
+                        closed_position_dict['close_time'] = current_candle_open_time
                     
                     trade_dict = self.position_handler.close_position(position_dict=closed_position_dict)
                     
@@ -1105,10 +1105,10 @@ class TradeHandler:
                     'close_reason': close_reason,
                     'close_price': order_trade['price'],
                     'pnl': order_trade['pnl'],
-                    'close_candle_open_time': close_candle_open_time
+                    'current_candle_open_time': current_candle_open_time
                 }
                 if self.bot_config.run_mode == RunMode.BACKTEST:
-                    closed_position_dict['close_time'] = close_candle_open_time
+                    closed_position_dict['close_time'] = current_candle_open_time
 
                 trade_dict = self.position_handler.close_position(position_dict=closed_position_dict)
                 self.position_handler.clear_tp_sl_orders()

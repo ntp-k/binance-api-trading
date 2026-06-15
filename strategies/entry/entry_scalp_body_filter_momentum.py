@@ -52,9 +52,10 @@ class EntryScalpBodyFilterMomentum(BaseEntryStrategy):
     def should_open(self, klines_df, position_handler: PositionHandler) -> PositionSignal:
         """
         Determine if position should be opened based on:
-        1. New candle check OR last position held < min_holding_seconds (quick exit allows re-entry)
-        2. Previous candle body percentage >= threshold
-        3. Previous candle direction (green = LONG, red = SHORT)
+        1. New candle check (current != last_position_close_candle)
+        2. Quick exit exception: allow re-entry on same candle if last position held < min_holding_seconds
+        3. Previous candle body percentage >= threshold
+        4. Previous candle direction (green = LONG, red = SHORT)
         """
         symbol = position_handler.bot_config.symbol
         new_position_side = PositionSide.ZERO
@@ -67,20 +68,20 @@ class EntryScalpBodyFilterMomentum(BaseEntryStrategy):
         prev_candle = klines_df.iloc[-2]
         current_candle = klines_df.iloc[-1]
         
-        # Check if it's a new candle
+        # Check if it's a new candle (compare with last close candle, not open candle)
         current_open_time = str(current_candle['open_time'])
-        last_position_open_candle = position_handler.last_position_open_candle
+        last_position_close_candle = position_handler.last_position_close_candle
 
         # skip first run
-        if last_position_open_candle == '':
-            position_handler.last_position_open_candle = current_open_time
+        if last_position_close_candle == '':
+            position_handler.last_position_close_candle = current_open_time
             checklist_reasons.append(
-                f"First run, skipping (last: \"{last_position_open_candle[5:-9]}\" / cur: {current_open_time[5:-9]}) ❌"
+                f"First run, skipping (last_close: \"{last_position_close_candle[5:-9]}\" / cur: {current_open_time[5:-9]}) ❌"
             )
             reason_message = " | ".join(checklist_reasons)
             return PositionSignal(position_side=new_position_side, reason=reason_message)
         
-        new_candle = current_open_time != last_position_open_candle
+        new_candle = current_open_time != last_position_close_candle
         
         # Check if last position was held for less than min_holding_seconds (quick exit)
         last_holding_seconds = position_handler.last_position_holding_seconds
@@ -91,7 +92,7 @@ class EntryScalpBodyFilterMomentum(BaseEntryStrategy):
 
         if not can_enter:
             checklist_reasons.append(
-                f"Not a new candle (last: {last_position_open_candle[5:-9]} / cur: {current_open_time[5:-9]}) "
+                f"Not a new candle (last_close: {last_position_close_candle[5:-9]} / cur: {current_open_time[5:-9]}) "
                 f"AND not quick exit (holding: {last_holding_seconds:.1f}s >= {self.min_holding_seconds}s): ❌"
             )
             reason_message = " | ".join(checklist_reasons)

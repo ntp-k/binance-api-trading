@@ -291,7 +291,7 @@ class Bot:
         """Monitor TP/SL orders and process if filled."""
         try:
             return self.trade_handler.monitor_tp_sl_fill(
-                close_candle_open_time=current_candle_open_time,
+                current_candle_open_time=current_candle_open_time,
                 backtest_metrics=self.backtest_metrics
             )
         except Exception as e:
@@ -340,7 +340,7 @@ class Bot:
             self.position_handler.clear_tp_sl_orders()
             
             closed_position_dict['close_reason'] = exit_signal.reason
-            closed_position_dict['close_candle_open_time'] = current_candle_open_time
+            closed_position_dict['current_candle_open_time'] = current_candle_open_time
             
             # For backtest mode, explicitly set close_time to candle open time
             if self.bot_config.run_mode == RunMode.BACKTEST:

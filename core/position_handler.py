@@ -43,7 +43,7 @@ class PositionHandler:
         self._sl_price: float = 0.0
         self._last_known_price: float = 0.0  # Track last known market price for liquidation scenarios
         self.last_position_open_candle: str = ''
-        self.last_position_close_time: str = ''
+        self.last_position_close_candle: str = ''
         self.last_position_holding_seconds: float = 0.0
 
         # Ensure directories exist
@@ -190,6 +190,7 @@ class PositionHandler:
         
         Args:
             position_dict: Dictionary with close_fee, close_reason, close_price, pnl,
+                          current_candle_open_time (current candle when closing),
                           and optionally close_time (for backtest mode)
         
         Returns:
@@ -212,11 +213,13 @@ class PositionHandler:
             )
         
         self.position.pnl = position_dict.get('pnl', 0.0)
+        
+        # Store both open and close candles for entry strategy logic
         self.last_position_open_candle = self.position.open_candle
+        self.last_position_close_candle = position_dict.get('current_candle_open_time', '')
         
         # Calculate and store holding time
         if self.position.close_time:
-            self.last_position_close_time = self.position.close_time
             try:
                 from datetime import datetime
                 open_dt = datetime.strptime(self.position.open_time, '%Y-%m-%d %H:%M:%S')
@@ -227,7 +230,6 @@ class PositionHandler:
                 self.logger.warning(f"Could not calculate holding time: {e}")
                 self.last_position_holding_seconds = 0.0
         else:
-            self.last_position_close_time = ''
             self.last_position_holding_seconds = 0.0
 
         # Create trade dict for backtest tracking
