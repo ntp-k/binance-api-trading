@@ -1,15 +1,15 @@
 {
-    "is_enabled": true,
-    "bot_id": 55,
-    "run_id": 55,
-    "bot_name": "bot 55",
+    "is_enabled": false,
+    "bot_id": 56,
+    "run_id": 56,
+    "bot_name": "bot 56",
     "run_mode": "live",
     "trade_client": "binance",
     "entry_strategy": "SCALP_BODY_FILTER_MOMENTUM",
     "exit_strategy": "COUNTDOWN_WITH_MAX_LOSS",
     "tp_enabled": true,
     "sl_enabled": false,
-    "symbol": "XRPUSDC",
+    "symbol": "ADAUSDC",
     "leverage": 15,
     "quantity": 0.001,
     "position_margin": 5.0,
@@ -24,5 +24,5 @@
         "countdown_minutes": 300,
         "sl_target_pnl": -4.0
     },
-    "created_at": "2026-06-09T12:00:00"
+    "created_at": "2026-06-10T18:27:00"
 }
