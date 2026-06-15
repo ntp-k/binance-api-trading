@@ -6,7 +6,7 @@
     "run_mode": "live",
     "trade_client": "binance",
     "entry_strategy": "WICK_MEAN_REVERSION",
-    "exit_strategy": "CANDLE_CLOSE",
+    "exit_strategy": "COUNTDOWN_WITH_MAX_LOSS",
     "tp_enabled": true,
     "sl_enabled": false,
     "symbol": "BTCUSDC",
@@ -20,7 +20,9 @@
         "min_body_pct": 0.003,
         "decimal": 1,
         "training_candles": 180,
-        "percentile": 0.25
+        "percentile": 0.25,
+        "countdown_minutes": 230,
+        "sl_target_pnl": -2.0
     },
     "created_at": "2026-06-16T00:04:00"
 }
