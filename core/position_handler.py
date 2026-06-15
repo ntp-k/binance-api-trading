@@ -41,6 +41,7 @@ class PositionHandler:
         self._tp_price: float = 0.0
         self._sl_order_id: str = ''
         self._sl_price: float = 0.0
+        self._last_known_price: float = 0.0  # Track last known market price for liquidation scenarios
         self.last_position_open_candle: str = ''
         self.last_position_close_time: str = ''
         self.last_position_holding_seconds: float = 0.0
@@ -150,6 +151,14 @@ class PositionHandler:
     def get_sl_order_id(self) -> str:
         """Get SL order ID (legacy method)."""
         return self.sl_order_id
+    
+    def update_last_known_price(self, price: float) -> None:
+        """Update the last known market price for the position."""
+        self._last_known_price = price
+    
+    def get_last_known_price(self) -> float:
+        """Get the last known market price."""
+        return self._last_known_price
 
     def clear_tp_sl_orders(self) -> None:
         """Clear all TP/SL order information."""
@@ -159,6 +168,7 @@ class PositionHandler:
         self._tp_price = 0.0
         self._sl_order_id = ''
         self._sl_price = 0.0
+        self._last_known_price = 0.0
 
     def open_position(self, position_dict: dict) -> None:
         """

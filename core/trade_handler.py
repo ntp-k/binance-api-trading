@@ -899,10 +899,12 @@ class TradeHandler:
         Monitor TP/SL orders and close position if any is filled.
         
         Checks both TP orders (LIMIT and STOP_MARKET backup) and SL order.
+        Also detects EXPIRED/CANCELLED orders which indicate liquidation.
         
         Scenarios:
         1. Both TP and SL enabled: only one can hit; cancel the others.
         2. Only one order enabled: works normally.
+        3. Orders EXPIRED/CANCELLED: position was liquidated - clear state.
         
         Args:
             close_candle_open_time: Candle open time for close timestamp
@@ -918,19 +920,30 @@ class TradeHandler:
         sl_filled = False
         tp_limit_filled = False
         tp_backup_filled = False
+        
+        # Track if orders are expired/cancelled (liquidation scenario)
+        orders_expired_or_cancelled = False
+        expired_count = 0
+        total_orders = 0
 
         # Check SL STOP_MARKET order
         if self.bot_config.sl_enabled:
             sl_order_id = self.position_handler.get_sl_order_id()
             if sl_order_id:
+                total_orders += 1
                 try:
                     _check_sl_order = self.trade_client.fetch_algorithmic_order(order_id=sl_order_id)
                     sl_status = _check_sl_order.get('algoStatus')
+                    self.logger.debug(f"SL Algo order ID={sl_order_id}, Status={sl_status}")
+                    
                     if sl_status == ALGO_ORDER_STATUS_FINISHED:
                         self.logger.info("SL STOP_MARKET hit ✅ (taker fee)")
                         filled_order_id = _check_sl_order.get('actualOrderId')
                         close_reason = 'SL Hit (STOP_MARKET)'
                         sl_filled = True
+                    elif sl_status in ['EXPIRED', 'CANCELLED']:
+                        self.logger.warning(f"SL order {sl_status} - likely liquidation")
+                        expired_count += 1
                 except Exception as e:
                     self.logger.warning(f"Failed to check SL STOP_MARKET order: {e}")
 
@@ -938,17 +951,23 @@ class TradeHandler:
         if self.bot_config.tp_enabled and not filled_order_id:
             tp_order_id = self.position_handler.get_tp_order_id()
             if tp_order_id:
+                total_orders += 1
                 try:
                     _check_tp_order = self.trade_client.fetch_order(
                         symbol=self.bot_config.symbol,
                         order_id=tp_order_id
                     )
                     tp_status = _check_tp_order.get('status')
+                    self.logger.debug(f"TP Limit Order status: {tp_status}")
+                    
                     if tp_status == ORDER_STATUS_FILLED:
                         self.logger.info("TP LIMIT hit ✅ (0% fee)")
                         filled_order_id = tp_order_id
                         close_reason = 'TP Hit (LIMIT)'
                         tp_limit_filled = True
+                    elif tp_status in ['EXPIRED', 'CANCELED']:
+                        self.logger.warning(f"TP LIMIT order {tp_status} - likely liquidation")
+                        expired_count += 1
                 except Exception as e:
                     self.logger.warning(f"Failed to check TP LIMIT order: {e}")
         
@@ -956,16 +975,89 @@ class TradeHandler:
         if self.bot_config.tp_enabled and not filled_order_id:
             tp_backup_order_id = self.position_handler.get_tp_backup_order_id()
             if tp_backup_order_id:
+                total_orders += 1
                 try:
                     _check_tp_backup = self.trade_client.fetch_algorithmic_order(order_id=tp_backup_order_id)
                     tp_backup_status = _check_tp_backup.get('algoStatus')
+                    self.logger.debug(f"TP Algo order ID={tp_backup_order_id}, Status={tp_backup_status}.")
+                    
                     if tp_backup_status == ALGO_ORDER_STATUS_FINISHED:
                         self.logger.info("TP STOP_MARKET backup hit ✅ (taker fee)")
                         filled_order_id = _check_tp_backup.get('actualOrderId')
                         close_reason = 'TP Hit (STOP_MARKET backup)'
                         tp_backup_filled = True
+                    elif tp_backup_status in ['EXPIRED', 'CANCELLED']:
+                        self.logger.warning(f"TP backup order {tp_backup_status} - likely liquidation")
+                        expired_count += 1
                 except Exception as e:
                     self.logger.warning(f"Failed to check TP STOP_MARKET backup: {e}")
+        
+        # Check if all orders are expired/cancelled (liquidation scenario)
+        if total_orders > 0 and expired_count == total_orders:
+            orders_expired_or_cancelled = True
+            self.logger.error(
+                f"🚨 LIQUIDATION DETECTED: All {total_orders} TP/SL orders are EXPIRED/CANCELLED")
+            
+            # Try to fetch final position state to get liquidation PnL
+            try:
+                # Fetch position one more time to see if we can get final PnL
+                remote_position = self.trade_client.fetch_position(symbol=self.bot_config.symbol)
+                
+                # If position still exists (rare), get the PnL
+                if remote_position:
+                    final_pnl = remote_position.get('pnl', 0.0)
+                    close_price = remote_position.get('mark_price', 0.0)
+                    self.logger.info(f"Captured liquidation PnL from exchange: {final_pnl:.4f}")
+                else:
+                    # Position already gone, use last known state
+                    if self.position_handler.position:
+                        final_pnl = self.position_handler.position.pnl
+                        # Use last known price tracked during position monitoring
+                        close_price = self.position_handler.get_last_known_price()
+                        if close_price == 0.0:
+                            # Fallback to entry price if last known price wasn't tracked
+                            close_price = self.position_handler.position.entry_price
+                            self.logger.warning(f"Using entry price as close price for liquidation")
+                        else:
+                            self.logger.info(f"Using last known price {close_price:.4f} as liquidation close price")
+                        self.logger.warning(f"Using last known PnL for liquidation: {final_pnl:.4f}")
+                    else:
+                        final_pnl = 0.0
+                        close_price = 0.0
+                        self.logger.warning("Could not determine liquidation PnL")
+                
+                # Save liquidation record if we have a position
+                if self.position_handler.position:
+                    closed_position_dict = {
+                        'close_fee': 0.0,  # Liquidation fee already included in PnL
+                        'close_reason': 'LIQUIDATED',
+                        'close_price': close_price,
+                        'pnl': final_pnl,
+                        'close_candle_open_time': close_candle_open_time
+                    }
+                    
+                    if self.bot_config.run_mode == RunMode.BACKTEST:
+                        closed_position_dict['close_time'] = close_candle_open_time
+                    
+                    trade_dict = self.position_handler.close_position(position_dict=closed_position_dict)
+                    
+                    # Track trade for backtest
+                    if backtest_metrics and trade_dict:
+                        backtest_metrics.add_trade(trade_dict)
+                    
+                    self.logger.info(
+                        f"{self.bot_config.symbol} | LIQUIDATED | PnL: {final_pnl:.4f}")
+                
+            except Exception as e:
+                self.logger.error_e(message="Error capturing liquidation PnL", e=e)
+            
+            # Clear position state and TP/SL orders
+            self.position_handler.clear_position()
+            self.position_handler.clear_tp_sl_orders()
+            self.clear_cached_quantity()
+            
+            self.logger.warning("Cleared position state after liquidation detection")
+            return True  # Return True to indicate state was cleared
 
         # Process filled order
         if filled_order_id:

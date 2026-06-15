@@ -169,8 +169,19 @@ class Bot:
                 # clear_position() will update last_position_open_candle to prevent re-entry on same candle
                 self.position_handler.clear_position()
             else:
-                # In TP/SL mode - position might have been closed by TP/SL
+                # In TP/SL mode - position might have been closed by TP/SL or liquidated
                 self.logger.debug(message='Suspect TP/SL were hit - position closed on exchange')
+        
+        # CASE 1b: No position on remote and no position in memory, but TP/SL orders exist
+        # This happens when liquidation occurs and monitor_tp_sl_fill hasn't run yet
+        elif not remote_position_dict and not self.position_handler.is_open():
+            have_tp = bool(self.position_handler.tp_order_id)
+            have_sl = bool(self.position_handler.sl_order_id)
+            
+            if have_tp or have_sl:
+                self.logger.warning(
+                    message="⚠️ No position but TP/SL orders exist - likely LIQUIDATION, will check orders")
+                # Don't clear here - let monitor_tp_sl_fill handle it in the next cycle
 
         # CASE 2: Have position on remote but no position in local -> sync local with remote
         elif remote_position_dict and not self.position_handler.is_open():
@@ -293,9 +304,11 @@ class Bot:
         current_candle_open_time: str
     ) -> bool:
         """Check for exit signals and close position if triggered."""
-        # Update PnL
+        # Update PnL and last known price
         pnl = active_position_dict.get('pnl', 0.0)
+        mark_price = active_position_dict.get('mark_price', 0.0)
         self.position_handler.update_pnl(pnl=pnl)
+        self.position_handler.update_last_known_price(price=mark_price)
         
         # Check exit signal
         try:
