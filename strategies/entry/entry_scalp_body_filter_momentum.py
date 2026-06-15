@@ -37,7 +37,7 @@ class EntryScalpBodyFilterMomentum(BaseEntryStrategy):
         self.min_holding_seconds = self.dynamic_config.get('min_holding_seconds', 60)  # 60 seconds default
         
         self.logger.info(
-            f"Initialized with min_body_pct={self.min_body_pct}, tp_pct={self.tp_pct}, "
+            f"Initialized EntryScalpBodyFilterMomentum: min_body_pct={self.min_body_pct}, tp_pct={self.tp_pct}, "
             f"min_holding_seconds={self.min_holding_seconds}"
         )
 

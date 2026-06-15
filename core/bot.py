@@ -31,6 +31,7 @@ class Bot:
 
         self.bot_config: BotConfig = bot_config
 
+        self.logger.debug(message=f'Initializing position handler')
         self.position_handler: PositionHandler = PositionHandler(
             bot_config=bot_config,
             logger=self.logger
