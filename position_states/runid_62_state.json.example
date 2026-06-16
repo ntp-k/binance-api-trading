@@ -1,0 +1,22 @@
+{
+    "run_id": 62,
+    "symbol": "DOGEUSDC",
+    "position_side": "LONG",
+    "entry_price": 0.09051,
+    "quantity": 827.0,
+    "open_candle": "2026-06-15 23:00:00+07:00",
+    "open_reason": "DOGEUSDC Entry Signal | Prev candle body_pct 0.0107 >= 0.0010: \u2705 | Prev candle GREEN -> LONG: \u2705",
+    "open_time": "2026-06-15 23:00:25",
+    "open_fee": 0.0,
+    "close_time": "2026-06-15 23:35:17",
+    "close_price": 0.09032,
+    "pnl": -0.71383332,
+    "close_reason": "DOGEUSDC Exit Signal | Max Loss | price 0.08716 vs SL 0.08336: x | Countdown | elapsed 300.1min >= 300min: \u2705 FORCE CLOSE",
+    "close_fee": 0.0,
+    "max_pnl": 0.01552279,
+    "min_pnl": -1.06683,
+    "tp_price": 0.0906,
+    "sl_price": 0.08567,
+    "tp_order_id": 5977177660,
+    "sl_order_id": "5977177661"
+}
