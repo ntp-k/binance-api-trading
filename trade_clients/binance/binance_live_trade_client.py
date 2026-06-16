@@ -330,7 +330,7 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
             # self.logger.debug(message=f"Fetched {len(df)} Klines for {symbol} at {timeframe} interval.")
         except requests.exceptions.HTTPError as e:
             self.logger.error_e(message=f"HTTP error getting Klines", e=e)
-            self.logger.debug(message=f"Response: {response.text}") # type: ignore
+            self.logger.error(message=f"Response: {response.text}") # type: ignore
             return df
         except requests.exceptions.RequestException as e:
             self.logger.error_e(message=f"Network error getting Klines", e=e)
