@@ -10,9 +10,9 @@
     "tp_enabled": true,
     "sl_enabled": false,
     "symbol": "BTCUSDC",
-    "leverage": 40,
+    "leverage": 32,
     "quantity": 0.001,
-    "position_margin": 10.0,
+    "position_margin": 12.5,
     "timeframe": "4h",
     "timeframe_limit": 182,
     "order_type": "MAKER_ONLY",
@@ -22,7 +22,7 @@
         "training_candles": 180,
         "percentile": 0.25,
         "countdown_minutes": 230,
-        "sl_target_pnl": -4.0
+        "sl_target_pnl": -6.0
     },
     "created_at": "2026-06-16T00:04:00"
 }
