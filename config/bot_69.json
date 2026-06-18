@@ -9,7 +9,7 @@
     "exit_strategy": "COUNTDOWN_WITH_MAX_LOSS",
     "tp_enabled": true,
     "sl_enabled": false,
-    "symbol": "XRPUSDC",
+    "symbol": "SOLUSDC",
     "leverage": 20,
     "quantity": 0.001,
     "position_margin": 5.0,
@@ -19,7 +19,7 @@
     "dynamic_config": {
         "min_body_pct": 0.001,
         "tp_pct": 0.001,
-        "decimal": 4,
+        "decimal": 2,
         "min_holding_seconds": 60,
         "countdown_minutes": 230,
         "sl_target_pnl": -2.5

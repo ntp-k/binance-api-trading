@@ -1,16 +1,16 @@
 {
-    "is_enabled": true,
-    "bot_id": 70,
-    "run_id": 70,
-    "bot_name": "bot 70",
+    "is_enabled": false,
+    "bot_id": 66,
+    "run_id": 66,
+    "bot_name": "bot 66",
     "run_mode": "live",
     "trade_client": "binance",
     "entry_strategy": "SCALP_BODY_FILTER_MOMENTUM",
     "exit_strategy": "COUNTDOWN_WITH_MAX_LOSS",
     "tp_enabled": true,
     "sl_enabled": false,
-    "symbol": "XRPUSDC",
-    "leverage": 20,
+    "symbol": "SOLUSDC",
+    "leverage": 15,
     "quantity": 0.001,
     "position_margin": 5.0,
     "timeframe": "4h",
@@ -19,10 +19,10 @@
     "dynamic_config": {
         "min_body_pct": 0.001,
         "tp_pct": 0.001,
-        "decimal": 4,
+        "decimal": 2,
         "min_holding_seconds": 60,
         "countdown_minutes": 230,
-        "sl_target_pnl": -2.5
+        "sl_target_pnl": -2.0
     },
-    "created_at": "2026-06-19T02:25:00"
+    "created_at": "2026-06-16T00:04:00"
 }
