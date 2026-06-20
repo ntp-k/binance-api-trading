@@ -11,7 +11,6 @@ load_dotenv()
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SERVICE_ACCOUNT_FILE = os.getenv('GOOGLE_SHEET_SERVICE_ACCOUNT_FILE', '')
 SPREADSHEET_KEY = os.getenv('GOOGLE_SHEET_SPREADSHEET_KEY', '')  # Replace with your sheet name
-WORKSHEET_INDEX = int(os.getenv('GOOGLE_SHEET_WORKSHEET_INDEX', '0'))    # Replace with your worksheet title
 POSITION_RECORDS_DIR = "position_records"
 
 # 🌐 Google Sheet Setup
