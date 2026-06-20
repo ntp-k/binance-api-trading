@@ -2,7 +2,7 @@
     "is_enabled": true,
     "bot_id": 65,
     "run_id": 65,
-    "bot_name": "bot 55",
+    "bot_name": "bot 65",
     "run_mode": "live",
     "trade_client": "binance",
     "entry_strategy": "SCALP_BODY_FILTER_MOMENTUM",
