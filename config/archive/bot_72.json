@@ -1,0 +1,28 @@
+{
+    "is_enabled": false,
+    "bot_id": 72,
+    "run_id": 72,
+    "bot_name": "bot 72",
+    "run_mode": "live",
+    "trade_client": "binance",
+    "entry_strategy": "SCALP_BODY_FILTER_MOMENTUM",
+    "exit_strategy": "COUNTDOWN_WITH_MAX_LOSS",
+    "tp_enabled": true,
+    "sl_enabled": false,
+    "symbol": "BNBUSDC",
+    "leverage": 15,
+    "quantity": 0.001,
+    "position_margin": 5.0,
+    "timeframe": "4h",
+    "timeframe_limit": 10,
+    "order_type": "MAKER_ONLY",
+    "dynamic_config": {
+        "min_body_pct": 0.001,
+        "tp_pct": 0.0025,
+        "decimal": 2,
+        "min_holding_seconds": 0,
+        "countdown_minutes": 950,
+        "sl_target_pnl": -0.22
+    },
+    "created_at": "2026-06-27T01:06:00"
+}
