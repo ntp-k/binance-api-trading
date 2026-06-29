@@ -1,8 +1,8 @@
 {
     "is_enabled": true,
-    "bot_id": 64,
-    "run_id": 64,
-    "bot_name": "bot 64",
+    "bot_id": 77,
+    "run_id": 77,
+    "bot_name": "bot 77",
     "run_mode": "live",
     "trade_client": "binance",
     "entry_strategy": "WICK_MEAN_REVERSION",
@@ -12,7 +12,7 @@
     "symbol": "ETHUSDC",
     "leverage": 32,
     "quantity": 0.001,
-    "position_margin": 12.5,
+    "position_margin": 25,
     "timeframe": "4h",
     "timeframe_limit": 182,
     "order_type": "MAKER_ONLY",
@@ -22,7 +22,7 @@
         "training_candles": 180,
         "percentile": 0.25,
         "countdown_minutes": 230,
-        "sl_target_pnl": -8.5
+        "sl_target_pnl": -10
     },
     "created_at": "2026-06-16T00:04:00"
 }
