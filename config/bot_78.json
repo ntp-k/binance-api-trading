@@ -14,7 +14,7 @@
     "quantity": 0.001,
     "position_margin": 5.0,
     "timeframe": "4h",
-    "timeframe_limit": 10,
+    "timeframe_limit": 182,
     "order_type": "MAKER_ONLY",
     "dynamic_config": {
         "min_body_pct": 0.001,
