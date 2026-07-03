@@ -3,6 +3,8 @@ Wick Mean Reversion Entry Strategy
 
 Strategy Logic:
 - Only trade when previous candle has strong body movement (> min_body_pct threshold)
+- Skip when previous candle body movement is above max_body_pct threshold (if configured)
+- Require recent closed candles to have a wick on the expected reversion side
 - If previous candle is RED (bearish) → LONG (expect bounce/mean reversion)
 - If previous candle is GREEN (bullish) → SHORT (expect pullback/mean reversion)
 
@@ -32,14 +34,25 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         self.bot_config: BotConfig = bot_config
         self.dynamic_config = bot_config.dynamic_config
         self.min_body_pct = self.dynamic_config.get('min_body_pct', 0.005)  # Default 0.5%
+        self.max_body_pct = self.dynamic_config.get('max_body_pct')  # Optional max body size filter
+        self.required_wick_lookback = self.dynamic_config.get('required_wick_lookback', 2)
+        self.min_reversion_wick_pct = self.dynamic_config.get('min_reversion_wick_pct', 0.0)
         self.decimal = self.dynamic_config.get('decimal', 2)
         self.training_candles = self.dynamic_config.get('training_candles', 300)
         self.percentile = self.dynamic_config.get('percentile', 0.25)  # Default 25th percentile (0.15-0.40)
         self.upper_wick_percentile = None
         self.lower_wick_percentile = None
-        
-        self.logger.info(f"Initialized WickMeanReversion: min_body_pct={self.min_body_pct*100:.2f}%, "
-                        f"training_candles={self.training_candles}, percentile={int(self.percentile*100)}th")
+        max_body_message = (
+            f"{self.max_body_pct*100:.2f}%" if self.max_body_pct is not None else "disabled"
+        )
+
+        self.logger.info(
+            f"Initialized WickMeanReversion: min_body_pct={self.min_body_pct*100:.2f}%, "
+            f"max_body_pct={max_body_message}, "
+            f"required_wick_lookback={self.required_wick_lookback}, "
+            f"min_reversion_wick_pct={self.min_reversion_wick_pct*100:.3f}%, "
+            f"training_candles={self.training_candles}, percentile={int(self.percentile*100)}th"
+        )
 
     def _process_data(self, klines_df: pd.DataFrame) -> pd.DataFrame:
         """Process klines data and calculate wick metrics."""
@@ -49,9 +62,11 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         
         # Calculate wicks from OPEN price
         klines_df['upper_wick'] = klines_df['high'] - klines_df['open']
-        klines_df['upper_wick_pct'] = (klines_df['upper_wick'] / klines_df['open']) * 100
+        klines_df['upper_wick_change_pct'] = klines_df['upper_wick'] / klines_df['open']
+        klines_df['upper_wick_pct'] = klines_df['upper_wick_change_pct'] * 100
         klines_df['lower_wick'] = klines_df['open'] - klines_df['low']
-        klines_df['lower_wick_pct'] = (klines_df['lower_wick'] / klines_df['open']) * 100
+        klines_df['lower_wick_change_pct'] = klines_df['lower_wick'] / klines_df['open']
+        klines_df['lower_wick_pct'] = klines_df['lower_wick_change_pct'] * 100
         
         # Calculate percentiles from training data
         if len(klines_df) >= self.training_candles:
@@ -62,6 +77,38 @@ class EntryWickMeanReversion(BaseEntryStrategy):
                             f"upper={self.upper_wick_percentile:.4f}%, lower={self.lower_wick_percentile:.4f}%")
         
         return klines_df
+
+    def _recent_candles_have_reversion_wick(
+        self,
+        klines_df: pd.DataFrame,
+        position_side: PositionSide,
+        checklist_reasons: list
+    ) -> bool:
+        """Require recent closed candles to have wick on the mean-reversion side."""
+        if self.required_wick_lookback <= 0:
+            checklist_reasons.append("Recent wick filter disabled: ✅")
+            return True
+
+        if len(klines_df) < self.required_wick_lookback + 1:
+            checklist_reasons.append(
+                f"Need {self.required_wick_lookback} previous candles for wick filter: ❌"
+            )
+            return False
+
+        wick_column = 'lower_wick_change_pct' if position_side == PositionSide.LONG else 'upper_wick_change_pct'
+        wick_name = 'lower' if position_side == PositionSide.LONG else 'upper'
+        recent_closed_candles = klines_df.iloc[-(self.required_wick_lookback + 1):-1]
+        wick_values = recent_closed_candles[wick_column]
+        has_required_wicks = (wick_values > self.min_reversion_wick_pct).all()
+        wick_summary = ", ".join(f"{value*100:.3f}%" for value in wick_values)
+
+        checklist_reasons.append(
+            f"Last {self.required_wick_lookback} closed candles {wick_name} wicks "
+            f"> {self.min_reversion_wick_pct*100:.3f}% ({wick_summary}): "
+            f"{'✅' if has_required_wicks else '❌'}"
+        )
+
+        return has_required_wicks
 
     def should_open(self, klines_df, position_handler: PositionHandler) -> PositionSignal:
         """Determine if position should be opened based on mean reversion logic."""
@@ -102,16 +149,7 @@ class EntryWickMeanReversion(BaseEntryStrategy):
             checklist_reasons.append(f"Not new candle (last_close: {last_position_close_candle[5:-9]} / cur: {current_open_time[5:-9]}): ❌")
             return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
 
-        # Check body change filter
-        prev_body_change = prev_candle['body_change_pct']
-        body_filter_passed = prev_body_change >= self.min_body_pct
-        
-        checklist_reasons.append(f"Prev body change: {prev_body_change*100:.3f}% (min: {self.min_body_pct*100:.2f}%): {'✅' if body_filter_passed else '❌'}")
-        
-        if not body_filter_passed:
-            return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
-
-        # Mean reversion logic
+        # Mean reversion direction
         if prev_candle['is_red']:
             # Previous RED → LONG (expect bounce)
             new_position_side = PositionSide.LONG
@@ -122,6 +160,29 @@ class EntryWickMeanReversion(BaseEntryStrategy):
             checklist_reasons.append(f"Prev GREEN candle → SHORT (mean reversion): ✅")
         else:
             checklist_reasons.append("Prev candle is doji → ZERO: ❌")
+            return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
+
+        if not self._recent_candles_have_reversion_wick(klines_df, new_position_side, checklist_reasons):
+            return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
+
+        # Check body change filters
+        prev_body_change = prev_candle['body_change_pct']
+        body_filter_passed = prev_body_change >= self.min_body_pct
+        checklist_reasons.append(f"Prev body change: {prev_body_change*100:.3f}% (min: {self.min_body_pct*100:.2f}%): {'✅' if body_filter_passed else '❌'}")
+
+        if not body_filter_passed:
+            return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
+
+        if self.max_body_pct is not None:
+            max_body_filter_passed = prev_body_change <= self.max_body_pct
+            checklist_reasons.append(
+                f"Prev body change: {prev_body_change*100:.3f}% "
+                f"(max: {self.max_body_pct*100:.2f}%): "
+                f"{'✅' if max_body_filter_passed else '❌'}"
+            )
+
+            if not max_body_filter_passed:
+                return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
 
         reason_message = " | ".join(checklist_reasons)
         return PositionSignal(position_side=new_position_side, reason=reason_message)
