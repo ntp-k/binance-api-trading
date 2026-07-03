@@ -5,6 +5,7 @@ Strategy Logic:
 - Only trade when previous candle has strong body movement (> min_body_pct threshold)
 - Skip when previous candle body movement is above max_body_pct threshold (if configured)
 - Require recent closed candles to have a wick on the expected reversion side
+- Require recent closed candles to have a counter-trend wick (avoids entering during strong trends)
 - If previous candle is RED (bearish) → LONG (expect bounce/mean reversion)
 - If previous candle is GREEN (bullish) → SHORT (expect pullback/mean reversion)
 
@@ -23,6 +24,8 @@ from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
 from models.position import Position
 from core.position_handler import PositionHandler
+from commons.common import get_datetime_now_gmt_plus_7
+from datetime import datetime
 import pandas as pd
 
 
@@ -37,6 +40,10 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         self.max_body_pct = self.dynamic_config.get('max_body_pct')  # Optional max body size filter
         self.required_wick_lookback = self.dynamic_config.get('required_wick_lookback', 2)
         self.min_reversion_wick_pct = self.dynamic_config.get('min_reversion_wick_pct', 0.0)
+        self.min_trend_wick_pct = self.dynamic_config.get('min_trend_wick_pct', 0.0)
+        self.trend_wick_lookback = self.dynamic_config.get('trend_wick_lookback', 2)
+        self.sl_cooldown_minutes = self.dynamic_config.get('sl_cooldown_minutes', 0)
+        self.countdown_cooldown_minutes = self.dynamic_config.get('countdown_cooldown_minutes', 0)
         self.decimal = self.dynamic_config.get('decimal', 2)
         self.training_candles = self.dynamic_config.get('training_candles', 300)
         self.percentile = self.dynamic_config.get('percentile', 0.25)  # Default 25th percentile (0.15-0.40)
@@ -51,6 +58,10 @@ class EntryWickMeanReversion(BaseEntryStrategy):
             f"max_body_pct={max_body_message}, "
             f"required_wick_lookback={self.required_wick_lookback}, "
             f"min_reversion_wick_pct={self.min_reversion_wick_pct*100:.3f}%, "
+            f"trend_wick_lookback={self.trend_wick_lookback}, "
+            f"min_trend_wick_pct={self.min_trend_wick_pct*100:.3f}%, "
+            f"sl_cooldown_minutes={self.sl_cooldown_minutes}, "
+            f"countdown_cooldown_minutes={self.countdown_cooldown_minutes}, "
             f"training_candles={self.training_candles}, percentile={int(self.percentile*100)}th"
         )
 
@@ -110,6 +121,99 @@ class EntryWickMeanReversion(BaseEntryStrategy):
 
         return has_required_wicks
 
+    def _recent_candles_have_counter_trend_wick(
+        self,
+        klines_df: pd.DataFrame,
+        position_side: PositionSide,
+        checklist_reasons: list
+    ) -> bool:
+        """Detect trend continuation by requiring a counter-trend wick on recent candles.
+
+        For SHORT: recent candles must have lower wicks (buyers pushed back = two-way action, not pure uptrend)
+        For LONG: recent candles must have upper wicks (sellers pushed back = two-way action, not pure downtrend)
+
+        If counter-trend wicks are absent, price is in a strong trend → skip entry.
+        """
+        if self.min_trend_wick_pct <= 0 or self.trend_wick_lookback <= 0:
+            checklist_reasons.append("Trend continuation filter disabled: ✅")
+            return True
+
+        if len(klines_df) < self.trend_wick_lookback + 1:
+            checklist_reasons.append(
+                f"Need {self.trend_wick_lookback} previous candles for trend filter: ❌"
+            )
+            return False
+
+        # SHORT: check lower wicks (no lower wick = buyers in control = uptrend)
+        # LONG: check upper wicks (no upper wick = sellers in control = downtrend)
+        wick_column = 'lower_wick_change_pct' if position_side == PositionSide.SHORT else 'upper_wick_change_pct'
+        wick_name = 'lower' if position_side == PositionSide.SHORT else 'upper'
+        trend_label = 'uptrend' if position_side == PositionSide.SHORT else 'downtrend'
+
+        recent_closed_candles = klines_df.iloc[-(self.trend_wick_lookback + 1):-1]
+        wick_values = recent_closed_candles[wick_column]
+        has_counter_wicks = (wick_values > self.min_trend_wick_pct).all()
+        wick_summary = ", ".join(f"{v*100:.3f}%" for v in wick_values)
+
+        checklist_reasons.append(
+            f"Last {self.trend_wick_lookback} candles {wick_name} wicks "
+            f"> {self.min_trend_wick_pct*100:.3f}% (no {trend_label}) ({wick_summary}): "
+            f"{'✅' if has_counter_wicks else '❌'}"
+        )
+
+        return has_counter_wicks
+
+    def _is_in_cooldown(self, position_handler: PositionHandler, checklist_reasons: list) -> bool:
+        """Block new entries during cooldown period after SL or countdown close.
+
+        Cooldown durations are configured separately:
+        - sl_cooldown_minutes: after SL hit or max loss close
+        - countdown_cooldown_minutes: after countdown expiry close
+        Returns True if still in cooldown (should block entry).
+        """
+        if self.sl_cooldown_minutes <= 0 and self.countdown_cooldown_minutes <= 0:
+            return False
+
+        last_close_reason = position_handler.last_position_close_reason
+        last_close_time = position_handler.last_position_close_time
+
+        if not last_close_reason or not last_close_time:
+            return False
+
+        # Split into sections and check which one actually triggered FORCE CLOSE
+        # e.g. "Max Loss | price X vs SL Y: ✅ FORCE CLOSE | Countdown | elapsed Z: ❌"
+        parts = last_close_reason.split(' | ')
+        is_sl = any(('Max Loss' in p or 'SL Hit' in p) and 'FORCE CLOSE' in p for p in parts)
+        is_countdown = any('Countdown' in p and 'FORCE CLOSE' in p for p in parts)
+
+        if is_sl:
+            cooldown_minutes = self.sl_cooldown_minutes
+            cooldown_type = 'SL'
+        elif is_countdown:
+            cooldown_minutes = self.countdown_cooldown_minutes
+            cooldown_type = 'Countdown'
+        else:
+            return False
+
+        if cooldown_minutes <= 0:
+            return False
+
+        try:
+            close_dt = datetime.strptime(last_close_time, '%Y-%m-%d %H:%M:%S')
+            current_dt = get_datetime_now_gmt_plus_7().replace(tzinfo=None)
+            elapsed_minutes = (current_dt - close_dt).total_seconds() / 60.0
+            in_cooldown = elapsed_minutes < cooldown_minutes
+            remaining = cooldown_minutes - elapsed_minutes
+
+            checklist_reasons.append(
+                f"{cooldown_type} cooldown: {elapsed_minutes:.1f}min elapsed / {cooldown_minutes}min "
+                f"({'❌ ' + f'{remaining:.1f}min remaining' if in_cooldown else '✅ done'})"
+            )
+            return in_cooldown
+        except Exception as e:
+            self.logger.warning(f"Cooldown check failed: {e}")
+            return False
+
     def should_open(self, klines_df, position_handler: PositionHandler) -> PositionSignal:
         """Determine if position should be opened based on mean reversion logic."""
         symbol = position_handler.bot_config.symbol
@@ -149,6 +253,9 @@ class EntryWickMeanReversion(BaseEntryStrategy):
             checklist_reasons.append(f"Not new candle (last_close: {last_position_close_candle[5:-9]} / cur: {current_open_time[5:-9]}): ❌")
             return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
 
+        if self._is_in_cooldown(position_handler, checklist_reasons):
+            return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
+
         # Mean reversion direction
         if prev_candle['is_red']:
             # Previous RED → LONG (expect bounce)
@@ -163,6 +270,9 @@ class EntryWickMeanReversion(BaseEntryStrategy):
             return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
 
         if not self._recent_candles_have_reversion_wick(klines_df, new_position_side, checklist_reasons):
+            return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
+
+        if not self._recent_candles_have_counter_trend_wick(klines_df, new_position_side, checklist_reasons):
             return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
 
         # Check body change filters

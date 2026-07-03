@@ -44,6 +44,8 @@ class PositionHandler:
         self._last_known_price: float = 0.0  # Track last known market price for liquidation scenarios
         self.last_position_open_candle: str = ''
         self.last_position_close_candle: str = ''
+        self.last_position_close_time: str = ''
+        self.last_position_close_reason: str = ''
         self.last_position_holding_seconds: float = 0.0
 
         # Ensure directories exist
@@ -217,6 +219,8 @@ class PositionHandler:
         # Store both open and close candles for entry strategy logic
         self.last_position_open_candle = self.position.open_candle
         self.last_position_close_candle = position_dict.get('current_candle_open_time', '')
+        self.last_position_close_time = self.position.close_time
+        self.last_position_close_reason = self.position.close_reason
         
         # Calculate and store holding time
         if self.position.close_time:
