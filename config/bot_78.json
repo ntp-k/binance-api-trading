@@ -22,7 +22,7 @@
         "max_body_pct": 0.05,
         "required_wick_lookback": 1,
         "min_reversion_wick_pct": 0.002,
-        "trend_wick_lookback": 2,
+        "trend_wick_lookback": 1,
         "min_trend_wick_pct": 0.0015,
         "sl_cooldown_minutes": 1860,
         "countdown_cooldown_minutes": 1500,
