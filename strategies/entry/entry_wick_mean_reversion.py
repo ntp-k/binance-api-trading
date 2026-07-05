@@ -30,23 +30,61 @@ import pandas as pd
 
 
 class EntryWickMeanReversion(BaseEntryStrategy):
-    """Mean reversion entry strategy based on previous candle body strength."""
+    """Mean reversion entry strategy based on previous candle body strength.
+
+    Wick filter comparison:
+    ┌─────────────────────┬──────────────────────────────────────┬──────────────────────────────────────┐
+    │                     │ _recent_candles_have_reversion_wick  │ _recent_candles_have_counter_trend_wick│
+    ├─────────────────────┼──────────────────────────────────────┼──────────────────────────────────────┤
+    │ Wick side checked   │ Same side as trade direction         │ Opposite side to trade direction      │
+    │ LONG checks         │ Lower wick on RED candle             │ Upper wick on recent candles          │
+    │ SHORT checks        │ Upper wick on GREEN candle           │ Lower wick on recent candles          │
+    │ Confirms            │ Early reversal pressure on signal    │ Two-way price action (not pure trend) │
+    │ Filters out         │ No reversion pressure at all         │ Pure trending markets                 │
+    │ Question answered   │ "Is reversal already starting?"      │ "Is market ranging, not trending?"    │
+    └─────────────────────┴──────────────────────────────────────┴──────────────────────────────────────┘
+    """
 
     def __init__(self, bot_config: BotConfig, logger=None):
         super().__init__(logger=logger)
         self.bot_config: BotConfig = bot_config
         self.dynamic_config = bot_config.dynamic_config
-        self.min_body_pct = self.dynamic_config.get('min_body_pct', 0.005)  # Default 0.5%
-        self.max_body_pct = self.dynamic_config.get('max_body_pct')  # Optional max body size filter
+        # --- Body size filter ---
+        # min: skip if prev candle body is too small (weak move, not worth reversing)
+        # max: skip if prev candle body is too large (strong trend, unlikely to reverse)
+        self.min_body_pct = self.dynamic_config.get('min_body_pct', 0.005)
+        self.max_body_pct = self.dynamic_config.get('max_body_pct')  # None = disabled
+
+        # --- Reversion wick filter ---
+        # Checks that the signal candle (and N-1 candles before it) already show
+        # a wick on the reversion side, confirming early reversal pressure.
+        # LONG: lower wick on RED candle = buyers pushed back before close
+        # SHORT: upper wick on GREEN candle = sellers pushed back before close
         self.required_wick_lookback = self.dynamic_config.get('required_wick_lookback', 2)
-        self.min_reversion_wick_pct = self.dynamic_config.get('min_reversion_wick_pct', 0.0)
-        self.min_trend_wick_pct = self.dynamic_config.get('min_trend_wick_pct', 0.0)
+        self.min_reversion_wick_pct = self.dynamic_config.get('min_reversion_wick_pct', 0.0)  # 0.0 = any wick
+
+        # --- Trend continuation filter ---
+        # Checks that recent candles have a wick on the OPPOSITE side of the trade,
+        # confirming two-way price action (ranging) rather than a pure trend.
+        # SHORT: recent candles must have lower wicks (buyers exist = not pure uptrend)
+        # LONG: recent candles must have upper wicks (sellers exist = not pure downtrend)
+        self.min_trend_wick_pct = self.dynamic_config.get('min_trend_wick_pct', 0.0)  # 0.0 = disabled
         self.trend_wick_lookback = self.dynamic_config.get('trend_wick_lookback', 2)
-        self.sl_cooldown_minutes = self.dynamic_config.get('sl_cooldown_minutes', 0)
-        self.countdown_cooldown_minutes = self.dynamic_config.get('countdown_cooldown_minutes', 0)
+
+        # --- Cooldown filter ---
+        # Blocks new entries for N minutes after a position closes badly.
+        # sl_cooldown: after SL hit or max loss — market moved hard against us, wait for it to settle
+        # countdown_cooldown: after countdown expiry — neutral close, shorter wait
+        self.sl_cooldown_minutes = self.dynamic_config.get('sl_cooldown_minutes', 0)        # 0 = disabled
+        self.countdown_cooldown_minutes = self.dynamic_config.get('countdown_cooldown_minutes', 0)  # 0 = disabled
+
+        # --- TP calculation ---
+        # decimal: price rounding for TP/SL orders
+        # training_candles: how many recent candles to use for wick percentile calculation
+        # percentile: which percentile of historical wicks to use as TP target (e.g. 0.25 = 25th)
         self.decimal = self.dynamic_config.get('decimal', 2)
         self.training_candles = self.dynamic_config.get('training_candles', 300)
-        self.percentile = self.dynamic_config.get('percentile', 0.25)  # Default 25th percentile (0.15-0.40)
+        self.percentile = self.dynamic_config.get('percentile', 0.25)
         self.upper_wick_percentile = None
         self.lower_wick_percentile = None
         max_body_message = (
