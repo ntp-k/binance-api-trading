@@ -18,18 +18,18 @@
     "order_type": "MAKER_ONLY",
     "dynamic_config": {
         "decimal": 2,
-        "min_body_pct": 0.001,
+        "min_body_pct": 0.002,
         "max_body_pct": 0.05,
         "required_wick_lookback": 1,
         "min_reversion_wick_pct": 0.002,
-        "trend_wick_lookback": 1,
+        "trend_wick_lookback": 0,
         "min_trend_wick_pct": 0.0015,
         "sl_cooldown_minutes": 1860,
         "countdown_cooldown_minutes": 1500,
         "training_candles": 180,
         "percentile": 0.35,
         "countdown_minutes": 230,
-        "sl_target_pnl": -1.0
+        "sl_target_pnl": -1.5
     },
     "created_at": "2026-06-30T00:31:00"
 }
