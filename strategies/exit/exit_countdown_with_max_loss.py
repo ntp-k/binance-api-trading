@@ -25,7 +25,8 @@ class ExitCountdownWithMaxLoss(BaseExitStrategy):
     
     Configuration (dynamic_config):
     - countdown_minutes: Minutes to wait before force close (e.g., 60 = 1 hour)
-    - cooldown_after_close_seconds: Cooldown period after position close (optional, in seconds)
+    - cooldown_after_countdown_seconds: Cooldown after countdown expiry (optional, in seconds)
+    - cooldown_after_max_loss_seconds: Cooldown after max loss hit (optional, in seconds)
     """
 
     def __init__(self, bot_config: BotConfig, logger=None):
@@ -33,21 +34,33 @@ class ExitCountdownWithMaxLoss(BaseExitStrategy):
         self.bot_config: BotConfig = bot_config
         self.dynamic_config = bot_config.dynamic_config
         self.countdown_minutes = self.dynamic_config.get('countdown_minutes', 60)  # 60 min default
-        self.cooldown_after_close_seconds = self.dynamic_config.get('cooldown_after_close_seconds', 0)
+        self.cooldown_after_countdown_seconds = self.dynamic_config.get('cooldown_after_countdown_seconds', 0)
+        self.cooldown_after_max_loss_seconds = self.dynamic_config.get('cooldown_after_max_loss_seconds', 0)
         
         self.logger.info(
             f"Initialized with countdown_minutes={self.countdown_minutes}, "
-            f"cooldown_after_close_seconds={self.cooldown_after_close_seconds}"
+            f"cooldown_after_countdown_seconds={self.cooldown_after_countdown_seconds}, "
+            f"cooldown_after_max_loss_seconds={self.cooldown_after_max_loss_seconds}"
         )
     
-    def get_cooldown_seconds(self) -> float:
+    def get_cooldown_seconds(self, close_reason: str = '') -> float:
         """
-        Get cooldown duration after position close.
+        Get cooldown duration after position close based on which condition triggered.
+        
+        Args:
+            close_reason: Simple reason string like "SL Hit - 1734.22 (1796.29)" or "Countdown 230min (230min)"
         
         Returns:
-            Cooldown duration in seconds from dynamic_config
+            Cooldown duration in seconds based on close reason
         """
-        return self.cooldown_after_close_seconds
+        # Check which condition triggered
+        if close_reason.startswith('SL Hit'):
+            return self.cooldown_after_max_loss_seconds
+        elif close_reason.startswith('Countdown'):
+            return self.cooldown_after_countdown_seconds
+        
+        # Default: no cooldown
+        return 0.0
 
     def _calculate_elapsed_minutes(self, position_open_time: str) -> float:
         """
@@ -114,8 +127,6 @@ class ExitCountdownWithMaxLoss(BaseExitStrategy):
         
         klines_df = self._process_data(klines_df=klines_df)
         
-        checklist = [f"{position.symbol} Exit Signal"]
-        
         position_side = position.position_side
         new_position_side = position_side
         
@@ -135,36 +146,30 @@ class ExitCountdownWithMaxLoss(BaseExitStrategy):
             elif position_side == PositionSide.SHORT:
                 # For SHORT: close if current price >= SL price
                 sl_hit = current_price >= sl_price
-            
-            checklist.append(
-                f"Max Loss | price {current_price} vs SL {sl_price}: "
-                f"{'✅ FORCE CLOSE' if sl_hit else '❌'}"
-            )
         
         # ----- COUNTDOWN TIMER CHECK -----
         elapsed_minutes = self._calculate_elapsed_minutes(position.open_time)
         countdown_expired = elapsed_minutes >= self.countdown_minutes
         
-        checklist.append(
-            f"Countdown | elapsed {elapsed_minutes:.1f}min >= {self.countdown_minutes}min: "
-            f"{'✅ FORCE CLOSE' if countdown_expired else '❌'}"
-        )
-        
         # ----- CORE LOGIC: Close position if countdown expired OR SL hit -----
-        if countdown_expired:
+        # Priority: SL hit takes precedence over countdown
+        if sl_hit:
             new_position_side = PositionSide.ZERO
-            self.logger.info(
-                f"Countdown expired for {position.symbol} after {elapsed_minutes:.1f} minutes "
-                f"(threshold: {self.countdown_minutes} min, open_time: {position.open_time})"
-            )
-        elif sl_hit:
-            new_position_side = PositionSide.ZERO
+            reason_message = f"SL Hit - {current_price} ({sl_price})"
             self.logger.info(
                 f"Max loss reached for {position.symbol} at price {current_price} "
                 f"(SL: {sl_price}, position: {position_side.name})"
             )
+        elif countdown_expired:
+            new_position_side = PositionSide.ZERO
+            reason_message = f"Countdown {elapsed_minutes:.0f}min ({self.countdown_minutes}min)"
+            self.logger.info(
+                f"Countdown expired for {position.symbol} after {elapsed_minutes:.1f} minutes "
+                f"(threshold: {self.countdown_minutes} min, open_time: {position.open_time})"
+            )
+        else:
+            reason_message = f"Holding - SL: {current_price} {sl_price}, Elapsed: {elapsed_minutes:.1f}min ({self.countdown_minutes}min)"
         
-        reason_message = " | ".join(checklist)
         return PositionSignal(position_side=new_position_side, reason=reason_message)
 
 # EOF

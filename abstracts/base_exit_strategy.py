@@ -45,11 +45,16 @@ class BaseExitStrategy(ABC):
         """
         pass
     
-    def get_cooldown_seconds(self) -> float:
+    def get_cooldown_seconds(self, close_reason: str = '') -> float:
         """
         Get cooldown duration in seconds after position close.
         
         Override this method in exit strategies that require cooldown.
+        For strategies with multiple exit conditions, use close_reason to determine
+        which cooldown to apply.
+        
+        Args:
+            close_reason: The reason string from PositionSignal that triggered the close
         
         Returns:
             Cooldown duration in seconds, or 0 for no cooldown

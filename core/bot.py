@@ -354,10 +354,10 @@ class Bot:
                 position_dict=active_position_dict)
             
             # Cancel any active TP/SL orders
-            if self.bot_config.tp_enabled:
-                self.trade_handler.cancel_tp_order()
-            if self.bot_config.sl_enabled:
-                self.trade_handler.cancel_sl_order()
+            # if self.bot_config.tp_enabled:
+            #     self.trade_handler.cancel_tp_order()
+            # if self.bot_config.sl_enabled:
+            #     self.trade_handler.cancel_sl_order()
             
             self.position_handler.clear_tp_sl_orders()
             
@@ -372,11 +372,12 @@ class Bot:
             trade_dict = self.position_handler.close_position(position_dict=closed_position_dict)
 
             # Set cooldown if exit strategy specifies it
-            cooldown_seconds = self.exit_strategy.get_cooldown_seconds()
+            # Pass close_reason so strategies with multiple conditions can return appropriate cooldown
+            cooldown_seconds = self.exit_strategy.get_cooldown_seconds(close_reason=exit_signal.reason)
             if cooldown_seconds and cooldown_seconds > 0:
                 self.position_handler.set_cooldown(
                     cooldown_seconds=cooldown_seconds,
-                    reason="EXIT_STRATEGY"
+                    reason=exit_signal.reason
                 )
 
             # Track trade for backtest

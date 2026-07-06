@@ -38,7 +38,7 @@ class ExitCountdown(BaseExitStrategy):
             f"cooldown_after_close_seconds={self.cooldown_after_close_seconds}"
         )
     
-    def get_cooldown_seconds(self) -> float:
+    def get_cooldown_seconds(self, close_reason: str = '') -> float:
         """
         Get cooldown duration after position close.
         

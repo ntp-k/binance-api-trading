@@ -922,7 +922,6 @@ class TradeHandler:
         tp_backup_filled = False
         
         # Track if orders are expired/cancelled (liquidation scenario)
-        orders_expired_or_cancelled = False
         expired_count = 0
         total_orders = 0
 
@@ -994,7 +993,6 @@ class TradeHandler:
         
         # Check if all orders are expired/cancelled (liquidation scenario)
         if total_orders > 0 and expired_count == total_orders:
-            orders_expired_or_cancelled = True
             self.logger.error(
                 f"🚨 LIQUIDATION DETECTED: All {total_orders} TP/SL orders are EXPIRED/CANCELLED")
             
@@ -1072,21 +1070,21 @@ class TradeHandler:
                         
                 elif tp_limit_filled or tp_backup_filled:
                     # Any TP order filled - cancel all SL orders
-                    if self.bot_config.sl_enabled:
-                        self.cancel_sl_order()
+                    # if self.bot_config.sl_enabled:
+                    #     self.cancel_sl_order()
                     
                     # Cancel the other TP order (LIMIT or backup, whichever didn't fill)
-                    if tp_limit_filled:
-                        # TP LIMIT filled, cancel backup
-                        backup_id = self.position_handler.get_tp_backup_order_id()
-                        if backup_id:
-                            try:
-                                self.trade_client.cancel_algorithmic_order(order_id=backup_id)
-                                self.logger.debug("Canceled TP STOP_MARKET backup after LIMIT fill")
-                            except Exception as e:
-                                self.logger.warning(f"Failed to cancel TP backup: {e}")
+                    # if tp_limit_filled:
+                    #     # TP LIMIT filled, cancel backup
+                    #     backup_id = self.position_handler.get_tp_backup_order_id()
+                    #     if backup_id:
+                    #         try:
+                    #             self.trade_client.cancel_algorithmic_order(order_id=backup_id)
+                    #             self.logger.debug("Canceled TP STOP_MARKET backup after LIMIT fill")
+                    #         except Exception as e:
+                    #             self.logger.warning(f"Failed to cancel TP backup: {e}")
                                 
-                    elif tp_backup_filled:
+                    if tp_backup_filled:
                         # TP backup filled, cancel LIMIT
                         tp_id = self.position_handler.get_tp_order_id()
                         if tp_id:
