@@ -1,18 +1,18 @@
 {
     "is_enabled": true,
-    "bot_id": 81,
-    "run_id": 81,
-    "bot_name": "bot 81",
+    "bot_id": 82,
+    "run_id": 82,
+    "bot_name": "bot 82",
     "run_mode": "live",
     "trade_client": "binance",
     "entry_strategy": "SCALP_BODY_FILTER_MOMENTUM",
     "exit_strategy": "COUNTDOWN_WITH_MAX_LOSS",
     "tp_enabled": true,
     "sl_enabled": false,
-    "symbol": "ADAUSDC",
+    "symbol": "XRPUSDC",
     "leverage": 20,
     "quantity": 0.001,
-    "position_margin": 5.0,
+    "position_margin": 10.0,
     "timeframe": "4h",
     "timeframe_limit": 10,
     "order_type": "MAKER_ONLY",
@@ -22,9 +22,9 @@
         "decimal": 4,
         "min_holding_seconds": 0,
         "countdown_minutes": 950,
-        "sl_target_pnl": -1.8,
+        "sl_target_pnl": -2.2,
         "cooldown_after_countdown_seconds": 0,
         "cooldown_after_max_loss_seconds": 0
     },
-    "created_at": "2026-07-03T18:06:00"
+    "created_at": "2026-07-07T01:56:00"
 }
