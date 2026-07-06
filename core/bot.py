@@ -233,6 +233,19 @@ class Bot:
     
     def _handle_entry_signal(self, klines_df, current_candle_open_time: str) -> Optional[Dict[str, Any]]:
         """Check for entry signals and open position if triggered."""
+        # Check if in cooldown period
+        # Pass current_candle_open_time so if cooldown expires mid-candle,
+        # last_position_close_candle is updated to prevent entry on same candle
+        if self.position_handler.is_in_cooldown(current_candle_open_time=current_candle_open_time):
+            remaining_seconds = self.position_handler.get_cooldown_remaining_seconds()
+            remaining_minutes = remaining_seconds / 60.0
+            cooldown_until = self.position_handler.cooldown_until or "Unknown"
+            self.logger.debug(
+                f"In cooldown period - {remaining_minutes:.1f}min remaining "
+                f"(until {cooldown_until} GMT+7, Reason: {self.position_handler.cooldown_reason})"
+            )
+            return None
+        
         try:
             entry_signal = self.entry_strategy.should_open(
                 klines_df=klines_df, position_handler=self.position_handler)
@@ -290,10 +303,19 @@ class Bot:
     def _handle_tp_sl_monitoring(self, current_candle_open_time: str) -> bool:
         """Monitor TP/SL orders and process if filled."""
         try:
-            return self.trade_handler.monitor_tp_sl_fill(
+            position_closed, sl_filled = self.trade_handler.monitor_tp_sl_fill(
                 current_candle_open_time=current_candle_open_time,
                 backtest_metrics=self.backtest_metrics
             )
+            
+            # Set cooldown if SL was hit and cooldown is configured
+            if position_closed and sl_filled and self.bot_config.cooldown_after_sl_seconds:
+                self.position_handler.set_cooldown(
+                    cooldown_seconds=self.bot_config.cooldown_after_sl_seconds,
+                    reason="SL_HIT"
+                )
+            
+            return position_closed
         except Exception as e:
             self.logger.error_e(message='Error while checking TP/SL orders', e=e)
             return False
@@ -348,6 +370,14 @@ class Bot:
                 closed_position_dict['close_time'] = current_candle_open_time
             
             trade_dict = self.position_handler.close_position(position_dict=closed_position_dict)
+
+            # Set cooldown if exit strategy specifies it
+            cooldown_seconds = self.exit_strategy.get_cooldown_seconds()
+            if cooldown_seconds and cooldown_seconds > 0:
+                self.position_handler.set_cooldown(
+                    cooldown_seconds=cooldown_seconds,
+                    reason="EXIT_STRATEGY"
+                )
 
             # Track trade for backtest
             if self.backtest_metrics and trade_dict:

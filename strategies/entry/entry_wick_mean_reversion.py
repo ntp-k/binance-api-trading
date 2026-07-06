@@ -71,13 +71,6 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         self.min_trend_wick_pct = self.dynamic_config.get('min_trend_wick_pct', 0.0)  # 0.0 = disabled
         self.trend_wick_lookback = self.dynamic_config.get('trend_wick_lookback', 2)
 
-        # --- Cooldown filter ---
-        # Blocks new entries for N minutes after a position closes badly.
-        # sl_cooldown: after SL hit or max loss — market moved hard against us, wait for it to settle
-        # countdown_cooldown: after countdown expiry — neutral close, shorter wait
-        self.sl_cooldown_minutes = self.dynamic_config.get('sl_cooldown_minutes', 0)        # 0 = disabled
-        self.countdown_cooldown_minutes = self.dynamic_config.get('countdown_cooldown_minutes', 0)  # 0 = disabled
-
         # --- TP calculation ---
         # decimal: price rounding for TP/SL orders
         # training_candles: how many recent candles to use for wick percentile calculation
@@ -98,8 +91,6 @@ class EntryWickMeanReversion(BaseEntryStrategy):
             f"min_reversion_wick_pct={self.min_reversion_wick_pct*100:.3f}%, "
             f"trend_wick_lookback={self.trend_wick_lookback}, "
             f"min_trend_wick_pct={self.min_trend_wick_pct*100:.3f}%, "
-            f"sl_cooldown_minutes={self.sl_cooldown_minutes}, "
-            f"countdown_cooldown_minutes={self.countdown_cooldown_minutes}, "
             f"training_candles={self.training_candles}, percentile={int(self.percentile*100)}th"
         )
 
@@ -201,57 +192,6 @@ class EntryWickMeanReversion(BaseEntryStrategy):
 
         return has_counter_wicks
 
-    def _is_in_cooldown(self, position_handler: PositionHandler, checklist_reasons: list) -> bool:
-        """Block new entries during cooldown period after SL or countdown close.
-
-        Cooldown durations are configured separately:
-        - sl_cooldown_minutes: after SL hit or max loss close
-        - countdown_cooldown_minutes: after countdown expiry close
-        Returns True if still in cooldown (should block entry).
-        """
-        if self.sl_cooldown_minutes <= 0 and self.countdown_cooldown_minutes <= 0:
-            return False
-
-        last_close_reason = position_handler.last_position_close_reason
-        last_close_time = position_handler.last_position_close_time
-
-        if not last_close_reason or not last_close_time:
-            return False
-
-        # Split into sections and check which one actually triggered FORCE CLOSE
-        # e.g. "Max Loss | price X vs SL Y: ✅ FORCE CLOSE | Countdown | elapsed Z: ❌"
-        parts = last_close_reason.split(' | ')
-        is_sl = any(('Max Loss' in p or 'SL Hit' in p) and 'FORCE CLOSE' in p for p in parts)
-        is_countdown = any('Countdown' in p and 'FORCE CLOSE' in p for p in parts)
-
-        if is_sl:
-            cooldown_minutes = self.sl_cooldown_minutes
-            cooldown_type = 'SL'
-        elif is_countdown:
-            cooldown_minutes = self.countdown_cooldown_minutes
-            cooldown_type = 'Countdown'
-        else:
-            return False
-
-        if cooldown_minutes <= 0:
-            return False
-
-        try:
-            close_dt = datetime.strptime(last_close_time, '%Y-%m-%d %H:%M:%S')
-            current_dt = get_datetime_now_gmt_plus_7().replace(tzinfo=None)
-            elapsed_minutes = (current_dt - close_dt).total_seconds() / 60.0
-            in_cooldown = elapsed_minutes < cooldown_minutes
-            remaining = cooldown_minutes - elapsed_minutes
-
-            checklist_reasons.append(
-                f"{cooldown_type} cooldown: {elapsed_minutes:.1f}min elapsed / {cooldown_minutes}min "
-                f"({'❌ ' + f'{remaining:.1f}min remaining' if in_cooldown else '✅ done'})"
-            )
-            return in_cooldown
-        except Exception as e:
-            self.logger.warning(f"Cooldown check failed: {e}")
-            return False
-
     def should_open(self, klines_df, position_handler: PositionHandler) -> PositionSignal:
         """Determine if position should be opened based on mean reversion logic."""
         symbol = position_handler.bot_config.symbol
@@ -289,9 +229,6 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         new_candle = current_open_time != last_position_close_candle
         if not new_candle:
             checklist_reasons.append(f"Not new candle (last_close: {last_position_close_candle[5:-9]} / cur: {current_open_time[5:-9]}): ❌")
-            return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
-
-        if self._is_in_cooldown(position_handler, checklist_reasons):
             return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
 
         # Mean reversion direction

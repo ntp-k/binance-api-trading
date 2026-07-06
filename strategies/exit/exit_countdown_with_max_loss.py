@@ -25,6 +25,7 @@ class ExitCountdownWithMaxLoss(BaseExitStrategy):
     
     Configuration (dynamic_config):
     - countdown_minutes: Minutes to wait before force close (e.g., 60 = 1 hour)
+    - cooldown_after_close_seconds: Cooldown period after position close (optional, in seconds)
     """
 
     def __init__(self, bot_config: BotConfig, logger=None):
@@ -32,8 +33,21 @@ class ExitCountdownWithMaxLoss(BaseExitStrategy):
         self.bot_config: BotConfig = bot_config
         self.dynamic_config = bot_config.dynamic_config
         self.countdown_minutes = self.dynamic_config.get('countdown_minutes', 60)  # 60 min default
+        self.cooldown_after_close_seconds = self.dynamic_config.get('cooldown_after_close_seconds', 0)
         
-        self.logger.info(f"Initialized with countdown_minutes={self.countdown_minutes}")
+        self.logger.info(
+            f"Initialized with countdown_minutes={self.countdown_minutes}, "
+            f"cooldown_after_close_seconds={self.cooldown_after_close_seconds}"
+        )
+    
+    def get_cooldown_seconds(self) -> float:
+        """
+        Get cooldown duration after position close.
+        
+        Returns:
+            Cooldown duration in seconds from dynamic_config
+        """
+        return self.cooldown_after_close_seconds
 
     def _calculate_elapsed_minutes(self, position_open_time: str) -> float:
         """

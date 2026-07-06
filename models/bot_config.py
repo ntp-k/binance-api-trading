@@ -42,6 +42,7 @@ class BotConfig:
     dynamic_config: Dict[str, Any]
     created_at: datetime
     position_margin: Optional[float] = None
+    cooldown_after_sl_seconds: Optional[float] = None  # Cooldown after SL hit (in seconds)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'BotConfig':
@@ -107,6 +108,7 @@ class BotConfig:
         data.setdefault('created_at', datetime.now())
         data.setdefault('quantity', None)
         data.setdefault('position_margin', None)
+        data.setdefault('cooldown_after_sl_seconds', None)
         
         return cls(**data)
 
@@ -137,6 +139,8 @@ class BotConfig:
             result['position_margin'] = self.position_margin
         if self.quantity is not None:
             result['quantity'] = self.quantity
+        if self.cooldown_after_sl_seconds is not None:
+            result['cooldown_after_sl_seconds'] = self.cooldown_after_sl_seconds
             
         return result
     

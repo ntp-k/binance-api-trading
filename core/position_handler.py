@@ -12,7 +12,8 @@ from commons.custom_logger import CustomLogger
 from models.bot_config import BotConfig
 from models.position import Position
 from commons.common import get_datetime_now_string_gmt_plus_7
-
+from commons.common import get_datetime_now_gmt_plus_7
+from datetime import datetime, timedelta
 
 class PositionHandler:
     """
@@ -47,6 +48,10 @@ class PositionHandler:
         self.last_position_close_time: str = ''
         self.last_position_close_reason: str = ''
         self.last_position_holding_seconds: float = 0.0
+        
+        # Cooldown tracking
+        self.cooldown_until: str = ''  # Timestamp when cooldown expires (GMT+7 format)
+        self.cooldown_reason: str = ''  # Reason for cooldown (e.g., "SL_HIT", "EXIT_STRATEGY")
 
         # Ensure directories exist
         self._ensure_directories()
@@ -161,6 +166,112 @@ class PositionHandler:
     def get_last_known_price(self) -> float:
         """Get the last known market price."""
         return self._last_known_price
+    
+    def is_in_cooldown(self, current_candle_open_time: str = '') -> bool:
+        """
+        Check if bot is currently in cooldown period.
+        
+        Args:
+            current_candle_open_time: Current candle open time to update last_position_close_candle
+                                     when cooldown expires mid-candle
+        
+        Returns:
+            True if in cooldown, False otherwise
+        """
+        if not self.cooldown_until:
+            return False
+        
+        try:
+            from datetime import datetime
+            from commons.common import get_datetime_now_gmt_plus_7
+            
+            # Parse cooldown expiry time
+            cooldown_dt = datetime.strptime(self.cooldown_until, '%Y-%m-%d %H:%M:%S')
+            
+            # Get current time in GMT+7
+            current_dt = get_datetime_now_gmt_plus_7()
+            current_dt = current_dt.replace(tzinfo=None)
+            
+            # Check if still in cooldown
+            if current_dt < cooldown_dt:
+                return True
+            else:
+                # Cooldown expired, clear it and update last_position_close_candle
+                # to prevent entry on the same candle where cooldown expired
+                self.clear_cooldown(current_candle_open_time=current_candle_open_time)
+                return False
+        except Exception as e:
+            self.logger.error(f"Error checking cooldown: {e}")
+            # On error, clear cooldown to be safe
+            self.clear_cooldown(current_candle_open_time=current_candle_open_time)
+            return False
+    
+    def set_cooldown(self, cooldown_seconds: float, reason: str) -> None:
+        """
+        Set cooldown period after position close.
+        
+        Args:
+            cooldown_seconds: Duration of cooldown in seconds
+            reason: Reason for cooldown (e.g., "SL_HIT", "EXIT_STRATEGY")
+        """
+        if cooldown_seconds <= 0:
+            return
+        
+        try:
+            # Calculate cooldown expiry time
+            current_dt = get_datetime_now_gmt_plus_7()
+            current_dt = current_dt.replace(tzinfo=None)
+            cooldown_expiry = current_dt + timedelta(seconds=cooldown_seconds)
+            
+            self.cooldown_until = cooldown_expiry.strftime('%Y-%m-%d %H:%M:%S')
+            self.cooldown_reason = reason
+            
+            self.logger.info(
+                f"Cooldown set for {cooldown_seconds}s ({cooldown_seconds/60:.1f}min) "
+                f"until {self.cooldown_until} - Reason: {reason}"
+            )
+        except Exception as e:
+            self.logger.error(f"Error setting cooldown: {e}")
+    
+    def clear_cooldown(self, current_candle_open_time: str = '') -> None:
+        """
+        Clear cooldown state.
+        
+        Args:
+            current_candle_open_time: If provided, updates last_position_close_candle
+                                     to prevent entry on the same candle where cooldown expired
+        """
+        if self.cooldown_until:
+            self.logger.debug(f"Clearing cooldown (was until {self.cooldown_until})")
+        self.cooldown_until = ''
+        self.cooldown_reason = ''
+        
+        # Update last_position_close_candle to current candle to prevent immediate entry
+        # This ensures strategies that check for "new candle" won't enter on the same candle
+        if current_candle_open_time:
+            self.last_position_close_candle = current_candle_open_time
+            self.logger.debug(f"Updated last_position_close_candle to {current_candle_open_time} to prevent intra-candle entry")
+    
+    def get_cooldown_remaining_seconds(self) -> float:
+        """
+        Get remaining cooldown time in seconds.
+        
+        Returns:
+            Remaining seconds, or 0 if not in cooldown
+        """
+        if not self.is_in_cooldown():
+            return 0.0
+        
+        try:            
+            cooldown_dt = datetime.strptime(self.cooldown_until, '%Y-%m-%d %H:%M:%S')
+            current_dt = get_datetime_now_gmt_plus_7()
+            current_dt = current_dt.replace(tzinfo=None)
+            
+            remaining = (cooldown_dt - current_dt).total_seconds()
+            return max(0.0, remaining)
+        except Exception as e:
+            self.logger.error(f"Error calculating remaining cooldown: {e}")
+            return 0.0
 
     def clear_tp_sl_orders(self) -> None:
         """Clear all TP/SL order information."""

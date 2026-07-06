@@ -44,6 +44,17 @@ class BaseExitStrategy(ABC):
             DataFrame with added indicator columns
         """
         pass
+    
+    def get_cooldown_seconds(self) -> float:
+        """
+        Get cooldown duration in seconds after position close.
+        
+        Override this method in exit strategies that require cooldown.
+        
+        Returns:
+            Cooldown duration in seconds, or 0 for no cooldown
+        """
+        return 0.0
 
     @abstractmethod
     def should_close(

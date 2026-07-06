@@ -894,7 +894,7 @@ class TradeHandler:
             except Exception as e:
                 self.logger.warning(f"Failed to cancel SL STOP_MARKET order: {e}")
 
-    def monitor_tp_sl_fill(self, current_candle_open_time: str = '', backtest_metrics=None) -> bool:
+    def monitor_tp_sl_fill(self, current_candle_open_time: str = '', backtest_metrics=None) -> tuple[bool, bool]:
         """
         Monitor TP/SL orders and close position if any is filled.
         
@@ -911,7 +911,7 @@ class TradeHandler:
             backtest_metrics: Optional backtest metrics object to track trades
         
         Returns:
-            True if position was closed, False otherwise
+            Tuple of (position_closed: bool, sl_filled: bool)
         """
         filled_order_id = ''
         close_reason = ''
@@ -1057,7 +1057,7 @@ class TradeHandler:
             self.clear_cached_quantity()
             
             self.logger.warning("Cleared position state after liquidation detection")
-            return True  # Return True to indicate state was cleared
+            return (True, False)  # Position closed but not by SL
 
         # Process filled order
         if filled_order_id:
@@ -1126,11 +1126,11 @@ class TradeHandler:
             except (KeyError, ValueError, TypeError) as e:
                 self.logger.error_e(
                     message='Error while processing filled TP/SL order', e=e)
-                return False
+                return (False, False)
 
-            return True
+            return (True, sl_filled)
 
-        return False
+        return (False, False)
 
 
 # EOF
