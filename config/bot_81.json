@@ -22,7 +22,9 @@
         "decimal": 4,
         "min_holding_seconds": 0,
         "countdown_minutes": 950,
-        "sl_target_pnl": -1.8
+        "sl_target_pnl": -1.8,
+        "cooldown_after_countdown_seconds": 0,
+        "cooldown_after_max_loss_seconds": 0
     },
     "created_at": "2026-07-03T18:06:00"
 }

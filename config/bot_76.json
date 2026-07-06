@@ -24,12 +24,12 @@
         "min_reversion_wick_pct": 0.003,
         "trend_wick_lookback": 0,
         "min_trend_wick_pct": 0.001,
-        "sl_cooldown_minutes": 1860,
-        "countdown_cooldown_minutes": 1500,
         "training_candles": 180,
         "percentile": 0.25,
         "countdown_minutes": 230,
-        "sl_target_pnl": -12.0
+        "sl_target_pnl": -12.0,
+        "cooldown_after_countdown_seconds": 90000,
+        "cooldown_after_max_loss_seconds": 111600
     },
     "created_at": "2026-06-29T20:33:00"
 }
