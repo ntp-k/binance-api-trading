@@ -372,8 +372,12 @@ class Bot:
             trade_dict = self.position_handler.close_position(position_dict=closed_position_dict)
 
             # Set cooldown if exit strategy specifies it
-            # Pass close_reason so strategies with multiple conditions can return appropriate cooldown
-            cooldown_seconds = self.exit_strategy.get_cooldown_seconds(close_reason=exit_signal.reason)
+            # Pass close_reason and pnl so strategies can apply conditional cooldown
+            pnl = closed_position_dict.get('pnl', 0.0)
+            cooldown_seconds = self.exit_strategy.get_cooldown_seconds(
+                close_reason=exit_signal.reason,
+                pnl=pnl
+            )
             if cooldown_seconds and cooldown_seconds > 0:
                 self.position_handler.set_cooldown(
                     cooldown_seconds=cooldown_seconds,

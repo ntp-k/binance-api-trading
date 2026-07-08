@@ -43,12 +43,14 @@ class ExitCountdownWithMaxLoss(BaseExitStrategy):
             f"cooldown_after_max_loss_seconds={self.cooldown_after_max_loss_seconds}"
         )
     
-    def get_cooldown_seconds(self, close_reason: str = '') -> float:
+    def get_cooldown_seconds(self, close_reason: str = '', pnl: float = 0.0) -> float:
         """
         Get cooldown duration after position close based on which condition triggered.
+        For countdown exits, only apply cooldown if position closed with loss.
         
         Args:
             close_reason: Simple reason string like "SL Hit - 1734.22 (1796.29)" or "Countdown 230min (230min)"
+            pnl: The profit/loss of the closed position
         
         Returns:
             Cooldown duration in seconds based on close reason
@@ -57,7 +59,11 @@ class ExitCountdownWithMaxLoss(BaseExitStrategy):
         if close_reason.startswith('SL Hit'):
             return self.cooldown_after_max_loss_seconds
         elif close_reason.startswith('Countdown'):
-            return self.cooldown_after_countdown_seconds
+            # Apply cooldown only if position closed with loss
+            if pnl < 0:
+                return self.cooldown_after_countdown_seconds
+            else:
+                return 0.0  # No cooldown for profitable countdown exits
         
         # Default: no cooldown
         return 0.0
