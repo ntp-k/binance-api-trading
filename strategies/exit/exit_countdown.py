@@ -49,7 +49,9 @@ class ExitCountdown(BaseExitStrategy):
         Returns:
             Cooldown duration in seconds from dynamic_config
         """
-        return self.cooldown_after_close_seconds
+        if pnl < 0:
+                return self.cooldown_after_close_seconds
+        return 0.0  # No cooldown for profitable countdown exits
 
     def _calculate_elapsed_minutes(self, position_open_time: str) -> float:
         """
