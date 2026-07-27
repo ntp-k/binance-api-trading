@@ -21,7 +21,7 @@
         "decimal": 1,
         "min_body_pct": 0.002,
         "max_body_pct": 0.035,
-        "support_position_wick_lookback": 1,
+        "support_position_wick_lookback": 0,
         "min_support_position_wick_pct": 0.002,
         "counter_trend_wick_lookback": 0,
         "min_counter_trend_wick_pct": 0.001,
