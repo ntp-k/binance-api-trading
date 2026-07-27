@@ -33,16 +33,16 @@ class EntryWickMeanReversion(BaseEntryStrategy):
     """Mean reversion entry strategy based on previous candle body strength.
 
     Wick filter comparison:
-    ┌─────────────────────┬──────────────────────────────────────┬──────────────────────────────────────┐
-    │                     │ _recent_candles_have_reversion_wick  │ _recent_candles_have_counter_trend_wick│
-    ├─────────────────────┼──────────────────────────────────────┼──────────────────────────────────────┤
-    │ Wick side checked   │ Same side as trade direction         │ Opposite side to trade direction      │
-    │ LONG checks         │ Lower wick on RED candle             │ Upper wick on recent candles          │
-    │ SHORT checks        │ Upper wick on GREEN candle           │ Lower wick on recent candles          │
-    │ Confirms            │ Early reversal pressure on signal    │ Two-way price action (not pure trend) │
-    │ Filters out         │ No reversion pressure at all         │ Pure trending markets                 │
-    │ Question answered   │ "Is reversal already starting?"      │ "Is market ranging, not trending?"    │
-    └─────────────────────┴──────────────────────────────────────┴──────────────────────────────────────┘
+    ┌─────────────────────┬────────────────────────────────────────────┬──────────────────────────────────────────┐
+    │                     │ _recent_candles_have_support_position_wick │ _recent_candles_have_counter_trend_wick  │
+    ├─────────────────────┼────────────────────────────────────────────┼──────────────────────────────────────────┤
+    │ Wick side checked   │ Same side as trade direction               │ Opposite side to trade direction         │
+    │ LONG checks         │ Lower wick on recent candles               │ Upper wick on recent candles             │
+    │ SHORT checks        │ Upper wick on recent candles               │ Lower wick on recent candles             │
+    │ Confirms            │ Early reversal pressure on signal          │ Two-way price action (not pure trend)    │
+    │ Filters out         │ No reversion pressure at all               │ Pure trending markets                    │
+    │ Question answered   │ "Is reversal already starting?"            │ "Is market ranging, not trending?"       │
+    └─────────────────────┴────────────────────────────────────────────┴──────────────────────────────────────────┘
     """
 
     def __init__(self, bot_config: BotConfig, logger=None):
@@ -55,21 +55,21 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         self.min_body_pct = self.dynamic_config.get('min_body_pct', 0.005)
         self.max_body_pct = self.dynamic_config.get('max_body_pct')  # None = disabled
 
-        # --- Reversion wick filter ---
-        # Checks that the signal candle (and N-1 candles before it) already show
-        # a wick on the reversion side, confirming early reversal pressure.
-        # LONG: lower wick on RED candle = buyers pushed back before close
-        # SHORT: upper wick on GREEN candle = sellers pushed back before close
-        self.required_wick_lookback = self.dynamic_config.get('required_wick_lookback', 2)
-        self.min_reversion_wick_pct = self.dynamic_config.get('min_reversion_wick_pct', 0.0)  # 0.0 = any wick
+        # --- Support position wick filter ---
+        # Checks that recent candles already show a wick on the trade direction side,
+        # confirming early reversal pressure in favour of the position.
+        # LONG: lower wick = buyers pushed back before close
+        # SHORT: upper wick = sellers pushed back before close
+        self.support_position_wick_lookback = self.dynamic_config.get('support_position_wick_lookback', 2)
+        self.min_support_position_wick_pct = self.dynamic_config.get('min_support_position_wick_pct', 0.0)  # 0.0 = any wick
 
-        # --- Trend continuation filter ---
+        # --- Counter trend wick filter ---
         # Checks that recent candles have a wick on the OPPOSITE side of the trade,
         # confirming two-way price action (ranging) rather than a pure trend.
         # SHORT: recent candles must have lower wicks (buyers exist = not pure uptrend)
         # LONG: recent candles must have upper wicks (sellers exist = not pure downtrend)
-        self.min_trend_wick_pct = self.dynamic_config.get('min_trend_wick_pct', 0.0)  # 0.0 = disabled
-        self.trend_wick_lookback = self.dynamic_config.get('trend_wick_lookback', 2)
+        self.min_counter_trend_wick_pct = self.dynamic_config.get('min_counter_trend_wick_pct', 0.0)  # 0.0 = disabled
+        self.counter_trend_wick_lookback = self.dynamic_config.get('counter_trend_wick_lookback', 2)
 
         # --- TP calculation ---
         # decimal: price rounding for TP/SL orders
@@ -87,10 +87,10 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         self.logger.info(
             f"Initialized WickMeanReversion: min_body_pct={self.min_body_pct*100:.2f}%, "
             f"max_body_pct={max_body_message}, "
-            f"required_wick_lookback={self.required_wick_lookback}, "
-            f"min_reversion_wick_pct={self.min_reversion_wick_pct*100:.3f}%, "
-            f"trend_wick_lookback={self.trend_wick_lookback}, "
-            f"min_trend_wick_pct={self.min_trend_wick_pct*100:.3f}%, "
+            f"support_position_wick_lookback={self.support_position_wick_lookback}, "
+            f"min_support_position_wick_pct={self.min_support_position_wick_pct*100:.3f}%, "
+            f"counter_trend_wick_lookback={self.counter_trend_wick_lookback}, "
+            f"min_counter_trend_wick_pct={self.min_counter_trend_wick_pct*100:.3f}%, "
             f"training_candles={self.training_candles}, percentile={int(self.percentile*100)}th"
         )
 
@@ -100,11 +100,13 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         klines_df['is_red'] = klines_df['close'] < klines_df['open']
         klines_df['body_change_pct'] = abs((klines_df['close'] - klines_df['open']) / klines_df['open'])
         
-        # Calculate wicks from OPEN price
-        klines_df['upper_wick'] = klines_df['high'] - klines_df['open']
+        # Calculate wicks from body (high - body_top, body_bottom - low)
+        klines_df['body_top'] = klines_df[['open', 'close']].max(axis=1)
+        klines_df['body_bottom'] = klines_df[['open', 'close']].min(axis=1)
+        klines_df['upper_wick'] = klines_df['high'] - klines_df['body_top']
         klines_df['upper_wick_change_pct'] = klines_df['upper_wick'] / klines_df['open']
         klines_df['upper_wick_pct'] = klines_df['upper_wick_change_pct'] * 100
-        klines_df['lower_wick'] = klines_df['open'] - klines_df['low']
+        klines_df['lower_wick'] = klines_df['body_bottom'] - klines_df['low']
         klines_df['lower_wick_change_pct'] = klines_df['lower_wick'] / klines_df['open']
         klines_df['lower_wick_pct'] = klines_df['lower_wick_change_pct'] * 100
         
@@ -118,33 +120,33 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         
         return klines_df
 
-    def _recent_candles_have_reversion_wick(
+    def _recent_candles_have_support_position_wick(
         self,
         klines_df: pd.DataFrame,
         position_side: PositionSide,
         checklist_reasons: list
     ) -> bool:
-        """Require recent closed candles to have wick on the mean-reversion side."""
-        if self.required_wick_lookback <= 0:
-            checklist_reasons.append("Recent wick filter disabled: ✅")
+        """Require recent closed candles to have wick on the trade direction side."""
+        if self.support_position_wick_lookback <= 0:
+            checklist_reasons.append("Support position wick filter disabled: ✅")
             return True
 
-        if len(klines_df) < self.required_wick_lookback + 1:
+        if len(klines_df) < self.support_position_wick_lookback + 1:
             checklist_reasons.append(
-                f"Need {self.required_wick_lookback} previous candles for wick filter: ❌"
+                f"Need {self.support_position_wick_lookback} previous candles for support position wick filter: ❌"
             )
             return False
 
         wick_column = 'lower_wick_change_pct' if position_side == PositionSide.LONG else 'upper_wick_change_pct'
         wick_name = 'lower' if position_side == PositionSide.LONG else 'upper'
-        recent_closed_candles = klines_df.iloc[-(self.required_wick_lookback + 1):-1]
+        recent_closed_candles = klines_df.iloc[-(self.support_position_wick_lookback + 1):-1]
         wick_values = recent_closed_candles[wick_column]
-        has_required_wicks = (wick_values > self.min_reversion_wick_pct).all()
+        has_required_wicks = (wick_values > self.min_support_position_wick_pct).all()
         wick_summary = ", ".join(f"{value*100:.3f}%" for value in wick_values)
 
         checklist_reasons.append(
-            f"Last {self.required_wick_lookback} closed candles {wick_name} wicks "
-            f"> {self.min_reversion_wick_pct*100:.3f}% ({wick_summary}): "
+            f"Last {self.support_position_wick_lookback} closed candles {wick_name} wicks "
+            f"> {self.min_support_position_wick_pct*100:.3f}% ({wick_summary}): "
             f"{'✅' if has_required_wicks else '❌'}"
         )
 
@@ -163,13 +165,13 @@ class EntryWickMeanReversion(BaseEntryStrategy):
 
         If counter-trend wicks are absent, price is in a strong trend → skip entry.
         """
-        if self.min_trend_wick_pct <= 0 or self.trend_wick_lookback <= 0:
-            checklist_reasons.append("Trend continuation filter disabled: ✅")
+        if self.min_counter_trend_wick_pct <= 0 or self.counter_trend_wick_lookback <= 0:
+            checklist_reasons.append("Counter trend wick filter disabled: ✅")
             return True
 
-        if len(klines_df) < self.trend_wick_lookback + 1:
+        if len(klines_df) < self.counter_trend_wick_lookback + 1:
             checklist_reasons.append(
-                f"Need {self.trend_wick_lookback} previous candles for trend filter: ❌"
+                f"Need {self.counter_trend_wick_lookback} previous candles for counter trend wick filter: ❌"
             )
             return False
 
@@ -179,14 +181,14 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         wick_name = 'lower' if position_side == PositionSide.SHORT else 'upper'
         trend_label = 'uptrend' if position_side == PositionSide.SHORT else 'downtrend'
 
-        recent_closed_candles = klines_df.iloc[-(self.trend_wick_lookback + 1):-1]
+        recent_closed_candles = klines_df.iloc[-(self.counter_trend_wick_lookback + 1):-1]
         wick_values = recent_closed_candles[wick_column]
-        has_counter_wicks = (wick_values > self.min_trend_wick_pct).all()
+        has_counter_wicks = (wick_values > self.min_counter_trend_wick_pct).all()
         wick_summary = ", ".join(f"{v*100:.3f}%" for v in wick_values)
 
         checklist_reasons.append(
-            f"Last {self.trend_wick_lookback} candles {wick_name} wicks "
-            f"> {self.min_trend_wick_pct*100:.3f}% (no {trend_label}) ({wick_summary}): "
+            f"Last {self.counter_trend_wick_lookback} candles {wick_name} wicks "
+            f"> {self.min_counter_trend_wick_pct*100:.3f}% (no {trend_label}) ({wick_summary}): "
             f"{'✅' if has_counter_wicks else '❌'}"
         )
 
@@ -244,7 +246,7 @@ class EntryWickMeanReversion(BaseEntryStrategy):
             checklist_reasons.append("Prev candle is doji → ZERO: ❌")
             return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
 
-        if not self._recent_candles_have_reversion_wick(klines_df, new_position_side, checklist_reasons):
+        if not self._recent_candles_have_support_position_wick(klines_df, new_position_side, checklist_reasons):
             return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
 
         if not self._recent_candles_have_counter_trend_wick(klines_df, new_position_side, checklist_reasons):
