@@ -72,6 +72,9 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         self.counter_trend_wick_lookback = self.dynamic_config.get('counter_trend_wick_lookback', 2)
 
         # --- TP calculation ---
+        # TP measures the full excursion from the open, independently from the
+        # body-excluded wick filters above. This preserves the original TP target
+        # distribution while the entry filters remain true candle-wick checks.
         # decimal: price rounding for TP/SL orders
         # training_candles: how many recent candles to use for wick percentile calculation
         # percentile: which percentile of historical wicks to use as TP target (e.g. 0.25 = 25th)
@@ -100,7 +103,7 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         klines_df['is_red'] = klines_df['close'] < klines_df['open']
         klines_df['body_change_pct'] = abs((klines_df['close'] - klines_df['open']) / klines_df['open'])
         
-        # Calculate wicks from body (high - body_top, body_bottom - low)
+        # Body-excluded wicks are used only by the entry filters below.
         klines_df['body_top'] = klines_df[['open', 'close']].max(axis=1)
         klines_df['body_bottom'] = klines_df[['open', 'close']].min(axis=1)
         klines_df['upper_wick'] = klines_df['high'] - klines_df['body_top']
@@ -109,14 +112,24 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         klines_df['lower_wick'] = klines_df['body_bottom'] - klines_df['low']
         klines_df['lower_wick_change_pct'] = klines_df['lower_wick'] / klines_df['open']
         klines_df['lower_wick_pct'] = klines_df['lower_wick_change_pct'] * 100
-        
-        # Calculate percentiles from training data
+
+        # TP uses the full move away from the open. These columns are deliberately
+        # separate from the body-excluded filter wicks above.
+        klines_df['tp_upper_excursion_pct'] = (
+            (klines_df['high'] - klines_df['open']) / klines_df['open'] * 100
+        )
+        klines_df['tp_lower_excursion_pct'] = (
+            (klines_df['open'] - klines_df['low']) / klines_df['open'] * 100
+        )
+
+        # Calculate TP percentiles from the trailing training window.
         if len(klines_df) >= self.training_candles:
             training_df = klines_df.iloc[-self.training_candles:]
-            self.upper_wick_percentile = training_df['upper_wick_pct'].quantile(self.percentile)
-            self.lower_wick_percentile = training_df['lower_wick_pct'].quantile(self.percentile)
+            self.upper_wick_percentile = training_df['tp_upper_excursion_pct'].quantile(self.percentile)
+            self.lower_wick_percentile = training_df['tp_lower_excursion_pct'].quantile(self.percentile)
             self.logger.debug(f"Calculated {int(self.percentile*100)}th percentiles: "
-                            f"upper={self.upper_wick_percentile:.4f}%, lower={self.lower_wick_percentile:.4f}%")
+                            f"TP upper={self.upper_wick_percentile:.4f}%, "
+                            f"TP lower={self.lower_wick_percentile:.4f}%")
         
         return klines_df
 
@@ -243,7 +256,9 @@ class EntryWickMeanReversion(BaseEntryStrategy):
             new_position_side = PositionSide.SHORT
             checklist_reasons.append(f"Prev GREEN candle → SHORT (mean reversion): ✅")
         else:
-            checklist_reasons.append("Prev candle is doji → ZERO: ❌")
+            # Direction must come from the filter/signal candle itself.
+            # An exact open == close doji therefore has no trade direction.
+            checklist_reasons.append("Prev candle is exact doji → ZERO: ❌")
             return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
 
         if not self._recent_candles_have_support_position_wick(klines_df, new_position_side, checklist_reasons):
@@ -255,7 +270,26 @@ class EntryWickMeanReversion(BaseEntryStrategy):
         # Check body change filters
         prev_body_change = prev_candle['body_change_pct']
         body_filter_passed = prev_body_change >= self.min_body_pct
-        checklist_reasons.append(f"Prev body change: {prev_body_change*100:.3f}% (min: {self.min_body_pct*100:.2f}%): {'✅' if body_filter_passed else '❌'}")
+        upper_wick = prev_candle['upper_wick_change_pct']
+        lower_wick = prev_candle['lower_wick_change_pct']
+        two_sided_wick_override = (
+            prev_body_change < self.min_body_pct
+            and upper_wick > self.min_body_pct
+            and lower_wick > self.min_body_pct
+        )
+        if two_sided_wick_override:
+            body_filter_passed = True
+            checklist_reasons.append(
+                f"Prev body change: {prev_body_change*100:.3f}% below min, but "
+                f"upper/lower body-excluded wicks are {upper_wick*100:.3f}%/"
+                f"{lower_wick*100:.3f}% (> {self.min_body_pct*100:.2f}%): ✅"
+            )
+        else:
+            checklist_reasons.append(
+                f"Prev body change: {prev_body_change*100:.3f}% "
+                f"(min: {self.min_body_pct*100:.2f}%): "
+                f"{'✅' if body_filter_passed else '❌'}"
+            )
 
         if not body_filter_passed:
             return PositionSignal(position_side=PositionSide.ZERO, reason=" | ".join(checklist_reasons))
