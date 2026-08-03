@@ -7,30 +7,21 @@ It fetches the current position for a specified symbol and places a market order
 to close it completely (flatten the position).
 
 Usage:
-    python binance_manual_close_position.py
-    
-Configuration:
-    Edit the SYMBOL variable below to set your trading pair.
+    python3 standalone_services/binance_manual_close_position.py BTCUSDC
 """
 
-import sys
+import argparse
 import os
+import sys
 from typing import Optional
 
-# Add parent directory to path to allow imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+# Add the repository root to the path to allow direct execution of this script.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from trade_clients.binance.binance_live_trade_client import BinanceLiveTradeClient
 from commons.custom_logger import CustomLogger
 from models.enum.position_side import PositionSide
 from models.enum.order_side import OrderSide
-
-
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
-SYMBOL = "1000PEPEUSDC"  # Change this to your desired symbol (e.g., "ETHUSDT", "SOLUSDT")
-# ============================================================================
 
 
 def close_position(symbol: str, logger: Optional[CustomLogger] = None) -> bool:
@@ -152,9 +143,14 @@ def close_position(symbol: str, logger: Optional[CustomLogger] = None) -> bool:
 def main():
     """Main entry point for the script."""
     logger = CustomLogger(name="ManualClosePosition")
+    parser = argparse.ArgumentParser(
+        description="Close one Binance Futures position after confirmation."
+    )
+    parser.add_argument("symbol", help="Trading pair to close, e.g. BTCUSDC")
+    args = parser.parse_args()
     
     try:
-        success = close_position(symbol=SYMBOL, logger=logger)
+        success = close_position(symbol=args.symbol.upper(), logger=logger)
         
         if success:
             logger.info(message="\n✅ Script completed successfully")
