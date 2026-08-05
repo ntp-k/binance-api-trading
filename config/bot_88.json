@@ -19,7 +19,7 @@
     "order_type": "MAKER_ONLY",
     "dynamic_config": {
         "decimal": 1,
-        "min_body_pct": 0.0025,
+        "min_body_pct": 0.002,
         "max_body_pct": 0.035,
         "support_position_wick_lookback": 0,
         "min_support_position_wick_pct": 0.002,
