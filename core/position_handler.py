@@ -325,7 +325,15 @@ class PositionHandler:
                 format='%Y-%m-%d %H:%M:%S'
             )
         
-        self.position.pnl = position_dict.get('pnl', 0.0)
+        # Include the final fill in the PnL range.  While a position is open,
+        # update_pnl() records periodic unrealized PnL snapshots.  The fill can
+        # occur between snapshots (and a STOP_MARKET fill can slip past the
+        # latest snapshot), so omitting it makes min_pnl/max_pnl inconsistent
+        # with the recorded closing PnL.
+        final_pnl = position_dict.get('pnl', 0.0)
+        self.position.max_pnl = max(final_pnl, self.position.max_pnl)
+        self.position.min_pnl = min(final_pnl, self.position.min_pnl)
+        self.position.pnl = final_pnl
         
         # Store both open and close candles for entry strategy logic
         self.last_position_open_candle = self.position.open_candle
