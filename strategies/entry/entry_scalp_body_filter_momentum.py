@@ -11,6 +11,7 @@ Strategy Logic:
 """
 from models.position import Position
 from abstracts.base_entry_strategy import BaseEntryStrategy
+from strategies.data_processor import resolve_sl_price
 from models.bot_config import BotConfig
 from models.enum.position_side import PositionSide
 from models.position_signal import PositionSignal
@@ -164,41 +165,17 @@ class EntryScalpBodyFilterMomentum(BaseEntryStrategy):
             self.logger.warning(f"Unexpected position_side: {position_side}")
             tp_price = -1.0
 
-        # Calculate SL price based on sl_target_pnl
-        sl_price = -1.0
-        sl_target_pnl = self.dynamic_config.get('sl_target_pnl', 0)
-        if sl_target_pnl >= 0:
-            self.logger.warning(f"Skipping SL calculation - sl_target_pnl is non-negative: {sl_target_pnl}")
-            return tp_price, -1
-        
-        if sl_target_pnl is not None:
-            # Get quantity from opened position (most accurate)
-            quantity = None
-            if position_handler is not None:
-                if position is not None and position.quantity != 0: # positive for long and negative for short
-                    quantity = position.quantity
-                    self.logger.debug(f"Using actual position quantity: {quantity}")
-            
-            if quantity is not None:
-                # Calculate SL price that results in sl_target_pnl
-                # For LONG: sl_target_pnl = (sl_price - entry_price) * quantity
-                #           sl_price = entry_price + (sl_target_pnl / quantity)
-                # For SHORT: sl_target_pnl = (entry_price - sl_price) * abs(quantity)
-                #            sl_price = entry_price - (sl_target_pnl / abs(quantity))
-                
-                if position_side == PositionSide.LONG:
-                    sl_price = entry_price + (sl_target_pnl / quantity)
-                    sl_price = round(sl_price, self.decimal)
-                elif position_side == PositionSide.SHORT:
-                    # Use absolute value of quantity for SHORT positions
-                    sl_price = entry_price - (sl_target_pnl / abs(quantity))
-                    sl_price = round(sl_price, self.decimal)
-            else:
-                self.logger.warning(
-                    "sl_target_pnl is configured but quantity not available from opened position. "
-                    "SL price cannot be calculated."
-                )
-        
+        # Calculate SL price from sl_target_pct (preferred) or sl_target_pnl (legacy)
+        quantity = position.quantity if position is not None else None
+        sl_price = resolve_sl_price(
+            entry_price=entry_price,
+            position_side=position_side,
+            quantity=quantity,
+            decimal=self.decimal,
+            dynamic_config=self.dynamic_config,
+            logger=self.logger
+        )
+
         return tp_price, sl_price
 
 # EOF

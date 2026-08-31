@@ -28,7 +28,7 @@
         "training_candles": 180,
         "percentile": 0.45,
         "countdown_minutes": 230,
-        "sl_target_pnl": -8.0,
+        "sl_target_pct": 0.0105,
         "cooldown_after_close_seconds": 0
     },
     "created_at": "2026-08-31T00:00:00"
