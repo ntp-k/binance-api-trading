@@ -25,6 +25,9 @@ strategies/strategy_idea.md
 *.log
 logs
 
+# generated kline recordings and exports
+resources/klines/
+
 # running files
 position_records/*
 !position_records/runid_11_record_20250719_020409.json.example
