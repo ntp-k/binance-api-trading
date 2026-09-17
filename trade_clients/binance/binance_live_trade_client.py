@@ -13,6 +13,7 @@ from models.enum.order_type import OrderType
 
 SET_LEVERAGE_URL = 'https://fapi.binance.com/fapi/v1/leverage'
 GET_POSITION_URL = 'https://fapi.binance.com/fapi/v2/positionRisk'
+GET_BALANCE_URL = 'https://fapi.binance.com/fapi/v2/balance'
 SET_ORDER_URL = 'https://fapi.binance.com/fapi/v1/order'
 SET_ALGO_ORDER_URL = 'https://fapi.binance.com/fapi/v1/algoOrder'
 GET_KLINES_URL = 'https://fapi.binance.com/fapi/v1/klines'
@@ -265,6 +266,22 @@ class BinanceLiveTradeClient(BaseLiveTradeClient):
         
         self.logger.debug(message=f"No active position found for {symbol}")
         return {}
+
+    def fetch_wallet_balance(self) -> list[Dict[str, Any]]:
+        """Get the USDⓈ-M Futures wallet balance for every asset.
+
+        Returns:
+            Binance balance records, or an empty list if the request fails.
+        """
+        params = {'timestamp': self._get_timestamp()}
+        balances = self._make_request(
+            'GET', GET_BALANCE_URL, params, "fetch USDⓈ-M wallet balance"
+        )
+
+        if not isinstance(balances, list):
+            return []
+
+        return balances
 
     def fetch_price(self, symbol: str, use_cache: bool = True) -> float:
         """
