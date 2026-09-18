@@ -229,6 +229,7 @@ Every strategy is constructed with `bot_config` and the bot's logger, so it can 
 | `PREVIOUS_CANDLE` | `entry_previous_candle` | Follows the previous candle direction |
 | `MOMENTUM_TREND_FILTERED` | `entry_momentum_trend_filtered` | Body momentum filtered by EMA and ATR |
 | `WICK_MEAN_REVERSION` | `entry_wick_mean_reversion` | Fades a strong candle when wick filters confirm a ranging market |
+| `WICK_MEAN_REVERSION_EFFICIENCY_FILTER` | `entry_wick_mean_reversion_efficiency_filter` | Wick mean reversion that skips efficient moves against the proposed position |
 | `GUARANTEED_SCALP` | `entry_guaranteed_scalp` | Enters every candle with a small fixed TP for a high win rate |
 | `SCALP_BODY_FILTER_MOMENTUM` | `entry_scalp_body_filter_momentum` | Momentum scalp gated on a minimum body percentage |
 
@@ -559,6 +560,8 @@ These are read by the strategy layer rather than by `BotConfig`:
 - `sl_target_pnl`: SL as a fixed loss in quote currency (legacy; drifts with quantity rounding)
 - `candle_for_indicator`: warm-up candles before a backtest starts trading
 - `countdown_minutes`: hold time for the countdown exit strategies
+- `directional_efficiency_lookback`: completed close-to-close changes used by the directional-efficiency entry filter
+- `directional_efficiency_threshold`: minimum directional efficiency that blocks an entry opposing the recent move
 
 See:
 - `config/_example_bots_config.json`

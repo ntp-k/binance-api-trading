@@ -16,6 +16,10 @@ ENTRY_STRATEGY_REGISTRY = {
     EntryStrategy.PREVIOUS_CANDLE: ('strategies.entry.entry_previous_candle', 'EntryPreviousCandle'),
     EntryStrategy.MOMENTUM_TREND_FILTERED: ('strategies.entry.entry_momentum_trend_filtered', 'EntryMomentumTrendFiltered'),
     EntryStrategy.WICK_MEAN_REVERSION: ('strategies.entry.entry_wick_mean_reversion', 'EntryWickMeanReversion'),
+    EntryStrategy.WICK_MEAN_REVERSION_EFFICIENCY_FILTER: (
+        'strategies.entry.entry_wick_mean_reversion_efficiency_filter',
+        'EntryWickMeanReversionEfficiencyFilter',
+    ),
     EntryStrategy.GUARANTEED_SCALP: ('strategies.entry.entry_guaranteed_scalp', 'EntryGuaranteedScalp'),
     EntryStrategy.SCALP_BODY_FILTER_MOMENTUM: ('strategies.entry.entry_scalp_body_filter_momentum', 'EntryScalpBodyFilterMomentum'),
 }
